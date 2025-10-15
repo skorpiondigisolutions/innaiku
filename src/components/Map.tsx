@@ -1,0 +1,5849 @@
+"use client";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import SearchIcon from '@mui/icons-material/Search';
+import MenuIcon from "@mui/icons-material/Menu";
+import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
+import HistoryIcon from "@mui/icons-material/History";
+import SmartphoneIcon from "@mui/icons-material/Smartphone";
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import HotelIcon from '@mui/icons-material/Hotel';
+import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
+import MuseumOutlinedIcon from '@mui/icons-material/MuseumOutlined';
+import DirectionsTransitOutlinedIcon from '@mui/icons-material/DirectionsTransitOutlined';
+import LocalPharmacyOutlinedIcon from '@mui/icons-material/LocalPharmacyOutlined';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import HomeIcon from '@mui/icons-material/Home';
+import LocalAtmIcon from '@mui/icons-material/Atm'
+import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
+import CheckIcon from '@mui/icons-material/Check';
+import { Share2} from "lucide-react";
+import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag';
+import StarOutlineIcon from '@mui/icons-material/StarOutline';
+import LuggageIcon from '@mui/icons-material/LuggageOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
+import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
+import LaunchIcon from '@mui/icons-material/Launch';
+import EditLocationAltOutlinedIcon from '@mui/icons-material/EditLocationAltOutlined';
+import ShareLocationOutlinedIcon from '@mui/icons-material/ShareLocationOutlined';
+import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
+import RateReviewIcon from "@mui/icons-material/RateReviewOutlined";
+import { HiDownload } from "react-icons/hi";
+import { ArrowLeft, X } from "lucide-react";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import PaymentsIcon from "@mui/icons-material/PaymentsOutlined";
+import AdjustIcon from '@mui/icons-material/Add';
+import SecurityIcon from '@mui/icons-material/VerifiedUserOutlined';
+import LabelIcon from "@mui/icons-material/LabelOutlined";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import PublicIcon from '@mui/icons-material/Public';
+import CallIcon from '@mui/icons-material/Call';
+import LockIcon from '@mui/icons-material/Lock';
+import SearchBox from "./SearchBox";
+import SidebarSearchBox from "./SidebarSearchBox"; 
+
+export type RecentPlace = {
+  place_id?: string; 
+  title: string;
+  subtitle?: string;
+  imageUrl?: string;
+  lat: number;
+  lng: number;
+  timestamp: number;
+  rating?: number;
+  userRatingsTotal?: number;
+  priceText?: string;
+  category?: string;
+  nativeName?:string
+  ratingBreakdown?: { [stars: number]: number };
+  isFavorite?: boolean;
+  reviews?: google.maps.places.PlaceReview[];
+  photos?: string[];
+  fullAddress?: string;
+  plusCode?: string;
+  applink?: string;
+  about?: string;
+  cuisine?: string;
+  serviceability?: string;
+};
+
+export interface Shop {
+  shopId: number;
+  imageUrls: string[];
+  name: string;
+  applink: string;
+  menu: string[];
+  cuisine: string;
+  lat: string;
+  lng: string;
+  about: string;
+  address: string;
+  openCloseTiming: string;
+  createdAt: string;
+  serviceability: string;
+}
+
+export type CombinedItem =
+    | { type: "recent"; data: RecentPlace }
+    | { type: "suggestion"; data: Shop }
+    | { type: "home" }
+    | { type: "more" };
+
+
+export type SidebarCombinedItem =
+    | { type: "recent"; data: RecentPlace }
+    | { type: "suggestion"; data: google.maps.places.AutocompletePrediction }
+    | { type: "home" }
+    | { type: "more" };
+
+interface GroupTag {
+  name: string;
+  count: number;
+  places: RecentPlace[];
+}
+
+const getStaticMapUrl = (map: google.maps.Map, type: "satellite" | "roadmap") => {
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+  const lat = center?.lat();
+  const lng = center?.lng();
+  const mapType = type === "satellite" ? "satellite" : "roadmap";
+
+  const styleParam =
+    type === "roadmap"
+      ? "&style=feature:all|element:labels|visibility:off"
+      : "";
+
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=200x200&maptype=${mapType}${styleParam}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+};
+
+const CATEGORY_MAP: Record<string, string> = {
+  cafe: "Cafe",
+  restaurant: "Restaurant",
+  meal_takeaway: "Restaurant",
+  meal_delivery: "Restaurant",
+};
+
+function getReadableCategory(place: google.maps.places.PlaceResult): string {
+  if (!place.types || place.types.length === 0) return "Point of Interest";
+
+  const PRIORITY_TYPES = [
+    "restaurant", "cafe", "bar", "bakery",
+    "lodging", "hotel", "hostel",
+    "office", "store", "supermarket",
+    "school", "university", "gym", "park",
+    "beach", "Natural_feature", "museum", "stadium",
+    "church", "mosque", "hindu_temple", "synagogue",
+    "hospital", "airport", "zoo", "shopping_mall"
+  ];
+
+  for (const type of PRIORITY_TYPES) {
+    if (place.types.includes(type)) {
+      return CATEGORY_MAP[type] || type.replace(/_/g, " ");
+    }
+  }
+  const nonGeneric = place.types.find(
+    t => !["establishment", "point_of_interest"].includes(t)
+  );
+  if (nonGeneric) {
+    return CATEGORY_MAP[nonGeneric] || nonGeneric.replace(/_/g, " ");
+  }
+
+  return "Point of Interest";
+}
+
+const aboutTabData = {
+  serviceOptions: [
+    "Delivery",
+    "Takeaway",
+    "On-site services",
+    "Dine-in",
+  ],
+  highlights: [
+    "Great coffee",
+    "Great dessert",
+    "Great tea selection",
+  ],
+  popularFor: [
+    "Breakfast",
+    "Lunch",
+    "Dinner",
+    "Solo dining",
+  ],
+  amenities: [
+    "Restroom",
+  ],
+  atmosphere: [
+    "Casual",
+    "Trendy",
+  ],
+  diningOptions: [
+    "Breakfast",
+    "Brunch",
+    "Lunch",
+    "Dinner",
+    "Catering",
+    "Dessert",
+    "Table service",
+  ],
+  payments: [
+    "Credit cards",
+    "Debit cards",
+    "NFC mobile payments",
+  ],
+};
+
+const getCategoryIcon = (type: string): string => {
+  switch (type) {
+    case "restaurant":
+      return "https://maps.google.com/mapfiles/ms/icons/orange-dot.png";
+    case "lodging":
+      return "https://maps.google.com/mapfiles/ms/icons/blue-dot.png";
+    case "atm":
+      return "https://maps.google.com/mapfiles/ms/icons/green-dot.png";
+    default:
+      return "https://maps.google.com/mapfiles/ms/icons/red-dot.png";
+  }
+};
+
+const Map = () => {
+  const mapRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const [isSatellite, setIsSatellite] = React.useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [savedSidebar, setSavedSidebar] = useState(false);
+  const [recentSidebar, setRecentSidebar] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [topSidebar, setTopSidebar] = useState<"saved" | "recent" | null>(null);
+  const [focusedInput, setFocusedInput] = useState<"start" | "destination" | null>(null);
+  const [isLocationSelected, setIsLocationSelected] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  //const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const searchBoxRef = useRef<HTMLDivElement | null>(null);
+  const [recentPlaces, setRecentPlaces] = useState<RecentPlace[]>([]);
+  const [sidebarSearchValue, setSidebarSearchValue] = useState("");
+  const [sidebarSuggestions, setSidebarSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [showSidebarSuggestions, setShowSidebarSuggestions] = useState(false);
+  const savedSidebarSearchBoxRef = useRef<HTMLDivElement>(null);
+  const recentSidebarSearchBoxRef = useRef<HTMLDivElement>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedPlaceTitles, setSelectedPlaceTitles] = useState<string[]>([]);
+  const isAnySelected = selectedPlaceTitles.length > 0;
+  const isDirectionEnabled = isAnySelected && selectedPlaceTitles.length <= 10;
+  const SavedIcon = topSidebar === "saved" ? BookmarkRoundedIcon : BookmarkBorderIcon;
+  const [activeTab, setActiveTab] = useState("lists");
+  const [menuSidebar, setMenuSidebar] = useState(false);
+  const arrowScrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [sidebarHighlightedIndex, setSidebarHighlightedIndex] = useState(-1);
+  const suggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const fullSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const halfSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const savedSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const recentSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const [showSaveMenu, setShowSaveMenu] = useState(false)
+  const saveMenuRef = useRef<HTMLDivElement>(null);
+  const [showQR, setShowQR] = useState(false);
+  const [startLocation, setStartLocation] = useState("");
+  const [destinationLocation, setDestinationLocation] = useState("");
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const directionSidebarRef = useRef<HTMLDivElement>(null);
+  const [travelInfo, setTravelInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [routes, setRoutes] = useState<google.maps.DirectionsRoute[]>([]);
+  const [activeRouteIndex, setActiveRouteIndex] = useState(0);
+  const activeRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const altPolylinesRef = useRef<google.maps.Polyline[]>([]);
+  const [nextInputToFill, setNextInputToFill] = useState<"start" | "destination">("start");
+  const [startCoords, setStartCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  const [destinationCoords, setDestinationCoords] = useState<google.maps.LatLngLiteral | null>(null);
+  const startMarkerRef = useRef<google.maps.Marker | null>(null);
+  const destinationMarkerRef = useRef<google.maps.Marker | null>(null);
+  const [startSuggestions, setStartSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [destSuggestions, setDestSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [showStartSuggestions, setShowStartSuggestions] = useState(false);
+  const [showDestSuggestions, setShowDestSuggestions] = useState(false);
+  const directionBoxRef = useRef<HTMLDivElement>(null);
+  const startingPlaceInputRef = useRef<HTMLInputElement>(null);
+  const destinationInputRef = useRef<HTMLInputElement>(null);
+  const [startHighlightedIndex, setStartHighlightedIndex] = useState(-1);
+  const [destHighlightedIndex, setDestHighlightedIndex] = useState(-1);
+  const markerRef = useRef<google.maps.Marker | null>(null);
+  const sidebarMarkerRef = useRef<google.maps.Marker | null>(null);
+  const [recentSelectedPlace, setRecentSelectedPlace] = useState<RecentPlace | null>(null);
+  const [showRecentDetailsSidebar, setShowRecentDetailsSidebar] = useState(false);
+  const [showStickyHeader, setShowStickyHeader] = useState(false);
+  const stickyScrollRef = useRef<HTMLDivElement>(null);
+  const [detailsActiveTab, setDetailsActiveTab] = useState("overview");
+  const recentSelectedMarkerRef = useRef<google.maps.Marker | null>(null);
+  const [overviewFavorite, setOverviewFavorite] = useState(false);
+  const [addressCopied, setAddressCopied] = useState(false);
+  const [plusCodeCopied, setPlusCodeCopied] = useState(false);
+  const [favoriteList, setFavoriteList] = useState<string | null>(null);
+  const [favoritePlaceList, setFavoritePlaceList] = useState<RecentPlace[]>([]);
+  const [locationCopied, setLocationCopied] = useState(false);
+  const [fullPlaceSidebar, setFullPlaceSidebar] = useState(false);
+  const [halfPlaceSidebar, setHalfPlaceSidebar] = useState(false);
+  const [placeSidebar, setPlaceSidebar] = useState<"full" | "half" | null>(null);
+  const [relatedPlaces, setRelatedPlaces] = useState<Shop[]>([]);
+  const [fullSidebarSelectedPlace, setFullSidebarSelectedPlace] = useState<RecentPlace | null>(null);
+  const [fullSidebarActiveTab, setFullSidebarActiveTab] = useState("fullsidebarOverview");
+  const [addressFSCopied, setFSAddressCopied] = useState(false);
+  const [plusCodeFSCopied, setFSPlusCodeCopied] = useState(false);
+  const [locationFSCopied, setFSLocationCopied] = useState(false);
+  const fullSidebarContentRef = useRef<HTMLDivElement | null>(null);
+  const [searchOrigin, setSearchOrigin] = useState<"home" | "sidebar" | null>(null);
+  const locateMeMarkerRef = useRef<google.maps.Marker | null>(null);
+  const categoryMarkersRef = useRef<google.maps.Marker[]>([]);
+  const [keepHalfSidebarOpen, setKeepHalfSidebarOpen] = useState(false);
+  const halfSidebarRef = useRef<HTMLDivElement | null>(null);
+  const fullSidebarSearchBoxRef = useRef<HTMLDivElement>(null);
+  const halfSidebarSearchBoxRef = useRef<HTMLDivElement>(null);
+  const firstSearchBoxRef = useRef<HTMLDivElement>(null);
+  const secondSearchBoxRef = useRef<HTMLDivElement>(null);
+  const firstSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const secondSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [modalActiveTab, setModalActiveTab] = useState("login");
+  const activePlaceMarkerRef = useRef<google.maps.Marker | null>(null);
+  const [allShops, setAllShops] = useState<Shop[]>([]);
+  const [activeShop, setActiveShop] = useState<Shop | null>(null);
+  const [suggestions, setSuggestions] = useState<Shop[]>([]);
+  const [noMatches, setNoMatches] = useState(false);
+  
+  useEffect(() => {
+    fetch("http://103.118.158.57:3749/getAllShops")
+      .then(res => res.json())
+      .then((data: Shop[]) => setAllShops(data))
+      .catch(err => console.error(err));
+  }, []);
+  
+  const handleOpenShopSidebar = (shopId: number) => {
+    const shop = allShops.find((s: Shop) => s.shopId === shopId);
+    if (shop) {
+      setActiveShop(shop);
+      setPlaceSidebar("full"); 
+    }
+  };
+
+  const activePlaceMarkerRemover = () => {
+    if (activePlaceMarkerRef.current) {
+      activePlaceMarkerRef.current.setMap(null);
+      activePlaceMarkerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (halfSidebarRef.current) {
+      halfSidebarRef.current.scrollTop = 0;
+    }
+  }, [relatedPlaces, placeSidebar]);
+
+  const runNearbySearch = (
+    service: google.maps.places.PlacesService,
+    location: google.maps.LatLng,
+    type: string
+  ) => {
+    if (!mapInstanceRef.current) return;
+
+    categoryMarkersRef.current.forEach(marker => marker.setMap(null));
+    categoryMarkersRef.current = [];
+
+    service.nearbySearch(
+      //{ location, radius: 10000, type },
+      { location, rankBy: google.maps.places.RankBy.DISTANCE, type },
+      (results, status) => {
+        setPlaceSidebar("half");
+        setSearchOrigin("home");
+        setKeepHalfSidebarOpen(true);
+
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          //fetchDetailedPlaces(results).then(setRelatedPlaces);
+
+          const bounds = new google.maps.LatLngBounds();
+
+          results.forEach(place => {
+            if (!place.geometry?.location || !mapInstanceRef.current) return;
+
+            const marker = new google.maps.Marker({
+              position: place.geometry.location,
+              map: mapInstanceRef.current!,
+              title: place.name,
+              icon: {
+                url: getCategoryIcon(type),
+                scaledSize: new google.maps.Size(30, 30),
+              },
+            });
+
+            marker.addListener("click", () => {
+              if (place.place_id) {
+                handleSelectSuggestion(place.place_id, () => {
+                  setPlaceSidebar("full"); 
+                  setKeepHalfSidebarOpen(true);
+                });
+              }
+            });
+
+            categoryMarkersRef.current.push(marker);
+            bounds.extend(place.geometry.location);
+          });
+
+          if (!bounds.isEmpty() && mapInstanceRef.current) {
+            const sidebarEl = document.getElementById("halfSidebar");
+            const sidebarWidth = sidebarEl?.offsetWidth || 0;
+            const sidebarHeight = sidebarEl?.offsetHeight || 0;
+
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+
+            let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+            if (windowWidth >= 768) {
+
+              padding = {
+                top: 50,
+                bottom: 50,
+                left: sidebarWidth + 50,
+                right: 50,
+              };
+            } else {
+              padding = {
+                top: 150,
+                bottom: sidebarHeight + 50,
+                left: 50,
+                right: 50,
+              };
+            }
+            mapInstanceRef.current.fitBounds(bounds, padding);
+          }
+        } else {
+          setRelatedPlaces([]);
+        }
+      }
+    );
+  };
+  
+  const clearCategoryMarkers = () => {
+    if (categoryMarkersRef.current && categoryMarkersRef.current.length > 0) {
+      categoryMarkersRef.current.forEach((marker) => marker.setMap(null));
+      categoryMarkersRef.current = [];
+    }
+  };
+
+  const resetToDefault = () => {
+    setTopSidebar(null);
+    setPlaceSidebar(null);
+    setShowSidebar(false);
+    setTravelInfo(null);
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setCenter({ lat: 13.0827, lng: 80.2707 });
+      mapInstanceRef.current.setZoom(10);
+    }
+
+     if (locateMeMarkerRef.current) {
+      locateMeMarkerRef.current.setMap(null);
+      locateMeMarkerRef.current = null;
+    }
+    clearCategoryMarkers();
+  };
+
+  const handleRecentPlaceClickResponsive = (place: RecentPlace) => {
+    const width = window.innerWidth;
+
+    if (width >= 1024) {
+      handleDetailsRecentPlaceClick(place);
+    } else {
+      const autocompleteService = new google.maps.places.AutocompleteService();
+      autocompleteService.getPlacePredictions(
+        {
+          input: place.title,
+          componentRestrictions: { country: "in" },
+        },
+        (predictions, status) => {
+          if (
+            status === google.maps.places.PlacesServiceStatus.OK &&
+            predictions?.[0]
+          ) {
+            handleSelectSuggestion(predictions[0].place_id, () => {
+              setPlaceSidebar("full");
+            });
+          }
+        }
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (fullSidebarContentRef.current) {
+      fullSidebarContentRef.current.scrollTo(0, 0);
+    }
+  }, [fullSidebarActiveTab]);
+
+  useEffect(() => {
+    if (stickyScrollRef.current) {
+      stickyScrollRef.current.scrollTo(0, 0); 
+    }
+  }, [detailsActiveTab]);
+
+  useEffect(() => {
+    if (placeSidebar === "full" || placeSidebar === "half") {
+      setTopSidebar(null);
+    }
+  }, [placeSidebar]);
+
+  useEffect(() => {
+    if (topSidebar === "saved" || topSidebar === "recent" || showSidebar) {
+      setSearchValue("");
+      setSuggestions([]);
+      setIsLocationSelected(false);
+      setShowSuggestions(false);
+
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+    }
+  }, [topSidebar, showSidebar]);
+
+  useEffect(() => {
+    if (topSidebar === "saved" || topSidebar === "recent") {
+      setSidebarSearchValue("");
+      setSidebarSuggestions([]);
+      setIsLocationSelected(false);
+      setShowSidebarSuggestions(false);
+      setRecentSelectedPlace(null);
+
+      if (sidebarMarkerRef.current) {
+        sidebarMarkerRef.current.setMap(null);
+        sidebarMarkerRef.current = null;
+      }
+    }
+  }, [topSidebar]);
+
+  const handleLocationShare = () => {
+    if (!recentSelectedPlace) return;
+
+    const link = `https://www.google.com/maps?q=${recentSelectedPlace.lat},${recentSelectedPlace.lng}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+      setLocationCopied(true);
+      setTimeout(() => setLocationCopied(false), 2000); 
+    });
+  };
+
+  useEffect(() => {
+    const stored = localStorage.getItem("favorite_places");
+    if (stored) {
+      try {
+        const parsed: RecentPlace[] = JSON.parse(stored);
+        setFavoritePlaceList(parsed);
+      } catch (e) {
+        console.error("Failed to parse favorite_places", e);
+      }
+    }
+  }, []);
+
+  const handleFSLocationShare = () => {
+    if (!fullSidebarSelectedPlace) return;
+
+    const link = `https://www.google.com/maps?q=${fullSidebarSelectedPlace.lat},${fullSidebarSelectedPlace.lng}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+      setFSLocationCopied(true);
+      setTimeout(() => setFSLocationCopied(false), 2000); 
+    });
+  };
+
+  useEffect(() => {
+    const stored = localStorage.getItem("favorite_places");
+    if (stored) {
+      try {
+        const parsed: RecentPlace[] = JSON.parse(stored);
+        setFavoritePlaceList(parsed);
+      } catch (e) {
+        console.error("Failed to parse favorite_places", e);
+      }
+    }
+  }, []);
+    
+  const addFavorite = (place: RecentPlace) => {
+    setFavoritePlaceList((prev) => {
+      const updated = [place, ...prev.filter((p) => p.title !== place.title)];
+      localStorage.setItem("favorite_places", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeFavorite = (title: string) => {
+    setFavoritePlaceList((prev) => {
+      const updated = prev.filter((p) => p.title !== title);
+      localStorage.setItem("favorite_places", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  useEffect(() => {
+    setShowRecentDetailsSidebar(false);
+    setRecentSelectedPlace(null);
+    setFavoriteList(null);
+  }, [topSidebar]);
+
+  const handleAddressCopy = () => {
+    navigator.clipboard.writeText(
+      recentSelectedPlace?.fullAddress || "Address not available"
+    );
+    setAddressCopied(true);
+    setTimeout(() => setAddressCopied(false), 1000);
+  };
+
+  const handlePlusCodeCopy = () => {
+    navigator.clipboard.writeText(
+      recentSelectedPlace?.fullAddress || "Plus code not available"
+    );
+    setPlusCodeCopied(true);
+    setTimeout(() => setPlusCodeCopied(false), 1000);
+  };
+
+  const handleFSAddressCopy = () => {
+    navigator.clipboard.writeText(
+      fullSidebarSelectedPlace?.fullAddress || "Address not available"
+    );
+    setFSAddressCopied(true);
+    setTimeout(() => setFSAddressCopied(false), 1000);
+  };
+
+  const handleFSPlusCodeCopy = () => {
+    navigator.clipboard.writeText(
+      fullSidebarSelectedPlace?.fullAddress || "Plus code not available"
+    );
+    setFSPlusCodeCopied(true);
+    setTimeout(() => setFSPlusCodeCopied(false), 1000);
+  };
+  
+  const fullSidebarTabs = [
+    { id: "fullSidebarMenu", label: "Menu" },
+    { id: "fullSidebarAbout", label: "About" },
+  ];
+
+  const handleDetailsRecentPlaceClick = (place: RecentPlace) => {
+    setRecentSelectedPlace(place);
+    setShowRecentDetailsSidebar(true);
+
+    if (mapInstanceRef.current && place.lat && place.lng) {
+      const position = new google.maps.LatLng(place.lat, place.lng);
+
+      mapInstanceRef.current.setZoom(15);
+
+      mapInstanceRef.current.panTo(position);
+
+      const leftSidebarWidth = 410; 
+      const mapDiv = mapInstanceRef.current.getDiv();
+      const mapWidth = mapDiv.offsetWidth;
+      const remainingWidth = mapWidth - leftSidebarWidth;
+
+      mapInstanceRef.current.panBy(-remainingWidth / 2, 0);
+
+      if (recentSelectedMarkerRef.current) {
+        recentSelectedMarkerRef.current.setMap(null);
+      }
+      recentSelectedMarkerRef.current = new google.maps.Marker({
+        position,
+        map: mapInstanceRef.current,
+        title: place.title,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if ((!showRecentDetailsSidebar || topSidebar !== 'recent') && recentSelectedMarkerRef.current) {
+      recentSelectedMarkerRef.current.setMap(null);
+      recentSelectedMarkerRef.current = null;
+    }
+  }, [showRecentDetailsSidebar, topSidebar]);
+
+  const detailsTabs = [
+    { id: "overview", label: "Overview" },
+    { id: "menu", label: "Menu" },
+    { id: "reviews", label: "Reviews" },
+    { id: "about", label: "About" },
+  ];
+
+  useEffect(() => {
+    if (recentSelectedPlace) {
+      setDetailsActiveTab("overview");
+
+      if (stickyScrollRef.current) {
+        stickyScrollRef.current.scrollTop = 0;
+      }
+    }
+  }, [recentSelectedPlace]);
+
+  useEffect(() => {
+    const container = stickyScrollRef.current;
+
+    const handleScroll = () => {
+      if (container && detailsActiveTab === "overview") {
+        setShowStickyHeader(container.scrollTop > 30);
+      }
+    };
+
+    if (container && detailsActiveTab === "overview") {
+      container.addEventListener("scroll", handleScroll);
+    }
+
+    if (detailsActiveTab !== "overview") {
+      setShowStickyHeader(false);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [detailsActiveTab]);
+
+  
+  function StarRating({ rating }: { rating: number }) {
+    return (
+      <span className="flex items-center gap-[2px]">
+        {Array.from({ length: 5 }).map((_, index) => {
+          const starValue = index + 1;
+          if (rating >= starValue) {
+            return <FaStar key={index} color="#fbbc04" />;
+          } else if (rating >= starValue - 0.5) {
+            return <FaStarHalfAlt key={index} color="#fbbc04" />;
+          } else {
+            return <FaRegStar key={index} color="#dadce0" />;
+          }
+        })}
+      </span>
+    );
+  }
+
+  function getLanguageCodeFromAddress(
+    components: google.maps.GeocoderAddressComponent[]
+  ): string {
+    const stateComp = components.find((c) =>
+      c.types.includes("administrative_area_level_1")
+    );
+    const state = stateComp?.long_name || "";
+
+    if (state.includes("Kerala")) return "ml";
+    if (state.includes("Tamil Nadu")) return "ta";
+    if (state.includes("Karnataka")) return "kn";
+    if (state.includes("Telangana") || state.includes("Andhra Pradesh"))
+      return "te";
+    if (state.includes("Maharashtra")) return "mr";
+    if (state.includes("West Bengal")) return "bn";
+
+    return "hi";
+  }
+
+  const handleKeyDown = ( e: React.KeyboardEvent<HTMLInputElement>, isStart: boolean) => {
+    const suggestions = isStart ? startSuggestions : destSuggestions;
+    const highlightedIndex = isStart ? startHighlightedIndex : destHighlightedIndex;
+    const setHighlightedIndex = isStart ? setStartHighlightedIndex : setDestHighlightedIndex;
+
+    const selectSuggestion = (index: number) => {
+      handleDirectionSidebarSelectSuggestion(
+        suggestions[index].place_id,
+        isStart
+      );
+      setHighlightedIndex(-1); 
+    };
+
+    if (suggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => {
+        if (prev < suggestions.length - 1) return prev + 1;
+        return -1;
+      });
+    } 
+    else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) => {
+        if (prev > -1) return prev - 1;
+        return suggestions.length - 1;
+      });
+    } 
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightedIndex >= 0) {
+        selectSuggestion(highlightedIndex);
+      } else {
+        selectSuggestion(0);
+      }
+    setTimeout(() => {
+      if (isStart) {
+        destinationInputRef.current?.focus();
+      } else {
+        calculateRoute();
+      }
+    }, 0);
+    }
+  };
+
+  useEffect(() => {
+    if (showSidebar) {
+      setTimeout(() => {
+        startingPlaceInputRef.current?.focus();
+      }, 0);
+    }
+  }, [showSidebar]);
+
+  const formatPredictionStateOnly = (secondaryText: string) => {
+    const parts = secondaryText.split(",").map(p => p.trim());
+    return parts.length > 1 ? parts[0] : parts[1];
+  };
+
+  const fetchStartLocationSuggestions = (input: string) => {
+    if (!input.trim()) {
+      setStartSuggestions([]);
+      return;
+    }
+    const autocompleteService = new google.maps.places.AutocompleteService();
+    autocompleteService.getPlacePredictions(
+      {
+        input,
+        componentRestrictions: { country: "in" },
+      },
+      (predictions, status) => {
+        console.log("Raw predictions:", predictions?.length, predictions?.map(p => p.description));
+
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+          const processed = predictions.slice(0, 5).map(pred => ({
+            ...pred,
+            structured_formatting: {
+              ...pred.structured_formatting,
+              secondary_text: formatPredictionStateOnly(pred.structured_formatting.secondary_text),
+            }
+          }));
+          setStartSuggestions(processed);
+          setShowStartSuggestions(true);
+        } else {
+          setStartSuggestions([]);
+        }
+      }
+    );
+  };
+
+  const fetchDestinationSuggestions = (input: string) => {
+    if (!input.trim()) {
+      setDestSuggestions([]);
+      return;
+    }
+    const autocompleteService = new google.maps.places.AutocompleteService();
+    autocompleteService.getPlacePredictions(
+      {
+        input,
+        componentRestrictions: { country: "in" },
+      },
+      (predictions, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+          const processed = predictions.slice(0, 5).map(pred => ({
+            ...pred,
+            structured_formatting: {
+              ...pred.structured_formatting,
+              secondary_text: formatPredictionStateOnly(pred.structured_formatting.secondary_text),
+            }
+          }));
+          setDestSuggestions(processed);
+          setShowDestSuggestions(true);
+        } else {
+          setDestSuggestions([]);
+        }
+      }
+    );
+  };
+
+  const handleDirectionSidebarSelectSuggestion = (placeId: string, isStart: boolean) => {
+    const service = new google.maps.places.PlacesService(mapInstanceRef.current!);
+
+    service.getDetails({ placeId }, (place, status) => {
+      if (
+        status === google.maps.places.PlacesServiceStatus.OK &&
+        place &&
+        place.geometry &&
+        place.geometry.location
+      ) {
+        const { lat, lng } = place.geometry.location;
+        const latLng = { lat: lat(), lng: lng() };
+
+        mapInstanceRef.current?.panTo(latLng);
+        mapInstanceRef.current?.setZoom(15);
+
+        if (isStart) {
+          setStartLocation(place.name || "");
+          setStartCoords(latLng);
+          setShowStartSuggestions(false);
+        } else {
+          setDestinationLocation(place.name || "");
+          setDestinationCoords(latLng);
+          setShowDestSuggestions(false);
+        }
+        
+        const title = place.name || "";
+        const components = place.address_components || [];
+        const stateComp = components.find(c => c.types.includes("administrative_area_level_1"));
+        const state = stateComp?.long_name || "";
+
+        let subtitle = "";
+        if (title !== state) {
+          subtitle = state;
+        }
+
+        const photo = place.photos?.[0];
+        const imageUrl = photo?.getUrl({ maxWidth: 400 });
+        const timestamp = Date.now();
+
+        setRecentPlaces((prev) => {
+          const newPlace = { title, subtitle, imageUrl, lat: latLng.lat, lng: latLng.lng, timestamp };
+          const updated = [newPlace, ...prev.filter((p) => p.title !== title)];
+          const sliced = updated.slice(0, 20);
+          localStorage.setItem("recent_places", JSON.stringify(sliced));
+          return sliced;
+        });
+        
+      } else {
+        if (isStart) {
+          setStartCoords(null);
+        } else {
+          setDestinationCoords(null);
+        }
+      }
+    });
+  };
+
+  const destinationIconSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" height="40" width="40" viewBox="0 0 24 24" fill="#f44336">
+      <g transform="scale(0.9) translate(3.6 3.6)">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+        <circle cx="12" cy="9" r="2.5" fill="white"/>
+      </g>
+    </svg>
+  `;
+
+  const startIconSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" height="40" width="40" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" fill="white" stroke="black" stroke-width="2" />
+    </svg>
+  `;
+
+  const svgToDataURL = (svg: string) => 
+    "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+
+  const handleRecentPlaceClick = (place: RecentPlace) => {
+    if (nextInputToFill === "start") {
+      setStartLocation(place.title);
+      setStartCoords({ lat: place.lat, lng: place.lng });
+      setNextInputToFill("destination");
+    } else {
+      setDestinationLocation(place.title);
+      setDestinationCoords({ lat: place.lat, lng: place.lng });
+      setNextInputToFill("start");
+    }
+  };
+
+  const placeStartMarker = (position: google.maps.LatLngLiteral) => {
+    if (startMarkerRef.current) startMarkerRef.current.setMap(null);
+    startMarkerRef.current = new google.maps.Marker({
+      position,
+      map: mapInstanceRef.current!,
+      icon: {
+        url: svgToDataURL(startIconSvg),
+        scaledSize: new google.maps.Size(32, 32),
+        anchor: new google.maps.Point(16, 16),
+      },
+    });
+  };
+
+  const placeDestinationMarker = (position: google.maps.LatLngLiteral) => {
+    console.log("Placing destination marker at:", position);
+    if (destinationMarkerRef.current) destinationMarkerRef.current.setMap(null);
+    destinationMarkerRef.current = new google.maps.Marker({
+      position,
+      map: mapInstanceRef.current!,
+      icon: {
+        url: svgToDataURL(destinationIconSvg),
+        scaledSize: new google.maps.Size(32, 32),
+        anchor: new google.maps.Point(16, 16),
+      },
+    });
+  };
+
+  useEffect(() => {
+    if (startCoords) {
+      placeStartMarker(startCoords);
+    } else if (startMarkerRef.current) {
+      startMarkerRef.current.setMap(null);
+    }
+  }, [startCoords]);
+
+  useEffect(() => {
+    console.log("Destination coords:", destinationCoords);
+    if (destinationCoords) {
+      placeDestinationMarker(destinationCoords);
+    } else if (destinationMarkerRef.current) {
+      destinationMarkerRef.current.setMap(null);
+    }
+  }, [destinationCoords]);
+
+  const handleSwapClick = () => {
+    const tempLocation = startLocation;
+    setStartLocation(destinationLocation);
+    setDestinationLocation(tempLocation);
+
+    const tempCoords = startCoords;
+    setStartCoords(destinationCoords);
+    setDestinationCoords(tempCoords);
+  };
+
+  const calculateRoute = () => {
+    if (!startLocation || !destinationLocation || !mapInstanceRef.current) return;
+
+    const directionsService = new google.maps.DirectionsService();
+
+    if (activeRendererRef.current) {
+      activeRendererRef.current.setMap(null);
+      activeRendererRef.current = null;
+    }
+    altPolylinesRef.current.forEach(poly => poly.setMap(null));
+    altPolylinesRef.current = [];
+
+    if (!startCoords || !destinationCoords) {
+      console.warn("Start or destination coordinates missing.");
+      return;
+    }
+
+    directionsService.route(
+      {
+        origin: startCoords,
+        destination: destinationCoords,
+        travelMode: google.maps.TravelMode.DRIVING,
+        provideRouteAlternatives: true,
+      },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result) {
+          setRoutes(result.routes);
+          setActiveRouteIndex(0);
+          drawRoutes(result.routes, 0);
+        }
+      }
+    );
+  };
+
+  const drawRoutes = (routes: google.maps.DirectionsRoute[], activeIndex: number) => {
+    altPolylinesRef.current.forEach(poly => poly.setMap(null));
+    altPolylinesRef.current = [];
+
+    routes.forEach((route, index) => {
+      const isActive = index === activeIndex;
+
+      const outlinePolyline = new google.maps.Polyline({
+        path: route.overview_path,
+        strokeColor: isActive ? "#0a11d8" : "#8096E0",
+        strokeOpacity: 1,
+        strokeWeight: isActive ? 8 : 6,
+        map: mapInstanceRef.current,
+        zIndex: 1
+      });
+      
+      const polyline = new google.maps.Polyline({
+        path: route.overview_path,
+        strokeColor: isActive ? "#0f53ff" : "#B8C9FF",
+        strokeOpacity: 1,
+        strokeWeight: isActive ? 6 : 4,
+        icons: [],
+        map: mapInstanceRef.current,
+        zIndex: isActive ? 2 : 1
+      });
+
+      const handleClick = () => {
+        setActiveRouteIndex(index);
+        drawRoutes(routes, index);
+      };
+      outlinePolyline.addListener("click", handleClick);
+      polyline.addListener("click", handleClick);
+
+      altPolylinesRef.current.push(outlinePolyline, polyline);
+
+      if (isActive && mapInstanceRef.current) {
+        const bounds = new google.maps.LatLngBounds();
+        route.legs.forEach(leg => {
+          leg.steps.forEach(step => {
+            step.path.forEach(latlng => bounds.extend(latlng));
+          });
+        });
+
+        const sidebarWidth = directionSidebarRef.current?.offsetWidth || 0;
+        mapInstanceRef.current.fitBounds(bounds, {
+          left: sidebarWidth,
+          top: 50,
+          right: 50,
+          bottom: 50
+        });
+      }
+    });
+  };
+
+  const closeSidebar = () => {
+    setShowSidebar(false);
+    setTravelInfo(null);
+
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setDirections(null);
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+
+    if (altPolylinesRef.current) {
+      altPolylinesRef.current.forEach(poly => poly.setMap(null));
+      altPolylinesRef.current = [];
+    }
+
+    setStartLocation("");
+    setDestinationLocation("");
+    setStartCoords(null);
+    setDestinationCoords(null);
+  };
+
+  useEffect(() => {
+    if (startLocation && destinationLocation) {
+        calculateRoute();
+    }
+  }, [startLocation, destinationLocation]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("recent_places");
+    if (stored) {
+      try {
+        const parsed: RecentPlace[] = JSON.parse(stored);
+        setRecentPlaces(parsed);
+      } catch (e) {
+        console.error("Failed to parse recent_places", e);
+      }
+    }
+  }, []);
+
+  const handleYourLocationClick = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const location = new google.maps.LatLng(latitude, longitude);
+
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo(location);
+          mapInstanceRef.current.setZoom(15);
+        }
+
+        if (nextInputToFill === "start") {
+          setStartCoords({ lat: latitude, lng: longitude });
+        } else {
+          setDestinationCoords({ lat: latitude, lng: longitude });
+        }
+
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location }, (results, status) => {
+          let address = "Your Location";
+          if (status === "OK" && results && results[0]) {
+            address = results[0].formatted_address;
+          }
+          if (nextInputToFill === "start") {
+            setStartLocation(address);
+            setNextInputToFill("destination");
+          } else {
+            setDestinationLocation(address);
+            setNextInputToFill("start");
+          }
+        });
+      },
+      (error) => {
+        console.warn("Geolocation error:", error);
+        alert("Failed to get your location. Please check permissions.");
+      }
+    );
+  };
+
+  useEffect(() => {
+    if (showSuggestions) {
+      setHighlightedIndex(-1);
+    }
+  }, [showSuggestions, searchValue]);
+
+  useEffect(() => {
+    if (!showSidebarSuggestions || !sidebarSearchValue.trim()) {
+      setSidebarHighlightedIndex(-1);
+    }
+  }, [showSidebarSuggestions, sidebarSearchValue]);
+
+  const scrollCategory = (direction: "left" | "right") => {
+    if (!arrowScrollRef.current) return;
+    const scrollAmount = 200;
+    arrowScrollRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
+  
+  const handleCategoryScroll = () => {
+    const container = arrowScrollRef.current;
+    if (!container) return;
+  
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    setShowLeftArrow(scrollLeft > 0);
+    setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 1);
+  };
+  
+  useEffect(() => {
+    handleCategoryScroll();
+  }, []);
+
+  const toggleSelection = (title: string) => {
+    setSelectedPlaceTitles(prev =>
+      prev.includes(title)
+        ? prev.filter(t => t !== title)
+        : [...prev, title]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedPlaceTitles.length > 0) {
+      setSelectedPlaceTitles([]);
+    } else {
+      const allTitles = filteredPlaces.map(place => place.title);
+      setSelectedPlaceTitles(allTitles);
+    }
+  };
+
+  function getDistanceKm(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) {
+    const R = 6371;
+    const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+    const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((p1.lat * Math.PI) / 180) *
+      Math.cos((p2.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function isPlaceTooBroad(place: any) {
+    const title = place.title.toLowerCase();
+    const subtitle = place.subtitle?.toLowerCase() || "";
+
+    const isSame = title === subtitle;
+    const isMajorCity = [
+      "mumbai", "chennai", "delhi", "bangalore", "hyderabad", "ahmedabad", "kolkata"
+    ].includes(title);
+    const containsBroadWord = ["state", "district", "india", "region", "zone", "country", "union territory"].some(
+      word => title.includes(word) || subtitle.includes(word)
+    );
+    const isGeneric = !subtitle && title.split(" ").length === 1;
+
+    return isSame || isMajorCity || containsBroadWord || isGeneric;
+  }
+
+  function groupNearbyPlaces(places: any[], radius = 40) {
+    const filtered = places.filter(p => !isPlaceTooBroad(p));
+    const groups: any[] = [];
+    const visited = new Set();
+
+    for (let i = 0; i < filtered.length; i++) {
+      if (visited.has(i)) continue;
+      const group = [filtered[i]];
+      visited.add(i);
+
+      for (let j = i + 1; j < filtered.length; j++) {
+        if (
+          !visited.has(j) &&
+          getDistanceKm(filtered[i], filtered[j]) < radius
+        ) {
+          group.push(filtered[j]);
+          visited.add(j);
+        }
+      }
+
+      if (group.length > 1) {
+        groups.push(group);
+      }
+    }
+
+    return groups;
+  }
+
+  function generateTagName(group: any[]) {
+    const uniqueTitles = [...new Set(group.map(p => p.title))];
+    if (uniqueTitles.length === 1) return uniqueTitles[0];
+    if (uniqueTitles.length === 2) return `${uniqueTitles[0]} & ${uniqueTitles[1]}`;
+    return `${uniqueTitles[0]} & Nearby`;
+  }
+
+  const groupedPlaces = groupNearbyPlaces(recentPlaces);
+  const groupTags = groupedPlaces.map(group => ({
+    name: generateTagName(group),
+    count: group.length,
+    places: group
+  }));
+
+  const hasGroups = groupTags.length > 0;
+
+  const filteredPlaces: RecentPlace[] =
+    !hasGroups
+      ? recentPlaces
+      : selectedTags.length === 0
+        ? recentPlaces
+        : recentPlaces
+            .filter((place: RecentPlace) =>
+              groupTags.some(
+                (tag: GroupTag) =>
+                  selectedTags.includes(tag.name) &&
+                  tag.places.some(
+                    (p: RecentPlace) =>
+                      p.title === place.title && p.subtitle === place.subtitle
+                  )
+              )
+            )
+            .sort((a: RecentPlace, b: RecentPlace) => b.timestamp - a.timestamp);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("recent_places");
+    if (stored) {
+      try {
+        const parsed: RecentPlace[] = JSON.parse(stored);
+        setRecentPlaces(parsed);
+      } catch (e) {
+        console.error("Failed to parse recent_places", e);
+      }
+    }
+  }, []);
+
+  {/*API for extra image*/}
+  const fetchShopImages = async (shopId: string): Promise<string[]> => {
+    try {
+      const response = await fetch(
+        `http://103.118.158.57:3749/getFoodDetails?shop_id=${shopId}`
+      );
+      if (response.ok) {
+        const foodItems = await response.json();
+        return foodItems.flatMap((item: any) => item.images || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch additional images:", err);
+    }
+    return [];
+  };
+
+  const handleShopSuggestion = async (shop: Shop, onComplete?: () => void) => {
+    setSearchOrigin("home");
+
+    const location = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
+
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+    }
+
+    markerRef.current = new google.maps.Marker({
+      position: location,
+      map: mapInstanceRef.current!,
+      title: shop.name,
+    });
+
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(location);
+
+    const sidebarEl = document.getElementById("fullSidebar");
+    const sidebarWidth = sidebarEl?.offsetWidth || 0;
+    const sidebarHeight = sidebarEl?.offsetHeight || 0;
+    const windowWidth = window.innerWidth;
+
+    let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+    if (windowWidth >= 768) {
+      padding.left = sidebarWidth + 50;
+    } else {
+      padding.top = 150;
+      padding.bottom = sidebarHeight + 50;
+    }
+
+    mapInstanceRef.current?.fitBounds(bounds, padding);
+
+    setSearchValue(shop.name);
+
+    const additionalImages = await fetchShopImages(String(shop.shopId));
+    const allPhotos = [...(shop.menu || []), ...additionalImages];
+
+    const newPlace: RecentPlace = {
+      title: shop.name,
+      nativeName: undefined,
+      subtitle: shop.address,
+      imageUrl: allPhotos[0],
+      photos: allPhotos,
+      lat: Number(shop.lat),
+      lng: Number(shop.lng),
+      timestamp: Date.now(),
+      fullAddress: shop.address,
+      plusCode: "",
+      rating: undefined,
+      userRatingsTotal: undefined,
+      priceText: undefined,
+      category: shop.cuisine || "Shop",
+      reviews: [],
+    };
+
+    setRecentPlaces(prev => {
+      const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
+      const sliced = updated.slice(0, 20);
+      localStorage.setItem("recent_places", JSON.stringify(sliced));
+      return sliced;
+    });
+
+    setFullSidebarSelectedPlace({
+      ...newPlace,
+      isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
+    });
+
+    setIsLocationSelected(true);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setPlaceSidebar("full");
+    setFullSidebarActiveTab("fullSidebarMenu");
+
+    setTimeout(() => {
+      if (fullSidebarContentRef.current) {
+        fullSidebarContentRef.current.scrollTop = 0;
+      }
+    }, 0);
+
+    if (onComplete) onComplete();
+  };
+
+  const handleSelectSuggestion = (placeId: string, onComplete?: () => void) => {
+    setSearchOrigin("home");
+
+    const service = new google.maps.places.PlacesService(mapInstanceRef.current!);
+
+    service.getDetails({ placeId, language: "en" }, (placeEn, statusEn) => {
+      if (
+        statusEn === google.maps.places.PlacesServiceStatus.OK &&
+        placeEn &&
+        placeEn.geometry
+      ) {
+        const location = placeEn.geometry.location;
+
+        if (location) {
+          //mapInstanceRef.current?.panTo(location);
+          //mapInstanceRef.current?.setZoom(15);
+
+          if (markerRef.current) {
+            markerRef.current.setMap(null);
+          }
+
+          markerRef.current = new google.maps.Marker({
+            position: location,
+            map: mapInstanceRef.current!,
+            title: placeEn.name,
+          });
+          const bounds = new google.maps.LatLngBounds();
+          bounds.extend(location);
+
+          const sidebarEl = document.getElementById("fullSidebar");
+          const sidebarWidth = sidebarEl?.offsetWidth || 0;
+          const sidebarHeight = sidebarEl?.offsetHeight || 0;
+
+          const windowWidth = window.innerWidth;
+          const windowHeight = window.innerHeight;
+
+          let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+          if (windowWidth >= 768) {
+            padding = {
+              top: 50,
+              bottom: 50,
+              left: sidebarWidth + 50,
+              right: 50,
+            };
+          } else {
+            padding = {
+              top: 150,
+              bottom: sidebarHeight + 50,
+              left: 50,
+              right: 50,
+            };
+          }
+          mapInstanceRef.current?.fitBounds(bounds, padding);
+        }
+
+        const title = placeEn.name || "";
+        const components = placeEn.address_components || [];
+        const stateComp = components.find((c) =>
+          c.types.includes("administrative_area_level_1")
+        );
+        const countryComp = components.find((c) =>
+          c.types.includes("country")
+        );
+        const state = stateComp?.long_name || "";
+        const country = countryComp?.long_name || "";
+
+        let subtitle = "";
+        const cityComp = components.find((c) =>
+          c.types.includes("locality") || c.types.includes("administrative_area_level_2")
+        );
+        const stateComp2 = components.find((c) =>
+          c.types.includes("administrative_area_level_1")
+        );
+
+        const city = cityComp?.long_name || "";
+        const state2 = stateComp2?.long_name || "";
+
+        if (city && state2 && title !== city) {
+          subtitle = `${city}, ${state2}`;
+        } else if (state2 && title !== state2) {
+          subtitle = state2;
+        }
+
+        const rating = typeof placeEn.rating === "number" ? placeEn.rating : undefined;
+        const userRatingsTotal = typeof placeEn.user_ratings_total === "number" ? placeEn.user_ratings_total : undefined;
+        const priceLevel = typeof placeEn.price_level === "number" ? placeEn.price_level  : undefined;
+        let priceText: string | undefined;
+
+        if (placeEn.types?.includes("restaurant")) {
+          priceText = "₹200 – 400";
+        } else if (priceLevel !== undefined) {
+          priceText = "₹".repeat(priceLevel)
+        }
+
+
+        let category = getReadableCategory(placeEn);
+        if (category.toLowerCase() === "establishment") {
+          category = "Software Company";
+        }
+
+        const photo = placeEn.photos?.[0];
+        const imageUrl = photo?.getUrl({ maxWidth: 400 });
+        const lat = location?.lat();
+        const lng = location?.lng();
+        const timestamp = Date.now();
+        const photos = placeEn.photos?.map(p => p.getUrl({ maxWidth: 400 })) || [];
+        const fullAddress = placeEn.formatted_address || "";
+        const plusCode = placeEn.plus_code?.compound_code || placeEn.plus_code?.global_code || "";
+
+        let ratingBreakdown: { [stars: number]: number } | undefined;
+        if (placeEn.reviews && placeEn.reviews.length > 0) {
+          ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+          placeEn.reviews.forEach((r) => {
+            const star = typeof r.rating === "number" && r.rating >= 1 && r.rating <= 5 ? r.rating : undefined;
+            if (star !== undefined) {
+              ratingBreakdown![star] = (ratingBreakdown![star] || 0) + 1;
+            }
+          });
+        }
+        
+        const langCode = getLanguageCodeFromAddress(components);
+
+        service.getDetails({ placeId, language: langCode }, (placeLocal, statusLocal) => {
+          let nativeName: string | undefined = undefined;
+          if (
+            statusLocal === google.maps.places.PlacesServiceStatus.OK &&
+            placeLocal?.name &&
+            placeLocal.name !== title
+          ) {
+            nativeName = placeLocal.name;
+          }
+
+          setSearchValue(title);
+
+          const newPlace: RecentPlace = {
+            title,
+            nativeName,
+            subtitle,
+            imageUrl,
+            photos,  
+            lat: lat!,
+            lng: lng!,
+            timestamp,
+            fullAddress,
+            plusCode,
+            rating,
+            userRatingsTotal,
+            priceText,
+            category,
+            reviews: placeEn.reviews || [],
+          };
+            
+          setRecentPlaces((prev) => {
+            const updated = [newPlace, ...prev.filter((p) => p.title !== title)];
+            const sliced = updated.slice(0, 20);
+            localStorage.setItem("recent_places", JSON.stringify(sliced));
+            return sliced;
+          });
+
+          const isFavorite =
+            recentPlaces.find((p) => p.title === newPlace.title)?.isFavorite ||
+            favoritePlaceList.some((p) => p.title === newPlace.title) ||
+            false;
+
+          setFullSidebarSelectedPlace({
+            ...newPlace,
+            isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
+          });
+
+
+          setIsLocationSelected(true);
+          setShowSuggestions(false);
+          setSuggestions([]);
+          setPlaceSidebar("full");
+          setFullSidebarActiveTab("fullSidebarMenu");
+          setTimeout(() => {
+            if (fullSidebarContentRef.current) {
+              fullSidebarContentRef.current.scrollTop = 0;
+            }
+          }, 0);
+
+          const autocompleteService = new google.maps.places.AutocompleteService();
+          autocompleteService.getPlacePredictions(
+            {
+              input: title,
+              componentRestrictions: { country: "in" },
+            },
+            (predictions, status) => {
+              if (
+                status === google.maps.places.PlacesServiceStatus.OK &&
+                predictions
+              ) {
+                //setSuggestions(predictions.slice(0, 5));
+                setShowSuggestions(false);
+              } else {
+                setSuggestions([]);
+              }
+            }
+          );
+          if (onComplete) onComplete();
+        })
+      }
+    });
+  };
+
+  const handleSidebarSelectSuggestion = (placeId: string, onComplete?: () => void) => {
+    setSearchOrigin("sidebar");
+
+    const service = new google.maps.places.PlacesService(mapInstanceRef.current!);
+
+    service.getDetails({ placeId, language: "en" }, (placeEn, statusEn) => {
+      if (
+        statusEn === google.maps.places.PlacesServiceStatus.OK &&
+        placeEn &&
+        placeEn.geometry
+      ) {
+        const location = placeEn.geometry.location;
+
+        if (location) {
+          //mapInstanceRef.current?.panTo(location);
+          //mapInstanceRef.current?.setZoom(15);
+
+          if (sidebarMarkerRef.current) {
+            sidebarMarkerRef.current.setMap(null);
+          }
+
+          sidebarMarkerRef.current = new google.maps.Marker({
+            position: location,
+            map: mapInstanceRef.current!,
+            title: placeEn.name,
+          });
+
+          const bounds = new google.maps.LatLngBounds();
+          bounds.extend(location);
+
+          const sidebarEl = document.getElementById("fullSidebar");
+          const sidebarWidth = sidebarEl?.offsetWidth || 0;
+          const sidebarHeight = sidebarEl?.offsetHeight || 0;
+
+          const windowWidth = window.innerWidth;
+          const windowHeight = window.innerHeight;
+
+          let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+          if (windowWidth >= 768) {
+            padding = {
+              top: 50,
+              bottom: 50,
+              left: sidebarWidth + 50,
+              right: 50,
+            };
+          } else {
+            padding = {
+              top: 150,
+              bottom: sidebarHeight + 50,
+              left: 50,
+              right: 50,
+            };
+          }
+          mapInstanceRef.current?.fitBounds(bounds, padding);
+        }
+
+        const title = placeEn.name || "";
+        const components = placeEn.address_components || [];
+        const stateComp = components.find(c => c.types.includes("administrative_area_level_1"));
+        const countryComp = components.find(c => c.types.includes("country"));
+        const state = stateComp?.long_name || "";
+        const country = countryComp?.long_name || "";
+
+        let subtitle = "";
+        const cityComp = components.find((c) =>
+          c.types.includes("locality") || c.types.includes("administrative_area_level_2")
+        );
+        const stateComp2 = components.find((c) =>
+          c.types.includes("administrative_area_level_1")
+        );
+
+        const city = cityComp?.long_name || "";
+        const state2 = stateComp2?.long_name || "";
+
+        if (city && state2 && title !== city) {
+          subtitle = `${city}, ${state2}`;
+        } else if (state2 && title !== state2) {
+          subtitle = state2;
+        }
+
+        const rating = typeof placeEn.rating === "number" ? placeEn.rating : undefined;
+        const userRatingsTotal = typeof placeEn.user_ratings_total === "number" ? placeEn.user_ratings_total : undefined;
+        const priceLevel = typeof placeEn.price_level === "number" ? placeEn.price_level  : undefined;
+        let priceText: string | undefined;
+
+        if (placeEn.types?.includes("restaurant")) {
+          priceText = "₹200 – 400";
+        } else if (priceLevel !== undefined) {
+          priceText = "₹".repeat(priceLevel)
+        }
+
+
+        let category = getReadableCategory(placeEn);
+        if (category.toLowerCase() === "establishment") {
+          category = "Software Company";
+        }
+
+        const photo = placeEn.photos?.[0];
+        const imageUrl = photo?.getUrl({ maxWidth: 400 });
+        const lat = location?.lat();
+        const lng = location?.lng();
+        const timestamp = Date.now();
+        const photos = placeEn.photos?.map(p => p.getUrl({ maxWidth: 400 })) || [];
+        const fullAddress = placeEn.formatted_address || "";
+        const plusCode = placeEn.plus_code?.compound_code || placeEn.plus_code?.global_code || "";
+
+        let ratingBreakdown: { [stars: number]: number } | undefined;
+        if (placeEn.reviews && placeEn.reviews.length > 0) {
+          ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+          placeEn.reviews.forEach((r) => {
+            const star = typeof r.rating === "number" && r.rating >= 1 && r.rating <= 5 ? r.rating : undefined;
+            if (star !== undefined) {
+              ratingBreakdown![star] = (ratingBreakdown![star] || 0) + 1;
+            }
+          });
+        }
+        
+        const langCode = getLanguageCodeFromAddress(components);
+
+        service.getDetails({ placeId, language: langCode }, (placeLocal, statusLocal) => {
+          let nativeName: string | undefined = undefined;
+          if (
+            statusLocal === google.maps.places.PlacesServiceStatus.OK &&
+            placeLocal?.name &&
+            placeLocal.name !== title
+          ) {
+            nativeName = placeLocal.name;
+          }
+
+          setSidebarSearchValue(title);
+
+          const newPlace = { 
+            title, 
+            nativeName,
+            subtitle, 
+            imageUrl, 
+            photos,
+            lat: lat!, 
+            lng: lng!, 
+            timestamp,
+            fullAddress,
+            plusCode,
+            rating,
+            userRatingsTotal,
+            priceText,
+            category,
+            reviews: placeEn.reviews || [],
+          };
+
+          setRecentPlaces((prev) => {
+            const updated = [newPlace, ...prev.filter((p) => p.title !== title)];
+            const sliced = updated.slice(0, 20);
+            localStorage.setItem("recent_places", JSON.stringify(sliced));
+            return sliced;
+          });
+
+          const isFavorite =
+            recentPlaces.find((p) => p.title === newPlace.title)?.isFavorite ||
+            favoritePlaceList.some((p) => p.title === newPlace.title) ||
+            false;
+
+          setFullSidebarSelectedPlace({
+            ...newPlace,
+            isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
+          });
+
+          setIsLocationSelected(true);
+          setShowSidebarSuggestions(false);
+          setSidebarSuggestions([]);
+          setPlaceSidebar("full");
+          setFullSidebarActiveTab("fullSidebarMenu");
+          setTimeout(() => {
+            if (fullSidebarContentRef.current) {
+              fullSidebarContentRef.current.scrollTop = 0;
+            }
+          }, 0);
+
+          const autocompleteService = new google.maps.places.AutocompleteService();
+          autocompleteService.getPlacePredictions(
+            {
+              input: title,
+              componentRestrictions: { country: "in" },
+            },
+            (predictions, status) => {
+              if (
+                status === google.maps.places.PlacesServiceStatus.OK &&
+                predictions
+              ) {
+                setSidebarSuggestions(predictions.slice(0, 5));
+                setShowSidebarSuggestions(false);
+              } else {
+                setSidebarSuggestions([]);
+              }
+            }
+          )
+          if (onComplete) onComplete();
+        });
+      }
+    });
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+      !(
+        (searchBoxRef.current &&
+          searchBoxRef.current.contains(event.target as Node)) ||
+        (suggestionBoxRef.current &&
+          suggestionBoxRef.current.contains(event.target as Node)) ||
+        (fullSidebarSearchBoxRef.current &&
+          fullSidebarSearchBoxRef.current.contains(event.target as Node)) ||
+        (fullSidebarSuggestionBoxRef.current &&
+          fullSidebarSuggestionBoxRef.current.contains(event.target as Node)) ||
+        (halfSidebarSearchBoxRef.current &&
+          halfSidebarSearchBoxRef.current.contains(event.target as Node)) ||
+        (halfSidebarSuggestionBoxRef.current &&
+          halfSidebarSuggestionBoxRef.current.contains(event.target as Node))
+      )
+    ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        !(
+          (savedSidebarSearchBoxRef.current &&
+            savedSidebarSearchBoxRef.current.contains(event.target as Node)) ||
+          (savedSidebarSuggestionBoxRef.current &&
+            savedSidebarSuggestionBoxRef.current.contains(event.target as Node)) ||
+          (recentSidebarSearchBoxRef.current &&
+            recentSidebarSearchBoxRef.current.contains(event.target as Node)) ||
+          (recentSidebarSuggestionBoxRef.current &&
+            recentSidebarSuggestionBoxRef.current.contains(event.target as Node)) ||
+          (firstSearchBoxRef.current &&
+            firstSearchBoxRef.current.contains(event.target as Node)) ||
+          (firstSuggestionBoxRef.current &&
+            firstSuggestionBoxRef.current.contains(event.target as Node)) ||
+          (secondSearchBoxRef.current &&
+            secondSearchBoxRef.current.contains(event.target as Node)) ||
+          (secondSuggestionBoxRef.current &&
+            secondSuggestionBoxRef.current.contains(event.target as Node))
+        )
+      ) {
+        setShowSidebarSuggestions(false);
+      }
+    };
+  
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        saveMenuRef.current &&
+        !saveMenuRef.current.contains(event.target as Node)
+      ) {
+        setShowSaveMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  function centerPlaceOnMap(position: google.maps.LatLng) {
+    const map = mapInstanceRef.current!;
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(position);
+
+    const sidebarEl = document.getElementById("fullSidebar");
+    const sidebarWidth = sidebarEl?.offsetWidth || 0;
+    const sidebarHeight = sidebarEl?.offsetHeight || 0;
+
+    let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+    if (window.innerWidth >= 768) {
+      padding = { top: 50, bottom: 50, left: sidebarWidth + 50, right: 50 };
+    } else {
+      padding = { top: 150, bottom: sidebarHeight + 50, left: 50, right: 50 };
+    }
+
+    map.fitBounds(bounds, padding);
+  }
+
+  const addToHistory = (shop: Shop) => {
+    const newPlace: RecentPlace = {
+      title: shop.name,
+      nativeName: undefined,
+      subtitle: shop.address,
+      imageUrl: shop.imageUrls?.[0],
+      photos: shop.imageUrls || [],
+      lat: Number(shop.lat),
+      lng: Number(shop.lng),
+      timestamp: Date.now(),
+      fullAddress: shop.address,
+      plusCode: "",
+      rating: undefined,
+      userRatingsTotal: undefined,
+      priceText: undefined,
+      category: shop.cuisine || "Shop",
+      reviews: [],
+    };
+
+    setRecentPlaces(prev => {
+      const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
+      const sliced = updated.slice(0, 20);
+      localStorage.setItem("recent_places", JSON.stringify(sliced));
+      return sliced;
+    });
+  };
+
+  useEffect(() => {
+    const loadGoogleMapsScript = (): Promise<void> => {
+      return new Promise<void>((resolve, reject) => {
+        if (typeof window.google === "object" && typeof window.google.maps === "object") {
+          resolve();
+          return;
+        }
+
+        const existingScript = document.querySelector(
+          'script[src^="https://maps.googleapis.com/maps/api/js"]'
+        );
+        if (existingScript) {
+          existingScript.addEventListener("load", () => resolve());
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = (e) => reject(e);
+
+        document.head.appendChild(script);
+      });
+    };
+
+    const fetchShops = async (): Promise<Shop[]> => {
+      try {
+        const response = await fetch("http://103.118.158.57:3749/getAllShops");
+        if (!response.ok) throw new Error("Failed to fetch shops");
+        const data: Shop[] = await response.json();
+        return data;
+      } catch (err) {
+        console.error(err);
+        return [];
+      }
+    };
+
+    loadGoogleMapsScript().then(async () => {
+      if (mapRef.current && inputRef.current) {
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: 13.0827, lng: 80.2707 },
+          zoom: 10,
+          minZoom: 3,
+          maxZoom: 20,
+          gestureHandling: "greedy",
+          mapTypeControl: false,
+          fullscreenControl: false,
+          streetViewControl: false,
+          disableDefaultUI: true,
+          restriction: {
+            latLngBounds: {
+              north: 85,
+              south: -85,
+              west: -180,
+              east: 180,
+            },
+            strictBounds: true,
+          },
+            draggableCursor: "default",
+            draggingCursor: "move",
+
+            styles: [
+              
+              {
+                featureType: "poi.business",
+                stylers: [{ visibility: "off" }],
+              },
+              {
+                featureType: "poi.attraction",
+                stylers: [{ visibility: "off" }],
+              },
+              {
+                featureType: "poi",
+                stylers: [{ visibility: "off" }],
+              },
+              {
+                featureType: "transit",
+                stylers: [{ visibility: "off" }],
+              }
+              
+            ],
+          });
+
+        mapInstanceRef.current = map;
+        
+        const shops = await fetchShops();
+
+        class RestaurantLabel extends google.maps.OverlayView {
+          private div: HTMLDivElement | null = null;
+          private position: google.maps.LatLng;
+          private data: any;
+          private marker: google.maps.Marker | null = null;
+          private infoWindow: google.maps.InfoWindow | null = null;
+
+          constructor(position: google.maps.LatLng, data: any) {
+            super();
+            this.position = position;
+            this.data = data;
+          }
+
+          onAdd() {
+            this.div = document.createElement("div");
+            this.div.style.position = "absolute";
+            this.div.style.cursor = "pointer";
+            this.div.style.fontFamily = "Arial, sans-serif";
+            this.div.style.fontSize = "12px";
+            this.div.style.background = "transparent";
+            this.div.style.borderRadius = "4px";
+            this.div.style.padding = "4px 6px";
+            this.div.style.whiteSpace = "nowrap";
+            this.div.style.cursor = "pointer";
+           
+            this.div.innerHTML = `
+              <div style="display:flex; align-items:center; gap:4px;">
+                <img class="label-icon" src="https://cdn-icons-png.flaticon.com/512/3448/3448609.png" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; "/>
+               <div class="label-text">
+                <div style="font-size:14px; color:black;">${this.data.name}</div>
+                ${this.data.cuisine ? `<div style="font-size:12px; color:black;">${this.data.cuisine}</div>` : ""}
+              </div>
+              </div>
+            `;
+
+            this.div.addEventListener("click", async () => {
+              const shop = this.data;
+              if (!shop) return;
+
+              addToHistory(shop);
+
+              const marker = new google.maps.Marker({
+                position: this.position,
+                map: this.getMap()!,
+                title: shop.name,
+              });
+
+              if (activePlaceMarkerRef.current) {
+                activePlaceMarkerRef.current.setMap(null);
+              }
+              activePlaceMarkerRef.current = marker;
+
+              // API for extra image
+              let additionalImages: string[] = [];
+              try {
+                const response = await fetch(`http://103.118.158.57:3749/getFoodDetails?shop_id=${shop.shopId}`);
+                if (response.ok) {
+                  const foodItems = await response.json();
+                  additionalImages = foodItems.flatMap((item: any) => item.images || []);
+                }
+              } catch (err) {
+                console.error("Failed to fetch additional images:", err);
+              }
+
+              const allPhotos = [...(shop.menu || []), ...additionalImages];
+
+              setFullSidebarSelectedPlace({
+                title: shop.name,
+                nativeName: shop.name,
+                lat: parseFloat(shop.lat),
+                lng: parseFloat(shop.lng),
+                timestamp: Date.now(),
+                category: "Restaurant",
+                isFavorite: false,
+                photos: allPhotos,
+                applink: shop.applink || "",
+                about: shop.about || "",
+                cuisine: shop.cuisine || "",
+                serviceability: shop.serviceability || "",
+              });
+
+              setPlaceSidebar("full");
+              setSearchOrigin("home");
+              setSearchValue(shop.name);
+              centerPlaceOnMap(new google.maps.LatLng(parseFloat(shop.lat), parseFloat(shop.lng)));
+              setFullSidebarActiveTab("fullSidebarMenu");
+            });
+            
+            // Hover InfoWindow
+            const tooltip = document.createElement("div");
+            tooltip.style.position = "absolute";
+            tooltip.style.background = "white";
+            tooltip.style.padding = "10px 12px";
+            tooltip.style.border = "1px solid #ccc";
+            tooltip.style.borderRadius = "4px";
+            tooltip.style.fontSize = "14px";
+            tooltip.style.fontFamily = "Arial, sans-serif";
+            tooltip.style.whiteSpace = "nowrap";
+            tooltip.style.pointerEvents = "none"; 
+            tooltip.style.display = "none";
+            tooltip.style.color = "black";
+            tooltip.innerHTML = `
+              <div style="font-size:17px; margin-bottom:6px; font-weight:bold;">${this.data.name}</div>
+              <div style="font-size:15px; font-weight:normal ;">
+                ${this.data.cuisine ? `<span>${this.data.cuisine}</span>` : ""}
+              </div>
+            `;
+            this.div.appendChild(tooltip);
+
+            this.div.addEventListener("mouseover", () => {
+            const map = this.getMap() as google.maps.Map;
+            const zoom = map.getZoom() || 0;
+
+            if (zoom >= 2) { 
+                tooltip.style.display = "block";
+              }
+            });
+
+            this.div.addEventListener("mousemove", (e) => {
+              const map = this.getMap() as google.maps.Map;
+              const zoom = map.getZoom() || 0;
+
+              if (zoom >= 2) { 
+                tooltip.style.left = e.offsetX + 30 + "px";
+                tooltip.style.top = e.offsetY - 20 + "px";
+              }
+            });
+
+            this.div.addEventListener("mouseout", () => {
+              tooltip.style.display = "none";
+            });
+
+            const panes = this.getPanes();
+            panes?.overlayMouseTarget.appendChild(this.div);
+          }
+
+          draw() {
+            if (!this.div) return;
+            const projection = this.getProjection();
+            const pos = projection.fromLatLngToDivPixel(this.position);
+
+            if (pos) {
+              const iconEl = this.div.querySelector(".label-icon") as HTMLElement;
+              const rect = this.div.getBoundingClientRect();
+
+              let iconHeight = rect.height;
+              let iconWidth = rect.width;
+
+              if (iconEl) {
+                const iconRect = iconEl.getBoundingClientRect();
+                iconHeight = iconRect.height;
+                iconWidth = iconRect.width;
+              }
+
+              this.div.style.left = pos.x - iconWidth / 1.5 + "px";
+              this.div.style.top = pos.y - iconHeight + "px";
+            }
+
+            const map = this.getMap() as google.maps.Map;
+            const zoom = map.getZoom() || 0;
+
+            const textEl = this.div.querySelector(".label-text") as HTMLElement;
+            const iconEl = this.div.querySelector(".label-icon") as HTMLElement;
+
+             if (zoom < 12) {
+              // Both hidden
+              if (textEl) textEl.style.display = "none";
+              if (iconEl) iconEl.style.display = "block";
+            }else if (zoom < 14) {
+              // only icon
+              if (textEl) textEl.style.display = "none";
+              if (iconEl) iconEl.style.display = "block";
+            } else if (zoom >= 14 && zoom < 18) {
+              // icon + name
+              if (textEl) {
+                textEl.style.display = "none";
+              }
+              if (iconEl) iconEl.style.display = "block";
+            } else {
+              // everything
+              if (textEl) {
+                textEl.style.display = "block";
+                textEl.style.fontSize = "14px";
+              }
+              if (iconEl) iconEl.style.display = "block";
+            }
+          }
+
+          onRemove() {
+            if (this.div && this.div.parentNode) {
+              this.div.parentNode.removeChild(this.div);
+            }
+          }
+        }
+
+        shops.forEach((shop: Shop) => {
+          const position = new google.maps.LatLng(parseFloat(shop.lat), parseFloat(shop.lng));
+          const overlay = new RestaurantLabel(position, shop);
+          overlay.setMap(mapInstanceRef.current);
+        });
+
+        interface PlaceClickEvent extends google.maps.MapMouseEvent {
+          placeId?: string;
+        }
+
+        map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        const clickedLat = e.latLng?.lat();
+        const clickedLng = e.latLng?.lng();
+        if (clickedLat !== undefined && clickedLng !== undefined) {
+          const shop = allShops.find(
+            (s) => Number(s.lat) === clickedLat && Number(s.lng) === clickedLng
+          );
+          if (shop) {
+            handleShopSuggestion(shop, () => setPlaceSidebar("full"));
+          }
+        }
+      });
+      }
+    });
+  }, [allShops]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const updateThumbnail = () => {
+      const nextType = isSatellite ? "roadmap" : "satellite";
+      const url = getStaticMapUrl(map, nextType);
+      setThumbnailUrl(url);
+    };
+
+    updateThumbnail();
+
+    const idleListener = google.maps.event.addListener(map, "idle", updateThumbnail);
+    return () => {
+      google.maps.event.removeListener(idleListener);
+    };
+  }, [isSatellite]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+    const map = mapInstanceRef.current;
+      if (map && map.getCenter() && map.getZoom()) {
+        const url = getStaticMapUrl(map, "satellite");
+        setThumbnailUrl(url);
+        clearInterval(interval); 
+      }
+    }, 300); 
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const SidebarItem = ({ icon, text, onClick,}: { icon?: React.ReactNode; text: string; onClick?: () => void; }) => (
+    <div
+      className="group flex items-center gap-[20px] cursor-pointer"
+      onClick={onClick}
+    >
+      {icon && <span>{icon}</span>}
+      <span className="text-[#202124] group-hover:text-gray-500">{text}</span>
+    </div>
+  );
+  
+  const combinedList = useMemo<CombinedItem[]>(() => {
+    if (searchValue.trim() !== "") {
+      const matchingRecent = recentPlaces.filter((place) =>
+        place.title.toLowerCase().startsWith(searchValue.toLowerCase())
+      );
+  
+      const remainingSlots = 5 - matchingRecent.length;
+      const trimmedSuggestions = suggestions.slice(0, Math.max(0, remainingSlots));
+  
+      const mappedRecent: CombinedItem[] = matchingRecent.map((place) => ({
+        type: "recent",
+        data: place,
+      }));
+  
+      const mappedSuggestions: CombinedItem[] = trimmedSuggestions.map((suggestion) => ({
+        type: "suggestion",
+        data: suggestion,
+      }));
+  
+      return [...mappedRecent, ...mappedSuggestions];
+    }
+  
+    const list: CombinedItem[] = recentPlaces
+      .slice(0, recentPlaces.length >= 5 ? 5 : 4)
+      .map((place) => ({ type: "recent", data: place }));
+    
+      if (recentPlaces.length >= 0) {
+        list.push({ type: "more" });
+      }
+  
+      return list;
+    }, [searchValue, suggestions, recentPlaces]);
+  
+  function isSidebarSuggestion(
+    item: SidebarCombinedItem
+  ): item is { type: "suggestion"; data: google.maps.places.AutocompletePrediction } {
+    return item.type === "suggestion";
+  }
+  
+  const sidebarCombinedList = useMemo<SidebarCombinedItem[]>(() => {
+    if (sidebarSearchValue.trim() !== "") {
+      const matchingRecent = recentPlaces.filter((place) =>
+        place.title.toLowerCase().startsWith(sidebarSearchValue.toLowerCase())
+      );
+  
+      const remainingSlots = 5 - matchingRecent.length;
+      const trimmedSuggestions = sidebarSuggestions.slice(0, Math.max(0, remainingSlots));
+  
+      const sidebarMappedRecent: SidebarCombinedItem[] = matchingRecent.map((place) => ({
+        type: "recent",
+        data: place,
+      }));
+  
+      const sidebarMappedSuggestions: SidebarCombinedItem[] = trimmedSuggestions.map((suggestion) => ({
+        type: "suggestion",
+        data: suggestion,
+      }));
+  
+      return [...sidebarMappedRecent, ...sidebarMappedSuggestions];
+    }
+  
+    const sidebarList: SidebarCombinedItem[] = recentPlaces
+      .slice(0, recentPlaces.length >= 5 ? 5 : 4)
+      .map((place) => ({ type: "recent", data: place }));
+  
+      if (recentPlaces.length < 5) {
+        sidebarList.push({ type: "home" });
+      }
+  
+      if (recentPlaces.length >= 1) {
+        sidebarList.push({ type: "more" });
+      }
+  
+      return sidebarList;
+    }, [sidebarSearchValue, sidebarSuggestions, recentPlaces]);
+
+  const fetchDetailedPlaces = async (results: google.maps.places.PlaceResult[]) => {
+    const detailedResults = await Promise.all(
+      results.map((place) =>
+        new Promise<RecentPlace>((resolve) => {
+          if (!place.place_id) return resolve(null!);
+
+          const service = new google.maps.places.PlacesService(mapInstanceRef.current!);
+          service.getDetails({ placeId: place.place_id, language: "en" }, (details, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && details) {
+              const components = details.address_components || [];
+              const cityComp = components.find(c => c.types.includes("locality") || c.types.includes("administrative_area_level_2"));
+              const stateComp = components.find(c => c.types.includes("administrative_area_level_1"));
+              const city = cityComp?.long_name || "";
+              const state = stateComp?.long_name || "";
+              let subtitle = city && state && details.name !== city ? `${city}, ${state}` : state;
+
+              let priceText;
+              if (details.types?.includes("restaurant")) priceText = "₹200 – 400";
+              else if (details.price_level !== undefined) priceText = "₹".repeat(details.price_level);
+
+              let category = getReadableCategory(details);
+              if (category.toLowerCase() === "establishment") category = "Software Company";
+
+              const photos = details.photos?.map(p => p.getUrl({ maxWidth: 400 })) || [];
+              const imageUrl = photos[0];
+
+              let ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+              details.reviews?.forEach((r) => {
+                const star = r.rating;
+                if (star && star >= 1 && star <= 5) {
+                  ratingBreakdown[star as 1 | 2 | 3 | 4 | 5] += 1;
+                }
+              });
+
+              resolve({
+                place_id: details.place_id, 
+                title: details.name || "Unnamed Place",
+                subtitle,
+                imageUrl,
+                photos,
+                lat: details.geometry?.location?.lat() || 0,
+                lng: details.geometry?.location?.lng() || 0,
+                timestamp: Date.now(),
+                rating: details.rating,
+                userRatingsTotal: details.user_ratings_total,
+                priceText,
+                category,
+                reviews: details.reviews || [],
+                fullAddress: details.formatted_address,
+                plusCode: details.plus_code?.compound_code || details.plus_code?.global_code,
+                ratingBreakdown,
+              });
+            } else resolve(null!);
+          });
+        })
+      )
+    );
+    return detailedResults.filter(r => r !== null);
+  };
+
+  const closeButtonFunction = () => {
+    setSearchValue("");
+    setSuggestions([]);
+    setIsLocationSelected(false);
+    setShowSuggestions(false);
+    if (placeSidebar === "full" && keepHalfSidebarOpen) {
+      setPlaceSidebar("half");
+      setKeepHalfSidebarOpen(true);
+    } else {
+      setPlaceSidebar(null);
+      setKeepHalfSidebarOpen(false);
+    }
+    if (placeSidebar === "half") 
+    {
+      clearCategoryMarkers();
+    }
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+      markerRef.current = null;
+    }
+    if (sidebarMarkerRef.current) {
+      sidebarMarkerRef.current.setMap(null);
+      sidebarMarkerRef.current = null;
+    }
+
+    activePlaceMarkerRemover();
+  };
+
+  const exploreButtonFunction = () =>{
+    if (!mapInstanceRef.current) return;
+    if (!allShops || allShops.length === 0) return;
+
+    setRelatedPlaces(allShops);
+    setPlaceSidebar("half");
+    setKeepHalfSidebarOpen(true);
+    setSearchOrigin("home");
+
+    allShops.forEach(shop => {
+      if (!shop.lat || !shop.lng) return;
+
+      const marker = new google.maps.Marker({
+        position: { lat: Number(shop.lat), lng: Number(shop.lng) },
+        map: mapInstanceRef.current!,
+        title: shop.name,
+        icon: {
+        url: "",
+        scaledSize: new google.maps.Size(30, 30),
+        },
+      });
+
+      marker.addListener("click", () => handleOpenShopSidebar(shop.shopId));
+
+      categoryMarkersRef.current.push(marker);
+    });
+
+    const bounds = new google.maps.LatLngBounds();
+    allShops.forEach(shop => bounds.extend({ lat: Number(shop.lat), lng: Number(shop.lng) }));
+
+    const sidebarEl = document.getElementById("halfSidebar");
+    const sidebarWidth = sidebarEl?.offsetWidth || 0;
+    const sidebarHeight = sidebarEl?.offsetHeight || 0;
+
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+    if (windowWidth >= 768) {
+      padding = {
+        top: 50,
+        bottom: 50,
+        left: sidebarWidth + 50,
+        right: 50,
+      };
+    } else {
+      padding = {
+        top: 250,
+        bottom: sidebarHeight + 50,
+        left: 50,
+        right: 50,
+      };
+    }
+    mapInstanceRef.current.fitBounds(bounds, padding);
+  }
+    
+  return (
+    <div className="relative w-full h-screen">
+      <div className="flex flex-row md:hidden absolute bottom-0 left-0 w-full bg-[#f1f6f7] z-30 shadow-md py-2 text-black">
+        <div className="flex flex-row items-center justify-evenly w-full">
+          <div 
+            onClick={exploreButtonFunction}
+            className="flex flex-col items-center gap-[8px] cursor-pointer"
+          >
+            <LocationOnIcon style={{ fontSize: '25px' }} className="text-black" />
+            <span className="text-[12px] tracking-wide font-medium">Explore</span>
+          </div>
+          
+         {/*
+          <div 
+            className="flex flex-col items-center gap-[8px] cursor-pointer"
+             onClick={() => {
+              if (topSidebar !== "saved") {
+                setTopSidebar("saved");
+                setPlaceSidebar(null);
+              }
+            }}
+          >
+            <SavedIcon style={{ fontSize: '25px' }} className="text-black" />
+            <span className="text-[12px] tracking-wide font-medium">Saved</span>
+          </div>
+
+          <div 
+            className="flex flex-col items-center gap-[8px] cursor-pointer"
+             onClick={() => {
+              if (recentPlaces.length > 0 && topSidebar !== "recent") {
+                setTopSidebar("recent");
+                setPlaceSidebar(null);
+              }
+            }}
+          >
+            <HistoryIcon style={{ fontSize: '25px' }} className="text-black rotate-45" />
+            <span className="text-[12px] tracking-wide font-medium">Recents</span>
+          </div>
+          */}
+        </div>
+      </div>
+
+      <div className="hidden md:flex flex-col absolute top-0 left-0 w-[70px] h-full bg-[#f1f6f7] z-50 shadow-md items-center justify-between pt-6 pb-5 text-black">
+        <div className="flex flex-col items-center space-y-[26px]">
+          <div 
+            onClick={exploreButtonFunction} 
+            className="flex flex-col items-center gap-[8px] cursor-pointer"
+          >
+            <LocationOnIcon style={{ fontSize: '25px' }} className="text-black" />
+            <span className="text-[12px] tracking-wide font-medium">Explore</span>
+          </div>
+          
+          {/*
+          <div 
+            className="flex flex-col items-center gap-[8px] cursor-pointer"
+             onClick={() => {
+              if (topSidebar !== "saved") {
+                setTopSidebar("saved");
+                setPlaceSidebar(null);
+              }
+            }}
+          >
+            <SavedIcon style={{ fontSize: '25px' }} className="text-black" />
+            <span className="text-[12px] tracking-wide font-medium">Saved</span>
+          </div>
+
+          <div 
+            className="flex flex-col items-center gap-[0px] cursor-pointer"
+            onClick={() => {
+              if (recentPlaces.length > 0 && topSidebar !== "recent") {
+                setTopSidebar("recent");
+                setPlaceSidebar(null);
+              }
+            }}
+          >
+            <HistoryIcon 
+              style={{ fontSize: '40px' }} 
+              className={`rotate-45 p-2 rounded-full transition 
+                ${topSidebar === 'recent' ? 'bg-[#D9F7FF]' : 'bg-transparent'}
+                ${recentPlaces.length === 0 ? 'text-gray-400' : 'text-black'}`}
+            />
+            
+            <span className={`text-[12px] tracking-wide font-medium
+              ${recentPlaces.length === 0 ? 'text-gray-400' : 'text-black'}`}
+            >
+             Recents
+            </span>
+          </div>
+          */}
+        </div>
+
+        <div className="flex flex-col items-center">
+          <img
+            src="/logo.jpg"
+            alt="User Profile"
+            className="w-[50px] h-[50px] object-cover rounded-full"
+          />
+        </div>
+        
+        {/*
+        <div className="flex flex-col items-center gap-[6px] cursor-pointer" onClick={() => setShowQR(true)}>
+          <div className="w-[40px] border-t border-gray-300 mb-[6px]"></div>
+          <SmartphoneIcon style={{ fontSize: '25px' }} className="text-black"/>
+          <span className="text-center text-[12px] tracking-wide font-medium leading-tight">Get the<br />app</span>
+        </div>
+        */}
+      </div>
+
+      {/*Menu Sidebar*/}
+      <div>
+        <div
+          className={`fixed inset-0 bg-black z-[998] transition-opacity duration-300 ease-in-out ${
+            menuSidebar ? "opacity-30 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+          onClick={() => setMenuSidebar(false)}
+        />
+
+        <div
+          className={`fixed top-0 left-0 w-[320px] h-full bg-white z-[999] shadow-lg py-[10px] overflow-y-auto
+            transition-transform duration-300 ease-in-out transform ${
+              menuSidebar ? "translate-x-0" : "-translate-x-full"
+            }`}
+        >
+
+          <div className="flex items-center justify-between pl-[22px] pr-[28px] mb-[18px]">
+            <img src="/logo.png" alt="Google Maps" className="h-[24px]" />
+            <button
+              onClick={() => setMenuSidebar(false)}
+              className="text-[17px] text-gray-800 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-[10px] text-[14.5px] text-[#202124] px-[22px]">
+            <SidebarItem
+              icon={<BookmarkBorderIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />}
+              text="Saved"
+              onClick={() => {
+                setTopSidebar("saved");
+                setPlaceSidebar(null);
+                setMenuSidebar(false);
+              }}
+            />
+            <SidebarItem 
+              icon={<HistoryIcon style={{fontSize:"24px"}} className="rotate-45 text-gray-600 group-hover:text-gray-500" />} 
+              text="Recents"
+               onClick={() => {
+                setTopSidebar("recent");
+                setPlaceSidebar(null);
+                setMenuSidebar(false);
+              }} 
+            />
+            <SidebarItem icon={<EditLocationAltOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Your contributions" />
+            <SidebarItem icon={<ShareLocationOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Location sharing" />
+            <SidebarItem icon={<TimelineOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Your timeline" />
+            <SidebarItem icon={<ShieldOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Your data in Maps" />
+          </div>
+
+          <hr className="my-[12px]" />
+
+          <div className="space-y-[10px] text-[14.5px] text-[#202124] px-[22px]">
+            <SidebarItem icon={<LinkOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Share or embed map" />
+            <SidebarItem icon={<PrintOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Print" />
+            <SidebarItem text="Add your business" />
+            <SidebarItem text="Edit the map" />
+          </div>
+
+          <hr className="my-[12px]" />
+
+          <div className="space-y-[10px] text-[14.5px] px-[22px] text-[#202124]">
+            <SidebarItem text="Tips and tricks" />
+            <SidebarItem text="Get help" />
+            <SidebarItem text="Consumer information" />
+          </div>
+
+          <hr className="my-[12px]" />
+
+          <div className="space-y-[10px] text-[14.5px] text-[#202124] px-[22px]">
+            <SidebarItem text="Language" />
+            <SidebarItem text="Search settings" />
+            <SidebarItem text="Maps activity" />
+          </div>
+        </div>
+      </div>
+      
+      {/*Saved Sidebar*/}
+      <div
+        className={`fixed bg-white shadow-2xl z-30 transition-transform duration-300 flex flex-col
+          bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-full md:translate-y-0
+          ${topSidebar === "saved" ? "z-40" : "z-30"}
+          ${topSidebar === "saved" ? "translate-y-0" : "translate-y-full"}
+          ${topSidebar === 'saved' ? 'md:translate-x-0' : 'md:-translate-x-[410px]'}`}
+      >
+        {/*Search box for saved*/}
+        <div className="pt-3">
+          <div className="relative px-[18px]" ref={savedSidebarSearchBoxRef}>
+            <div 
+              className={`relative bg-white border w-full md:w-[375px] ${
+                showSidebarSuggestions ? "border-gray-200 rounded-t-xl" : "border-gray-300 rounded-full"
+              }`}
+            >
+              <div className={`flex items-center ${favoriteList ? "pl-[12px] pr-[16px] md:pl-[18px] md:pr-[20px]" : "pl-6 pr-5 md:pr-4"} py-[12px]`}>
+                              
+                {favoriteList && (
+                  <button
+                    onClick={() => setFavoriteList(null)}
+                    className="text-[#007B8A] mr-[18px] flex items-center justify-center "
+                  >
+                    <ArrowLeft style={{ fontSize: "20px" }} />
+                  </button>
+                )}
+
+                <input
+                  ref={inputRef}
+                  type="text"
+                  spellCheck={false}
+                  autoComplete="off" 
+                  autoCorrect="off" 
+                  autoCapitalize="off"
+                  placeholder="Search Google Maps"
+                  value={sidebarSearchValue}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setSidebarHighlightedIndex((prev) => {
+                          if (prev < sidebarCombinedList.length - 1) return prev + 1;
+                          return -1;
+                        });
+                      }
+                      return;
+                    }
+
+                    if (e.key === "ArrowUp") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setSidebarHighlightedIndex((prev) => {
+                          if (prev === -1) return sidebarCombinedList.length - 1;
+                          return prev - 1;
+                        });
+                      }
+                      return;
+                    }
+
+                    if (e.key === "Enter") {
+                      const selectedItem = sidebarCombinedList[sidebarHighlightedIndex];
+
+                      if (selectedItem) {
+                        if (selectedItem.type === "recent") {
+                          const autocompleteService = new google.maps.places.AutocompleteService();
+                          autocompleteService.getPlacePredictions(
+                            {
+                              input: selectedItem.data.title,
+                              componentRestrictions: { country: "in" },
+                            },
+                            (predictions, status) => {
+                              if (
+                                status === google.maps.places.PlacesServiceStatus.OK &&
+                                predictions?.[0]
+                              ) {
+                                handleSidebarSelectSuggestion(predictions[0].place_id, () => {
+                                  setPlaceSidebar("full");
+                                });
+                              }
+                            }
+                          );
+                        } else if (selectedItem.type === "suggestion") {
+                          handleSidebarSelectSuggestion(selectedItem.data.place_id, () => {
+                            setPlaceSidebar("full");
+                          });
+                        } else if (selectedItem.type === "home") {
+                          alert("Set Home clicked");
+                        } else if (selectedItem.type === "more") {
+                          setRecentSidebar(true);
+                        }
+                        setShowSidebarSuggestions(false);
+                      } 
+                      else if (sidebarSearchValue.trim()) {
+                        const query = sidebarSearchValue.trim();
+
+                        if (!searchOrigin || searchOrigin !== "sidebar") {
+                          setSearchOrigin("sidebar");
+                        }
+
+                        const placesService = new google.maps.places.PlacesService(
+                          mapInstanceRef.current!
+                        );
+
+                        placesService.textSearch(
+                          { query, region: "in" },
+                          (results, status) => {
+                            console.log("Places API textSearch results:", results);
+                            if (
+                              status === google.maps.places.PlacesServiceStatus.OK &&
+                              results &&
+                              results.length > 0
+                            ) {
+                              if (results.length === 1 && query.length > 3) {
+                                handleSidebarSelectSuggestion(results[0].place_id!, () => setPlaceSidebar("full"));
+                              } else {
+                                setPlaceSidebar("half");
+                                //fetchDetailedPlaces(results).then(setRelatedPlaces);
+                              }
+                            } else {
+                              setPlaceSidebar("half");
+                              setRelatedPlaces([]);
+                            }
+                          });
+                        setShowSidebarSuggestions(false);
+                      }
+                    }
+                  }}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSidebarSearchValue(value);
+                    setShowSidebarSuggestions(true);
+
+                    if (!value.trim()) {
+                      setSidebarSuggestions([]);
+                      return;
+                    }
+
+                    const autocompleteService = new google.maps.places.AutocompleteService();
+                    autocompleteService.getPlacePredictions(
+                      {
+                        input: value,
+                        componentRestrictions: { country: "in" },
+                      },
+                      (predictions, status) => {
+                        if (
+                          status === google.maps.places.PlacesServiceStatus.OK &&
+                          predictions
+                        ) {
+                          setSidebarSuggestions(predictions.slice(0, 5));
+                        } else {
+                          setSidebarSuggestions([]);
+                        }
+                      }
+                    );
+                  }}
+                  onFocus={() => setShowSidebarSuggestions(true)}
+                
+                  className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+                />
+                <div 
+                  className="relative group"
+                  onClick={() => {
+                    setShowSidebarSuggestions(true);  
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+
+                  <div 
+                    className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
+                    rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
+                  >
+                    Search
+                  </div>
+                </div>
+
+                <div className="mr-[30px]" />
+
+                <div className="relative group">
+                  <div
+                    className="w-[20px] h-[20px] bg-tranparent rounded-full flex items-center justify-center cursor-pointer"
+                    onClick={() => {
+                      setSidebarSearchValue("");
+                      setSidebarSuggestions([]);
+                      setIsLocationSelected(false);
+                      setShowSidebarSuggestions(false);
+                      setTopSidebar(null);
+                      if (sidebarMarkerRef.current) {
+                        sidebarMarkerRef.current.setMap(null);
+                        sidebarMarkerRef.current = null;
+                      }
+                    }}
+                  >
+                    <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
+                  </div>
+                  <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
+                    Close
+                  </div>
+                </div>
+              </div>
+            </div>
+            {showSidebarSuggestions && (
+              <div ref={savedSidebarSuggestionBoxRef} className="absolute top-full left-[18px] w-[calc(100%-36px)] md:w-[375px] z-40">
+                <div className="bg-white shadow-lg rounded-b-xl py-[7px]">
+                  {sidebarCombinedList.length > 0 && (
+                  <>
+                  <div className="flex flex-col space-y-[0px]">
+                    {sidebarCombinedList.map((item, index) => {
+                      const isHighlighted = sidebarHighlightedIndex === index;
+                      const baseClass = `hover:bg-gray-100 cursor-pointer px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
+                        isHighlighted ? "bg-gray-100" : ""
+                      }`;
+
+                      const isInputEmpty = sidebarSearchValue.trim() === "";
+
+                      if (item.type === "recent") {
+                        const place = item.data as RecentPlace;
+                        return (
+                          <div
+                            key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                            className={`px-[20px] ${baseClass} group`}
+                            onMouseDown={() => {
+                              setSidebarSearchValue(place.title);
+                              setShowSidebarSuggestions(true);
+
+                              const autocompleteService = new google.maps.places.AutocompleteService();
+                              autocompleteService.getPlacePredictions(
+                                {
+                                  input: place.title,
+                                  componentRestrictions: { country: "in" },
+                                },
+                                (predictions, status) => {
+                                  if (
+                                    status === google.maps.places.PlacesServiceStatus.OK &&
+                                    predictions &&
+                                    predictions.length > 0
+                                  ) {
+                                    handleSidebarSelectSuggestion(predictions[0].place_id);
+                                  }
+                                }
+                              );
+                            }}
+                          >
+                            <div className="flex items-center justify-between w-full group">
+                              <div className={`flex items-center ${isInputEmpty ? "gap-[10px]" : "gap-[13px]"} overflow-hidden`}>
+                                {isInputEmpty ? (
+                                  <div className="w-10 h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
+                                    <AccessTimeIcon className="text-black w-6 h-6" />
+                                  </div>
+                                ) : (
+                                  <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                    <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
+                                  </div>
+                                )}
+
+                                {isInputEmpty ? (
+                                  <div className="flex flex-col max-w-[220px]">
+                                    <span className="font-medium text-[14.5px] text-black truncate">
+                                      {place.title}
+                                    </span>
+                                    {place.subtitle && (
+                                      <span className="text-gray-600 text-[14px] truncate">
+                                        {place.subtitle}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-[14.5px] text-black font-medium truncate">
+                                    {place.title}
+                                    {place.subtitle && (
+                                      <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {isInputEmpty && (
+                                <button
+                                  tabIndex={-1}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRecentPlaces((prev) => {
+                                      const updated = prev.filter(
+                                        (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                      );
+                                      localStorage.setItem("recent_places", JSON.stringify(updated));
+                                      return updated;
+                                    });
+                                  }}
+                                  className="opacity-0 text-black group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+
+                          </div>
+                        );
+                      }
+
+                      if (item.type === "suggestion") {
+                        const suggestion = item.data as google.maps.places.AutocompletePrediction;
+                        return (
+                          <div
+                            key={suggestion.place_id}
+                            className={baseClass}
+                            onMouseDown={() => handleSidebarSelectSuggestion(suggestion.place_id)}
+                          >
+                            <div className="flex items-center gap-[10px] overflow-hidden">
+                              <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                <LocationOnIcon className="text-[#007B8A]" style={{fontSize:"21px"}} />
+                              </div>
+                              <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
+                                {suggestion.description}
+                              </span>
+                            </div>
+                          </div>  
+                        );
+                      }
+
+                      if (item.type === "home") {
+                        return (
+                          <div
+                            key="home"
+                            className={ `px-[20px] ${baseClass}`}
+                            onMouseDown={() => alert("Set Home location logic")}
+                          >
+                            <div className="flex items-center gap-[10px]">
+                              <div className="w-10 h-10 bg-[#CCF3F9] rounded-full flex items-center justify-center">
+                                <HomeIcon className="text-black" />
+                              </div>
+                              <span className="font-medium tracking-wide text-[14.5px] text-black">Home</span>
+                            </div>
+                            <span className="text-[14.5px] text-[#007B8A] font-medium whitespace-nowrap">
+                              Set location
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      if (item.type === "more") {
+                        return (
+                          <div
+                            key="more"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setRecentSidebar(true);
+                              setTopSidebar("recent");
+                              setShowSidebarSuggestions(false);
+                            }}
+                            className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
+                              sidebarHighlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
+                            }`}
+                          >
+                            <span className="text-[14.5px] tracking-wide font-medium">
+                              More from recent history
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                  </>
+                )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!favoriteList ? (
+          <>
+            {/*Four Tabs*/}
+            <div className="flex items-center border-b border-[#e0e0e0] shadow-[0px_1px_2px_rgba(0,0,0,0.2)] pt-[11px] justify-evenly px-0 md:px-[18px] md:gap-[32px]">
+              {["lists", "labeled", "visited", "maps"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`capitalize text-[14.5px] font-medium tracking-wide cursor-pointer 
+                    hover:bg-[#f2f2f2] pt-[14px] px-[14px] pb-[11px] hover:text-black text-gray-600
+                  `}
+                >
+                  <span
+                    className={`pb-[12px] border-b-[3px] ${
+                      activeTab === tab ? "text-gray-600 border-[#007B8A]" : "text-gray-800 border-transparent"
+                    }`}
+                  >
+                    {tab}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/*Tab content*/}
+            <div>
+              {activeTab === "lists" && (
+                <div className="space-y-[6px] leading-snug">
+                  <div className="bg-[#D9F7FF] hover:bg-[#CDEFF5] mx-auto md:ml-[26px] w-[90%] md:w-[360px] mt-4 text-gray-700 text-[14.5px] py-[9px] rounded-full font-medium cursor-pointer flex items-center justify-center gap-[12px]">
+                    <span className="text-[22px] leading-none">+</span>
+                    <span className="tracking-wide">New list</span>
+                  </div>
+                  {[
+                    { icon: <FavoriteBorderIcon className="text-[20px] text-red-600" />, title: "Favorites",  subtitle: `Private · ${favoritePlaceList.length} places`, },
+                    { icon: <OutlinedFlagIcon className="text-[20px] text-red-600" />, title: "Want to go", subtitle: "Private · 0 places" },
+                    { icon: <StarOutlineIcon className="text-[20px] text-red-600" />, title: "Starred places", subtitle: "Private" },
+                    { icon: <LuggageIcon className="text-[20px] text-cyan-700" />, title: "Travel plans", subtitle: "Private · 0 places" },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center py-2 px-[26px] hover:bg-gray-100 cursor-pointer"
+                      onClick={() => item.title === "Favorites" && setFavoriteList("favorites")}
+                    >
+                      <div className="flex items-center gap-6">
+                        <span className="text-xl">{item.icon}</span>
+                        <div>
+                          <div className="font-medium text-[15.5px] tracking-wide text-black">{item.title}</div>
+                          <div className="text-[14px] text-gray-600">{item.subtitle}</div>
+                        </div>
+                      </div>
+                      <MoreVertIcon className="text-gray-700" style={{fontSize:"20px"}} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "labeled" && (
+                <div className="space-y-[0px]">
+                  {[
+                    {
+                      icon: <HomeOutlinedIcon className="text-cyan-700" style={{fontSize:"24px"}} />,
+                      title: "Home",
+                      subtitle: "Set your home address",
+                    },
+                    {
+                      icon: <WorkOutlineIcon className="text-cyan-700" style={{fontSize:"24px"}}/>,
+                      title: "Work",
+                      subtitle: "Set your work address",
+                    },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center py-[12px] px-[26px] hover:bg-gray-100 cursor-pointer leading-snug"
+                    >
+                      <div className="flex items-center gap-[24px]">
+                        <div>{item.icon}</div>
+                        <div>
+                          <div className="text-[15.5px] font-medium text-gray-800">
+                            {item.title}
+                          </div>
+                          <div className="text-[14px] text-gray-600">{item.subtitle}</div>
+                        </div>
+                      </div>
+                      <MoreVertIcon className="text-gray-700" style={{ fontSize: "20px" }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === "visited" && (
+                <div className="px-[14px] mt-6">
+                  <div className="text-[14px] text-gray-800 font-medium tracking-wide mb-[10px] ml-4">
+                    Places from your Timeline
+                  </div>
+                  <div
+                    className="flex items-center gap-[10px] text-[#007B83] text-[14.5px] font-medium px-[12px] py-[10px] rounded-full cursor-pointer hover:bg-gray-100 w-fit"
+                  >
+                    <LaunchIcon style={{ fontSize: "18px" }} />
+                    <span className="font-medium">Open Timeline</span>
+                  </div>
+                </div>
+              )}
+                
+              {activeTab === "maps" && (
+                <div className="px-[14px] mt-6">
+                  <div className="text-[14px] text-gray-800 font-medium tracking-wide mb-[10px] ml-4">
+                    Create and manage maps in My Maps
+                  </div>
+                  <div
+                    className="flex items-center gap-[10px] text-[#007B83] text-[14.5px] font-medium px-[12px] py-[10px] rounded-full cursor-pointer hover:bg-gray-100 w-fit"
+                  >
+                    <LaunchIcon style={{ fontSize: "18px" }} />
+                    <span className="font-medium">Open My Maps</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col h-full">
+            <div className="flex flex-col items-start px-[26px] pt-[18px] pb-[16px] border-b justify-start border-gray-200">
+              <h2 className="text-[20px] font-sans font-normal text-black">Favorites</h2>
+              <div className="flex items-center text-gray-500 text-[14px] tracking-wide mt-[10px]">
+                  <LockIcon style={{ fontSize: "14px" }} className="mr-[3px]"/> 
+                  Private · {favoritePlaceList.length} places
+              </div>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-[14px] py-[14px]">
+              {favoritePlaceList.length === 0 ? (
+                <div className="px-[12px] py-[22px]">
+                  <span className="flex text-[18px] text-black font-sans font-medium tracking-wide text-center justify-center">
+                    List is empty
+                  </span>
+                </div>
+              ) : (
+                favoritePlaceList.map((place, index) => {
+                  const isFavorite = place.isFavorite ?? true;
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => handleRecentPlaceClickResponsive(place)}
+                      className={`w-full mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group ${
+                        recentSelectedPlace?.title === place.title
+                          ? "bg-gray-200"
+                          : "group hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between py-[10px]">
+                        <div className="flex items-start gap-[16px]">
+                          <div className="relative w-[64px] h-[64px]">
+                            {/*
+                            <img
+                              src={place.imageUrl || "/fallback.jpg"}
+                              alt={place.title}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "/fallback.jpg";
+                              }}
+                              className="w-full h-full rounded-[10px] object-cover"
+                            />
+                            */}
+                            <button
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setFavoritePlaceList((prevFavs) => {
+                                  const updatedFavs = prevFavs.filter((p) => p.title !== place.title);
+                                  localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                                  return updatedFavs;
+                                });
+
+                                setRecentPlaces((prev) => {
+                                  const updated = prev.map((p) =>
+                                    p.title === place.title ? { ...p, isFavorite: false } : p
+                                  );
+                                  localStorage.setItem("recent_places", JSON.stringify(updated));
+                                  return updated;
+                                });
+
+                                setRecentSelectedPlace((prev) =>
+                                  prev && prev.title === place.title ? { ...prev, isFavorite: false } : prev
+                                );
+                              }}
+                              className={`absolute -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white hover:bg-[#f2f2f2] shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
+                                transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          <div className="flex flex-col gap-[8px] max-w-[245px] leading-none">
+                            <span className="font-medium text-[16.5px] text-black truncate">
+                              {place.title}
+                            </span>
+
+                            {place.rating ? (
+                              <>
+                                <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
+                                  <span>{place.rating}</span>
+                                  <StarRating rating={place.rating} />
+                                  {place.userRatingsTotal && (
+                                    <span className="text-gray-500">
+                                      ({place.userRatingsTotal.toLocaleString()})
+                                    </span>
+                                  )}
+                                  {place.priceText && (
+                                    <>
+                                      <span>·</span>
+                                      <span>{place.priceText}</span>
+                                    </>
+                                  )}
+                                </span>
+
+                                {place.category && (
+                                  <span className="text-gray-600 text-[14px] truncate">
+                                    {place.category}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              place.subtitle && (
+                                <span className="text-gray-600 text-[14.5px] truncate">
+                                  {place.subtitle !== place.title
+                                    ? `${place.title}, ${place.subtitle}`
+                                    : place.subtitle}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/*Recents Sidebar*/}
+      <div
+        className={`fixed bg-white shadow-2xl z-30 transition-transform duration-300 flex flex-col
+          bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-full md:translate-y-0
+          ${topSidebar === "recent" ? "z-40" : "z-30"}
+          ${topSidebar === "recent" ? "translate-y-0" : "translate-y-full"}
+          ${topSidebar === 'recent' ? 'md:translate-x-0' : 'md:-translate-x-[410px]'}`}
+      >
+        {/*Search box for recent*/}
+        {/*Top Part*/}
+        <div className="pt-3 pb-[14px] border-b border-gray-300">
+          <div className="relative px-[18px]" ref={recentSidebarSearchBoxRef}>
+            <div 
+              className={`relative bg-white border w-full md:w-[375px] ${
+                showSidebarSuggestions ? "border-gray-200 rounded-t-xl" : "border-gray-300 rounded-full"
+              }`}
+            >
+              <div className="flex items-center pl-6 pr-5 md:pr-4 py-[12px]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  spellCheck={false}
+                  autoComplete="off" 
+                  autoCorrect="off" 
+                  autoCapitalize="off"
+                  placeholder="Search Google Maps"
+                  value={sidebarSearchValue}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setSidebarHighlightedIndex((prev) => {
+                          if (prev < sidebarCombinedList.length - 1) return prev + 1;
+                          return -1;
+                        });
+                      }
+                      return;
+                    }
+
+                    if (e.key === "ArrowUp") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setSidebarHighlightedIndex((prev) => {
+                          if (prev === -1) return sidebarCombinedList.length - 1;
+                          return prev - 1;
+                        });
+                      }
+                      return;
+                    }
+
+                    if (e.key === "Enter") {
+                      const selectedItem = sidebarCombinedList[sidebarHighlightedIndex];
+
+                      if (selectedItem) {
+                        if (selectedItem.type === "recent") {
+                          const autocompleteService = new google.maps.places.AutocompleteService();
+                          autocompleteService.getPlacePredictions(
+                            {
+                              input: selectedItem.data.title,
+                              componentRestrictions: { country: "in" },
+                            },
+                            (predictions, status) => {
+                              if (
+                                status === google.maps.places.PlacesServiceStatus.OK &&
+                                predictions?.[0]
+                              ) {
+                                handleSidebarSelectSuggestion(predictions[0].place_id, () => {
+                                  setPlaceSidebar("full");
+                                });
+                              }
+                            }
+                          );
+                        } else if (selectedItem.type === "suggestion") {
+                          handleSidebarSelectSuggestion(selectedItem.data.place_id, () => {
+                            setPlaceSidebar("full");
+                          });
+                        } else if (selectedItem.type === "home") {
+                          alert("Set Home clicked");
+                        } else if (selectedItem.type === "more") {
+                          setRecentSidebar(true);
+                        }
+                        setShowSidebarSuggestions(false);
+                      } 
+                      else if (sidebarSearchValue.trim()) {
+                        const query = sidebarSearchValue.trim();
+                    
+                        if (!searchOrigin || searchOrigin !== "sidebar") {
+                          setSearchOrigin("sidebar");
+                        }
+
+                        const placesService = new google.maps.places.PlacesService(
+                          mapInstanceRef.current!
+                        );
+
+                        placesService.textSearch(
+                          { query, region: "in" },
+                          (results, status) => {
+                            console.log("Places API textSearch results:", results);
+                            if (
+                              status === google.maps.places.PlacesServiceStatus.OK &&
+                              results &&
+                              results.length > 0
+                            ) {
+                              if (results.length === 1 && query.length > 3) {
+                                handleSidebarSelectSuggestion(results[0].place_id!, () => setPlaceSidebar("full"));
+                              } else {
+                                setPlaceSidebar("half");
+                                //fetchDetailedPlaces(results).then(setRelatedPlaces);
+                              }
+                            } else {
+                              setPlaceSidebar("half");
+                              setRelatedPlaces([]);
+                            }
+                          });
+                        setShowSidebarSuggestions(false);
+                      }
+                    }
+                  }}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSidebarSearchValue(value);
+                    setShowSidebarSuggestions(true);
+
+                    if (!value.trim()) {
+                      setSidebarSuggestions([]);
+                      return;
+                    }
+
+                    const autocompleteService = new google.maps.places.AutocompleteService();
+                    autocompleteService.getPlacePredictions(
+                      {
+                        input: value,
+                        componentRestrictions: { country: "in" },
+                      },
+                      (predictions, status) => {
+                        if (
+                          status === google.maps.places.PlacesServiceStatus.OK &&
+                          predictions
+                        ) {
+                          setSidebarSuggestions(predictions.slice(0, 5));
+                        } else {
+                          setSidebarSuggestions([]);
+                        }
+                      }
+                    );
+                  }}
+                  onFocus={() => setShowSidebarSuggestions(true)}
+                
+                  className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+                />
+                <div 
+                  className="relative group"
+                  onClick={() => {
+                    setShowSidebarSuggestions(true);  
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+
+                  <div 
+                    className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
+                    rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
+                  >
+                    Search
+                  </div>
+                </div>
+
+                <div className="mr-[30px]" />
+                
+                <div className="relative group">
+                      <div
+                        className="w-[20px] h-[20px] bg-tranparent rounded-full flex items-center justify-center cursor-pointer"
+                        onClick={() => {
+                          setSidebarSearchValue("");
+                          setSidebarSuggestions([]);
+                          setIsLocationSelected(false);
+                          setShowSidebarSuggestions(false);
+                          setShowRecentDetailsSidebar(false);
+                          setRecentSelectedPlace(null);
+                          setTopSidebar(null);
+                          if (sidebarMarkerRef.current) {
+                            sidebarMarkerRef.current.setMap(null);
+                            sidebarMarkerRef.current = null;
+                          }
+                        }}
+                      >
+                        <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
+                      </div>
+                      <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
+                        Close
+                      </div>
+                </div>
+              </div>
+            </div>
+            {showSidebarSuggestions && (
+              <div ref={recentSidebarSuggestionBoxRef} className="absolute top-full left-[18px] w-[calc(100%-36px)] md:w-[375px] z-40">
+                <div className="bg-white shadow-lg rounded-b-xl py-[7px]">
+                  {sidebarCombinedList.length > 0 && (
+                  <>
+                  <div className="flex flex-col space-y-[0px]">
+                    {sidebarCombinedList.map((item, index) => {
+                      const isHighlighted = sidebarHighlightedIndex === index;
+                      const baseClass = `hover:bg-gray-100 cursor-pointer px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
+                        isHighlighted ? "bg-gray-100" : ""
+                      }`;
+
+                      const isInputEmpty = sidebarSearchValue.trim() === "";
+
+                      if (item.type === "recent") {
+                        const place = item.data as RecentPlace;
+                        return (
+                          <div
+                            key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                            className={`px-[20px] ${baseClass} group`}
+                            onMouseDown={() => {
+                              setSidebarSearchValue(place.title);
+                              setShowSidebarSuggestions(true);
+
+                              const autocompleteService = new google.maps.places.AutocompleteService();
+                              autocompleteService.getPlacePredictions(
+                                {
+                                  input: place.title,
+                                  componentRestrictions: { country: "in" },
+                                },
+                                (predictions, status) => {
+                                  if (
+                                    status === google.maps.places.PlacesServiceStatus.OK &&
+                                    predictions &&
+                                    predictions.length > 0
+                                  ) {
+                                    handleSidebarSelectSuggestion(predictions[0].place_id);
+                                  }
+                                }
+                              );
+                            }}
+                          >
+                            <div className="flex items-center justify-between w-full group">
+                              <div className={`flex items-center ${isInputEmpty ? "gap-[10px]" : "gap-[13px]"} overflow-hidden`}>
+                                {isInputEmpty ? (
+                                  <div className="w-10 h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
+                                    <AccessTimeIcon className="text-black w-6 h-6" />
+                                  </div>
+                                ) : (
+                                  <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                    <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
+                                  </div>
+                                )}
+
+                                {isInputEmpty ? (
+                                  <div className="flex flex-col max-w-[220px]">
+                                    <span className="font-medium text-[14.5px] text-black truncate">
+                                      {place.title}
+                                    </span>
+                                    {place.subtitle && (
+                                      <span className="text-gray-600 text-[14px] truncate">
+                                        {place.subtitle}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-[14.5px] text-black font-medium truncate">
+                                    {place.title}
+                                    {place.subtitle && (
+                                      <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {isInputEmpty && (
+                                <button
+                                  tabIndex={-1}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRecentPlaces((prev) => {
+                                      const updated = prev.filter(
+                                        (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                      );
+                                      localStorage.setItem("recent_places", JSON.stringify(updated));
+                                      return updated;
+                                    });
+                                  }}
+                                  className="opacity-0 text-black group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+
+                          </div>
+                        );
+                      }
+
+                      if (item.type === "suggestion") {
+                        const suggestion = item.data as google.maps.places.AutocompletePrediction;
+                        return (
+                          <div
+                            key={suggestion.place_id}
+                            className={baseClass}
+                            onMouseDown={() => handleSidebarSelectSuggestion(suggestion.place_id)}
+                          >
+                            <div className="flex items-center gap-[10px] overflow-hidden">
+                              <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                <LocationOnIcon className="text-[#007B8A]" style={{fontSize:"21px"}} />
+                              </div>
+                              <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
+                                {suggestion.description}
+                              </span>
+                            </div>
+                          </div>  
+                        );
+                      }
+
+                      if (item.type === "home") {
+                        return (
+                          <div
+                            key="home"
+                            className={ `px-[20px] ${baseClass}`}
+                            onMouseDown={() => alert("Set Home location logic")}
+                          >
+                            <div className="flex items-center gap-[10px]">
+                              <div className="w-10 h-10 bg-[#CCF3F9] rounded-full flex items-center justify-center">
+                                <HomeIcon className="text-black" />
+                              </div>
+                              <span className="font-medium tracking-wide text-[14.5px] text-black">Home</span>
+                            </div>
+                            <span className="text-[14.5px] text-[#007B8A] font-medium whitespace-nowrap">
+                              Set location
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      if (item.type === "more") {
+                        return (
+                          <div
+                            key="more"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setRecentSidebar(true);
+                              setShowSidebarSuggestions(false);
+                            }}
+                            className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
+                              sidebarHighlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
+                            }`}
+                          >
+                            <span className="text-[14.5px] tracking-wide font-medium">
+                              More from recent history
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })}
+                  </div>
+                  </>
+                )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/*Grouping Part*/}
+          <div className="mt-[17px] flex flex-col gap-[14px] relative ml-[26px] mr-[24px]">
+            <span className="text-[19.5px] font-medium text-black">Recents</span>
+            
+            {groupTags.length > 0 && (
+              <div className="flex gap-2 flex-wrap items-center mb-[8px]">
+                <>
+                  <span
+                    onClick={() => setSelectedTags([])}
+                    className={`text-[14px] rounded-[10px] tracking-wider py-[6px] gap-[3px] cursor-pointer flex items-center ${
+                      selectedTags.length === 0
+                        ? "pl-[6px] pr-[12px] bg-gray-300 text-black"
+                        : "px-[12px] bg-gray-200 text-black"
+                    }`}
+                  >
+                    {selectedTags.length === 0 && <CheckIcon style={{ fontSize: "16px" }} />} All
+                  </span>
+
+                  {groupTags.map((tag, i) => {
+                    const isSelected = selectedTags.includes(tag.name);
+                    return (
+                      <span
+                        key={i}
+                        onClick={() =>
+                          setSelectedTags((prev) =>
+                            isSelected
+                              ? prev.filter((t) => t !== tag.name)
+                              : [...prev, tag.name]
+                          )
+                        }
+                        className={`text-[14px] rounded-[10px] pl-[10px] pr-[14px] py-[6px] cursor-pointer flex items-center gap-[6px] ${
+                          isSelected
+                            ? "bg-gray-300 text-black"
+                            : "bg-gray-200 text-black"
+                        }`}
+                      >
+                        {isSelected ? (<CheckIcon style={{ fontSize: "16px" }} />) : (<LocationOnIcon style={{fontSize:"16px"}} />)}
+                        {tag.name} {tag.count}
+                      </span>
+                    );
+                  })}
+                </>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Places */} {/*Middle Part*/}
+        <div className="overflow-y-auto flex-1 px-[14px]">
+          <div className="px-[12px] pt-[21px] pb-[14px]">
+            <span className="text-[17px] font-medium tracking-wide text-black">
+              Last 3 days ({filteredPlaces.length})
+            </span>
+          </div>
+
+          {filteredPlaces.map((place, index) => {
+            const isSelected = selectedPlaceTitles.includes(place.title);
+            const isFavorite = recentPlaces.find((p) => p.title === place.title)?.isFavorite ??favoritePlaceList.some((p) => p.title === place.title);
+
+            return (
+              <div
+                key={index}
+                /*onClick={() => handleDetailsRecentPlaceClick(place)} */
+                onClick={() => handleRecentPlaceClickResponsive(place)} 
+                className={`w-full bg-white mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group ${
+                  recentSelectedPlace?.title === place.title ? "bg-gray-200" : "group hover:bg-gray-100"
+                }`}
+              >
+                <div className="flex items-center justify-between py-[10px]">
+                  <div className="flex items-start gap-[14px]">
+                    <div className="relative w-[64px] h-[64px]">
+                      {/*
+                      <img
+                        src={place.imageUrl || "/fallback.jpg"}
+                        alt={place.title}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/fallback.jpg";
+                        }}
+                        className="w-full h-full rounded-[10px] object-cover"
+                      />
+                      */}
+                      
+                      <button
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setRecentPlaces((prev) => {
+                            const updated = prev.filter((_, i) => i !== index);
+                            localStorage.setItem("recent_places", JSON.stringify(updated));
+                            return updated;
+                          });
+                          setSelectedPlaceTitles((prevSelected) =>
+                            prevSelected.filter((title) => title !== place.title)
+                          );
+                        }}
+                        className={`absolute cursor-pointer -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white hover:bg-[#f2f2f2] shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
+                          transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-[8px] responsive-width leading-none">
+                      <span className="font-medium text-[16.5px] text-black truncate">
+                        {place.title}
+                      </span>
+
+                      {place.rating ? (
+                        <>
+                          <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
+                            <span>{place.rating}</span>
+                            <StarRating rating={place.rating} />
+                            {place.userRatingsTotal && (
+                              <span className="text-gray-500">
+                                ({place.userRatingsTotal.toLocaleString()})
+                              </span>
+                            )}
+                            {place.priceText && (
+                              <>
+                                <span className="hidden md:inline">·</span>
+                                <span className="hidden md:inline">{place.priceText}</span>
+                              </>
+                            )}
+                          </span>
+
+                          {place.category && (
+                            <span className="text-gray-600 text-[14px] truncate">
+                              {place.category}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        place.subtitle && (
+                          <span className="text-gray-600 text-[14.5px] truncate">
+                            {place.subtitle !== place.title
+                              ? `${place.title}, ${place.subtitle}`
+                              : place.subtitle}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-start gap-[14px] pr-[4px]">
+                    <div className="relative group/fav">
+                      <button
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+
+                          const newFavoriteStatus = !isFavorite;
+
+                          setRecentPlaces((prev) => {
+                            const updated = prev.map((p, i) =>
+                              i === index ? { ...p, isFavorite: newFavoriteStatus } : p
+                            );
+                            localStorage.setItem("recent_places", JSON.stringify(updated));
+                            return updated;
+                          });
+                          
+                          setFavoritePlaceList((prevFavs) => {
+                            let updatedFavs;
+                            if (!newFavoriteStatus) {
+                              updatedFavs = prevFavs.filter((p) => p.title !== place.title);
+                            } else {
+                              updatedFavs = [{ ...place, isFavorite: true }, ...prevFavs];
+                            }
+                            localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                            return updatedFavs;
+                          });
+                          
+                          setRecentSelectedPlace((prev) =>
+                            prev && prev.title === place.title
+                              ? { ...prev, isFavorite: newFavoriteStatus }
+                              : prev
+                          );
+
+                          setFullSidebarSelectedPlace((prev) =>
+                            prev && prev.title === place.title ? { ...prev, isFavorite: newFavoriteStatus } : prev
+                          );
+                        }}
+                        className="cursor-pointer rounded-full transition"
+                      >
+                        {isFavorite ? (
+                          <FavoriteIcon className="text-red-500" style={{ fontSize: "22px" }} />
+                        ) : (
+                          <FavoriteBorderIcon className="text-black" style={{ fontSize: "22px" }} />
+                        )}
+                      </button>
+
+                      <span className="absolute left-[-25px] top-[35px] -translate-y-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover/fav:opacity-100 whitespace-nowrap transition z-50">
+                        {isFavorite ? "Remove" : "Favorite"}
+                      </span>
+                    </div>
+
+                    <div className="relative group/dl">
+                      <button 
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open("https://play.google.com/store/games?device=windows", "_blank");
+                        }}
+                        className="cursor-pointer  rounded-full transition"
+                      >
+                        <HiDownload className="text-black" style={{ fontSize: "22px" }} />
+                      </button>
+                      <span className="absolute left-[-25px] top-[35px] -translate-y-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover/dl:opacity-100 whitespace-nowrap transition">
+                        Download
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Details Sidebar */}
+      <div
+        className={`fixed top-[52%] -translate-y-1/2 left-[0px] md:left-[500px] h-[90%] bg-white shadow-2xl z-30 transition-transform duration-300 w-[360px] rounded-[20px] flex flex-col ${
+          showRecentDetailsSidebar ? "translate-x-0" : "-translate-x-[790px]"
+        }`}
+      >
+        <div ref={stickyScrollRef} className="overflow-y-auto h-full rounded-[20px] relative">
+
+          {detailsActiveTab === "overview" && showStickyHeader && (
+            <div className="sticky top-0 left-0 w-full h-[58px] bg-white rounded-t-[20px] z-20 flex items-center justify-between text-black transition-opacity duration-200  shadow-[0px_1px_2px_rgba(0,0,0,0.4)]">
+              <h2 className="font-medium text-[17.5px] truncate pointer-events-none tracking-wide pl-[18px]">
+                {recentSelectedPlace?.title}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowRecentDetailsSidebar(false);
+                  setRecentSelectedPlace(null);
+                }}
+                className="absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[18px] font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {detailsActiveTab === "overview" && (
+            <>
+              <div className="relative w-full h-64 bg-gray-200 rounded-t-[20px] overflow-hidden">
+                {/*
+                <img
+                  src={recentSelectedPlace?.imageUrl || "/fallback.jpg"}
+                  alt={recentSelectedPlace?.title || "Place"}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/fallback.jpg";
+                  }}
+                  className="w-full h-full object-cover rounded-t-[20px]"
+                />
+                */}
+
+                <button
+                  onClick={() => {
+                    setShowRecentDetailsSidebar(false);
+                    setRecentSelectedPlace(null);
+                  }}
+                  className="absolute top-[14px] right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full bg-white hover:bg-gray-200 shadow-md text-black text-[18px] font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="pt-[14px] px-[24px] flex flex-col gap-[2px] max-w-[360px]">
+                <span className="font-medium text-[21.5px] text-black truncate">
+                  {recentSelectedPlace?.title}
+                </span>
+
+                {recentSelectedPlace?.nativeName && (
+                  <span className="text-[14px] text-gray-600">
+                    {recentSelectedPlace?.nativeName}
+                  </span>
+                )}
+
+                {recentSelectedPlace?.rating ? (
+                  <>
+                    <span className="mt-[4px] text-[13.5px] text-gray-700 flex items-center gap-[4px]">
+                      <span>{recentSelectedPlace?.rating}</span>
+                      <StarRating rating={recentSelectedPlace?.rating} />
+                      {recentSelectedPlace?.userRatingsTotal && (
+                        <span className="text-gray-500">
+                          ({recentSelectedPlace?.userRatingsTotal.toLocaleString()})
+                        </span>
+                      )}
+                      {recentSelectedPlace?.priceText && (
+                        <>
+                          <span>·</span>
+                          <span>{recentSelectedPlace?.priceText}</span>
+                        </>
+                      )}
+                    </span>
+
+                    {recentSelectedPlace?.category && (
+                      <span className="text-gray-600 text-[14px] truncate">
+                        {recentSelectedPlace?.category}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  recentSelectedPlace?.subtitle && (
+                    <span className="text-gray-600 text-[14.5px] truncate pt-[2px]">
+                      {recentSelectedPlace.subtitle}
+                    </span>
+                  )
+                )}
+              </div>
+            </>
+          )}
+
+          {detailsActiveTab !== "overview" && (
+            <div className="sticky top-0 z-30 bg-white">
+              <div className="relative top-0 left-0 w-full pt-[18px] pb-[16px] bg-white rounded-t-[20px] z-20 flex items-center justify-between text-black transition-opacity duration-200">
+                 <button
+                  onClick={() => {
+                    setDetailsActiveTab("overview");
+                  }}
+                  className="absolute left-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black cursor-pointer"
+                >
+                  <ArrowLeft size={22} strokeWidth={2} />
+                </button>
+                <h2 className="font-medium text-[17.5px] truncate pointer-events-none tracking-wide mx-auto text-center max-w-[220px]">
+                  {recentSelectedPlace?.title}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowRecentDetailsSidebar(false);
+                    setRecentSelectedPlace(null);
+                  }}
+                  className="absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[18px] font-bold cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex justify-around border-b border-gray-400 bg-white">
+                {detailsTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className="relative py-[10px] text-[14px] tracking-wide font-medium text-gray-600 hover:text-black"
+                    onClick={() => setDetailsActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                    {detailsActiveTab === tab.id && (
+                      <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {detailsActiveTab === "overview" && (
+            <>
+              <div className="flex justify-around px-[4px] border-b border-gray-400 bg-white">
+                {detailsTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className="relative py-[10px] text-[14px] tracking-wide font-medium text-gray-600 hover:text-black mt-[6px]"
+                    onClick={() => setDetailsActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                    {detailsActiveTab === tab.id && (
+                      <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="pt-[14px] pb-[14px] text-[14.5px] text-gray-700">
+            {detailsActiveTab === "overview" && (
+              <>
+                <div className="flex justify-around px-[12px] pb-[12px] border-b border-gray-300 bg-white">
+                  <button 
+                    onClick={() => {
+                      setShowRecentDetailsSidebar(false);
+                      setTopSidebar(null);
+                      setShowSidebar(true);
+
+                      if (recentSelectedPlace) {
+                        setDestinationLocation(recentSelectedPlace.title);
+                        setDestinationCoords({
+                          lat: recentSelectedPlace.lat,
+                          lng: recentSelectedPlace.lng,
+                        });
+                      }
+                    }}
+                    className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
+                  >
+                    <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#007B8A] mb-[7px]">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        width="21px"
+                        height="21px"
+                        fill="white"
+                      >
+                        <path d="M17.17,11l-1.59,1.59L17,14l4-4l-4-4l-1.41,1.41L17.17,9L9,9c-1.1,0-2,0.9-2,2v9h2v-9L17.17,11z" />
+                      </svg>
+                    </div>
+                    Directions
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (!recentSelectedPlace) return;
+
+                      setFavoritePlaceList((prevFavs) => {
+                        let updatedFavs;
+                        let isNowFavorite;
+
+                        if (recentSelectedPlace.isFavorite) {
+                          updatedFavs = prevFavs.filter((p) => p.title !== recentSelectedPlace.title);
+                          isNowFavorite = false;
+                        } else {
+                          const alreadyExists = prevFavs.some((p) => p.title === recentSelectedPlace.title);
+                          updatedFavs = alreadyExists
+                            ? prevFavs
+                            : [{ ...recentSelectedPlace, isFavorite: true }, ...prevFavs];
+                          isNowFavorite = true;
+                        }
+
+                        localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+
+                        setRecentPlaces((prev) =>
+                          prev.map((p) =>
+                            p.title === recentSelectedPlace.title
+                              ? { ...p, isFavorite: isNowFavorite }
+                              : p
+                          )
+                        );
+
+                        setRecentSelectedPlace((prev) =>
+                          prev ? { ...prev, isFavorite: isNowFavorite } : prev
+                        );
+
+                        setFullSidebarSelectedPlace((prev) =>
+                          prev && prev.title === recentSelectedPlace.title
+                            ? { ...prev, isFavorite: isNowFavorite }
+                            : prev
+                        );
+
+                        return updatedFavs;
+                      });
+                    }}
+                    className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
+                  >
+                    <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
+                      {favoritePlaceList.some((p) => p.title === recentSelectedPlace?.title) ? (
+                        <FavoriteIcon style={{ fontSize: "22px" }} className="text-red-500" />
+                      ) : (
+                        <FavoriteBorderIcon style={{ fontSize: "22px" }} className="text-black text-medium" />
+                      )}
+                    </div>
+                    {favoritePlaceList.some((p) => p.title === recentSelectedPlace?.title) ? "Remove" : "Favorite"}
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open("https://play.google.com/store/games?device=windows", "_blank");
+                    }} 
+                    className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer">
+                    <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
+                      <HiDownload style={{fontSize:"22px"}} className="text-black" />
+                    </div>
+                    Download
+                  </button>
+                  
+                  <div className="relative group">
+                    <button 
+                      onClick={handleLocationShare}
+                      className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
+                    >
+                      <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
+                        <Share2 size={18} className="text-black" />
+                      </div>
+                      Share
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => {
+                    setDetailsActiveTab("about");
+                  }}
+                  className="flex items-center justify-between px-[22px] py-[18px] border-b border-gray-300 bg-white hover:bg-gray-100 cursor-pointer"
+                >
+                  <div className="flex items-center text-[14px] tracking-wide text-gray-800 flex-wrap">
+                    <CheckIcon style={{ fontSize: "19px" }} className="text-green-600" />
+                    <span className="ml-[3px]">Dine-in</span>
+                    <span className="mx-[6px]">·</span>
+
+                    <CheckIcon style={{ fontSize: "19px" }} className="text-green-600" />
+                    <span className="ml-[3px]">Takeaway</span>
+                    <span className="mx-[6px]">·</span>
+
+                    <CheckIcon style={{ fontSize: "19px" }} className="text-green-600" />
+                    <span className="ml-[3px]">Delivery</span>
+                  </div>
+
+                  <ChevronRightIcon className="text-gray-600" />
+                </div>
+
+                <div className="pt-[14px] pb-[16px] border-b border-gray-300 bg-white">
+                  <div className="group relative w-full flex items-start pl-[24px] pr-[16px] py-2 hover:bg-gray-100 cursor-pointer">
+                    <LocationOnIcon className="text-[#007B8A] mr-[24px] mt-[2px]" />
+
+                    <p className="flex-1 text-[14px] text-gray-800 leading-snug tracking-wide">
+                      {recentSelectedPlace?.fullAddress || "Address not available"}
+                    </p>
+
+                    <button
+                      onClick={handleAddressCopy}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity ml-[6px] cursor-pointer"
+                    >
+                      <ContentCopyIcon style={{fontSize:"18px"}} className="text-gray-600" />
+
+                      <span className="absolute left-0 top-[36px] bg-black text-white text-[12px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition tracking-wide">
+                        Copy address
+                      </span>
+                    </button>
+
+                    {addressCopied && (
+                      <span className="absolute right-0 -top-[22px] bg-black text-white text-[12px] px-[6px] py-[4px] tracking-wide rounded">
+                        Copied to clipboard
+                      </span>
+                    )}
+                  </div>
+
+                  <button className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 rounded-none">
+                    <PaymentsIcon className="text-[#007B8A] mr-[24px]" />
+                    <div className="flex flex-col">
+                      <p className="text-[14px] text-gray-800 tracking-wide"> {recentSelectedPlace?.priceText || "₹200 – 400"} per person</p>
+                    </div>
+                  </button>
+
+                  <div className="group relative w-full flex items-center pl-[24px] pr-[16px] py-2 hover:bg-gray-100 cursor-pointer">
+                    <AdjustIcon className="text-[#007B8A] mr-[24px]" />
+
+                    <p className="flex-1 text-[14px] text-gray-800 leading-snug tracking-wide">
+                      {recentSelectedPlace?.plusCode || "Plus code not available"}
+                    </p>
+
+                    <button
+                      onClick={handlePlusCodeCopy}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity ml-[6px] cursor-pointer"
+                    >
+                      <ContentCopyIcon style={{fontSize:"18px"}} className="text-gray-600" />
+
+                      <span className="absolute left-0 top-[32px] bg-black text-white text-[12px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition tracking-wide">
+                        Copy plus code
+                      </span>
+                    </button>
+
+                    {plusCodeCopied && (
+                      <span className="absolute right-0 -top-[24px] bg-black text-white text-[12px] px-[6px] py-[4px] tracking-wide rounded">
+                        Copied to clipboard
+                      </span>
+                    )}
+                  </div>
+
+                  <button className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 rounded-none">
+                    <SecurityIcon className="text-[#007B8A] mr-[24px]" />
+                    <p className="text-[14px] tracking-wide text-gray-800">Claim this business</p>
+                  </button>
+
+                  <button className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 rounded-none">
+                    <HistoryIcon className="text-[#007B8A] mr-[24px]" />
+                    <p className="text-[14px] tracking-wide text-gray-800">Your Maps activity</p>
+                  </button>
+
+                  <button className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 rounded-none">
+                    <LabelIcon className="text-[#007B8A] mr-[24px]" />
+                    <p className="text-[14px] tracking-wide text-gray-800">Add a label</p>
+                  </button>
+
+                  <button className="w-1/2 mt-[16px] mx-auto flex items-center justify-center py-[10px] rounded-full bg-[#CCF3F9] hover:bg-gray-100 text-black text-[14px] tracking-wide font-medium">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="black"
+                      className="w-4 h-4 mr-2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"
+                      />
+                    </svg>
+                    Suggest an edit
+                  </button>
+                </div>
+                
+                <div className="bg-white py-[14px] border-b border-gray-300">
+                  <h3 className="text-[16px] font-sans font-medium tracking-wide text-black mb-[14px] px-[24px]">
+                    Add missing information
+                  </h3>
+
+                  <div className="cursor-pointer hover:bg-gray-100 p-2 ">
+                    <div className="px-[16px] flex items-center gap-[24px]">
+                      <CallIcon style={{fontSize:"24px"}} className="text-gray-600" />
+                      <span className="text-[14.5px] tracking-wide text-gray-800">Add place's phone number</span>
+                    </div>
+                  </div>
+
+                  <div className="cursor-pointer hover:bg-gray-100 p-2">
+                    <div className="px-[16px] flex items-center gap-[24px]">
+                      <AccessTimeIcon style={{fontSize:"24px"}} className="text-gray-600" />
+                      <span className="text-[14.5px] tracking-wide text-gray-800">Add hours</span>
+                    </div>
+                  </div>
+
+                  <div className="cursor-pointer hover:bg-gray-100 p-2">
+                    <div className="px-[16px] flex items-center gap-[24px]">
+                      <PublicIcon style={{fontSize:"24px"}} className="text-gray-600" />
+                      <span className="text-[14.5px] tracking-wide text-gray-800">Add website</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="py-[14px] border-b border-gray-300">
+                  {(recentSelectedPlace?.photos?.length ?? 0) > 0 && (
+                    <div>
+                      <h2 className="font-sans font-medium tracking-wide text-black text-[16px] px-[24px] mb-[10px]">
+                        Menu & highlights
+                      </h2>
+
+                      <div className="flex gap-3 mt-[18px] overflow-x-auto px-[16px]">
+                        {recentSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
+                          <div key={idx} className="relative min-w-[150px]">
+                            <img
+                              src={url}
+                              alt={`Menu highlight ${idx + 1}`}
+                              className="w-[160px] h-[180px] object-cover rounded-lg"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-[16px] flex justify-center">
+                        <button
+                          onClick={() => setDetailsActiveTab("menu")}
+                          className="text-[#007B8A] font-sans text-[14px] font-medium tracking-wide hover:text-black"
+                        >
+                          See more
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-[14px] pb-[10px]"> 
+                  <div className="px-[24px] pb-[18px] border-b border-gray-300">
+                    <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mb-[10px]">
+                      Review summary
+                    </h2>
+                    <div className="flex items-center justify-between mt-[14px]">
+                      {(() => {
+                        const userRatingsTotal = recentSelectedPlace?.userRatingsTotal ?? 0;
+                        const breakdown: Record<number, number> =
+                          recentSelectedPlace?.ratingBreakdown as Record<number, number> ||
+                          (() => {
+                            if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+                            let five = Math.round(userRatingsTotal * (0.50 + Math.random() * 0.1));
+                            let remaining = userRatingsTotal - five;
+
+                            let four = Math.round(remaining * 0.40);
+                            let three = Math.round(remaining * 0.30);
+                            let two = Math.round(remaining * 0.1);
+                            let one = remaining - (four + three + two);
+
+                            return { 5: five, 4: four, 3: three, 2: two, 1: one };
+                          })();
+
+                        return (
+                          <div className="flex flex-col gap-[3px] w-[200px]">
+                            {[5, 4, 3, 2, 1].map((star) => {
+                              const count = breakdown[star] || 0;
+                              const total = userRatingsTotal || 1;
+                              const percent = (count / total) * 100;
+
+                              return (
+                                <div key={star} className="flex items-center gap-2 text-[14px]">
+                                  <span className="w-4 text-gray-700">{star}</span>
+                                  <div className="flex-1 h-2 bg-gray-200 rounded">
+                                    <div
+                                      className="h-2 bg-yellow-400 rounded"
+                                      style={{ width: `${percent}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
+                      <div className="flex flex-col items-center gap-[6px]">
+                        <span className="text-[42px] leading-none font-medium text-black">
+                          {recentSelectedPlace?.rating?.toFixed(1)}
+                        </span>
+                        <StarRating rating={recentSelectedPlace?.rating || 0} />
+                        <span className="text-gray-500 text-[12.5px]">
+                          {recentSelectedPlace?.userRatingsTotal?.toLocaleString()} reviews
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-[22px] flex justify-center">
+                      <button className="flex items-center gap-2 px-[14px] py-2 rounded-full bg-[#DFF6FD] text-[#014B54] font-medium text-[14.5px] tracking-wide hover:bg-[#c7eef9]">
+                        <RateReviewIcon style={{ fontSize: "18px" }} />
+                        Write a review
+                      </button>
+                    </div>
+                  </div>
+                  {recentSelectedPlace?.reviews && recentSelectedPlace.reviews.length > 0 && (
+                    <div>
+                      <h2 className="font-sans font-medium tracking-wide text-black text-[16px] px-[24px] mt-[16px]">
+                        Reviews
+                      </h2>
+                      {recentSelectedPlace.reviews.slice(0,2).map((review, index) => (
+                        <div
+                          key={index}
+                          className="border-b last:border-b-0 border-gray-300 pt-[20px] flex gap-3"
+                        >
+                          <div className="px-[24px]">
+                              <div className="flex items-center gap-[12px]">
+                                <img
+                                  src={
+                                    review.profile_photo_url
+                                      ? review.profile_photo_url.replace("http://", "https://")
+                                      : "https://www.gravatar.com/avatar/?d=mp&s=40"
+                                  }
+                                  alt={review.author_name}
+                                  className="w-9 h-9 rounded-full object-cover"
+                                />
+                                <span className="font-medium text-[16px] tracking-wide text-black">
+                                  {review.author_name}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-[10px] mt-[12px]">
+                                <StarRating rating={review.rating ?? 0} />
+                                <span className="text-[14.5px] text-gray-500">
+                                  {review.relative_time_description}
+                                </span>
+                              </div>
+
+                              {review.text && (
+                                <p className="text-[14px] text-gray-700 mt-[6px]">
+                                  {review.text}
+                                </p>
+                              )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="pt-[20px] flex justify-center">
+                        <button
+                          onClick={() => setDetailsActiveTab("reviews")}
+                          className="text-[#007B8A] font-sans text-[14px] font-medium tracking-wide hover:text-black"
+                        >
+                          More reviews
+                        </button>
+                      </div>
+                </div>
+              </>
+            )}
+
+            {detailsActiveTab === "menu" && (
+              <div>
+                <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[4px] px-[24px]">Menu</h2>
+
+                {recentSelectedPlace?.photos?.length ? (
+                  <div className="grid grid-cols-2 gap-3 mt-[16px] px-[14px]">
+                    {recentSelectedPlace.photos.map((url: string, idx: number) => (
+                      <img
+                        key={idx}
+                        src={url}
+                        alt={`Menu photo ${idx + 1}`}
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 tracking-wide mt-[10px] px-[24px]">No menu photos available.</p>
+                )}
+              </div>
+            )}
+
+            {detailsActiveTab === "reviews" && recentSelectedPlace && (
+              <div> 
+                <div className="px-[24px] pt-[20px] pb-[20px]">
+                  <div className="flex items-center justify-between">
+                    {(() => {
+                      const userRatingsTotal = recentSelectedPlace.userRatingsTotal ?? 0;
+                      const breakdown: Record<number, number> =
+                        recentSelectedPlace.ratingBreakdown as Record<number, number> ||
+                        (() => {
+                          if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+                          let five = Math.round(userRatingsTotal * (0.50 + Math.random() * 0.1));
+                          let remaining = userRatingsTotal - five;
+
+                          let four = Math.round(remaining * 0.40);
+                          let three = Math.round(remaining * 0.30);
+                          let two = Math.round(remaining * 0.1);
+                          let one = remaining - (four + three + two);
+
+                          return { 5: five, 4: four, 3: three, 2: two, 1: one };
+                        })();
+
+                      return (
+                        <div className="flex flex-col gap-[3px] w-[200px]">
+                          {[5, 4, 3, 2, 1].map((star) => {
+                            const count = breakdown[star] || 0;
+                            const total = userRatingsTotal || 1;
+                            const percent = (count / total) * 100;
+
+                            return (
+                              <div key={star} className="flex items-center gap-2 text-[14px]">
+                                <span className="w-4 text-gray-700">{star}</span>
+                                <div className="flex-1 h-2 bg-gray-200 rounded">
+                                  <div
+                                    className="h-2 bg-yellow-400 rounded"
+                                    style={{ width: `${percent}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="flex flex-col items-center gap-[6px]">
+                      <span className="text-[42px] leading-none font-medium text-black">
+                        {recentSelectedPlace.rating?.toFixed(1)}
+                      </span>
+                      <StarRating rating={recentSelectedPlace.rating || 0} />
+                      <span className="text-gray-500 text-[12.5px]">
+                        {recentSelectedPlace.userRatingsTotal?.toLocaleString()} reviews
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-[22px] flex justify-center">
+                    <button className="flex items-center gap-2 px-[14px] py-2 rounded-full bg-[#DFF6FD] text-[#014B54] font-medium text-[14.5px] tracking-wide hover:bg-[#c7eef9]">
+                      <RateReviewIcon style={{ fontSize: "18px" }} />
+                      Write a review
+                    </button>
+                  </div>
+                </div>
+
+                {recentSelectedPlace.reviews && recentSelectedPlace.reviews.length > 0 && (
+                  <div>
+                    {recentSelectedPlace.reviews.map((review, index) => (
+                      <div
+                        key={index}
+                        className="border-t border-gray-300 py-6 flex gap-3"
+                      >
+                        <div className="px-[24px]">
+                            <div className="flex items-center gap-[12px]">
+                              <img
+                                src={
+                                  review.profile_photo_url
+                                    ? review.profile_photo_url.replace("http://", "https://")
+                                    : "https://www.gravatar.com/avatar/?d=mp&s=40"
+                                }
+                                onError={(e) => (e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40")}
+                                alt={review.author_name}
+                                className="w-9 h-9 rounded-full object-cover"
+                              />
+                              <span className="font-medium text-[16px] tracking-wide text-black">
+                                {review.author_name}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-[10px] mt-[12px]">
+                              <StarRating rating={review.rating ?? 0} />
+                              <span className="text-[14.5px] text-gray-500">
+                                {review.relative_time_description}
+                              </span>
+                            </div>
+
+                            {review.text && (
+                              <p className="text-[14px] text-gray-700 mt-[6px]">
+                                {review.text}
+                              </p>
+                            )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>  
+            )}
+
+            {detailsActiveTab === "about" && (
+              <div>
+                {Object.entries(aboutTabData).map(([category, items], idx, arr) => (
+                  <div
+                    key={category}
+                    className={`${
+                      idx !== arr.length - 1 ? "border-b border-gray-300 mb-[12px]" : ""
+                    }`}
+                  >
+                    <div className="px-[24px] pt-[6px] pb-[18px]">
+                      <h3 className="text-[14px] tracking-wide text-black font-sans font-semibold capitalize mb-[14px]">
+                        {category.replace(/([A-Z])/g, " $1")}
+                      </h3>
+                      <ul className="grid grid-cols-2 gap-y-[10px] gap-x-[20px]">
+                        {items.map((item, i) => (
+                          <li
+                            key={i}
+                            className="flex items-center gap-[4px] text-[14.5px] text-gray-700"
+                          >
+                            <CheckIcon style={{ fontSize: "18px" }} /> {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute top-1 left-0 right-0 md:left-[72px] z-10 flex flex-col md:flex-row items-start md:items-center gap-[18px] md:gap-[0px] md:justify-between pl-4 pr-4 lg:pl-4 lg:pr-6 py-2 text-black ">
+        {/* Search bar */}
+        <div className="flex flex-row items-center w-full md:w-auto justify-between md:justify-none">
+          <div className="relative" ref={searchBoxRef}>
+            <div 
+              className={`relative bg-white shadow-2xl search-width ${
+                showSuggestions ? "rounded-t-xl" : "rounded-full"
+              }`}
+            >
+              <div className="flex items-center pl-6 pr-5 md:pr-4 py-[12px]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  spellCheck={false} 
+                  autoComplete="off" 
+                  autoCorrect="off" 
+                  autoCapitalize="off"
+                  placeholder="Search Google Maps"
+                  value={searchValue}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) => {
+                          if (prev < combinedList.length - 1) return prev + 1;
+                          return -1;
+                        });
+                      }
+                      return;
+                    }
+
+                    if (e.key === "ArrowUp") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) => {
+                          if (prev === -1) return combinedList.length - 1;
+                          return prev - 1;
+                        });
+                      }
+                      return;
+                    }
+
+                    if (e.key === "Enter") {
+                      const selectedItem = combinedList[highlightedIndex];
+
+                      if (selectedItem) {
+                        if (selectedItem.type === "recent") {
+                          const shop = allShops.find((s) => s.name === selectedItem.data.title);
+                          if (shop) {
+                            handleShopSuggestion(shop, () => setPlaceSidebar("full"));
+                          } else {
+                            console.warn("Shop not found for recent item:", selectedItem.data.title);
+                          }
+                        } else if (selectedItem.type === "suggestion") {
+                        const shop = allShops.find(
+                          (s) => s.name === selectedItem.data.name
+                        );
+                        if (shop) {
+                          handleShopSuggestion(shop, () => {
+                            setPlaceSidebar("full");
+                          });
+                        }
+                        } else if (selectedItem.type === "home") {
+                          alert("Set Home clicked");
+                        } else if (selectedItem.type === "more") {
+                          exploreButtonFunction(); 
+                        }
+                        setShowSuggestions(false);
+                      } 
+                      else if (searchValue.trim()) {
+                        const query = searchValue.trim().toLowerCase();
+
+                        if (!searchOrigin || searchOrigin !== "home") {
+                          setSearchOrigin("home");
+                        }
+
+                        const filteredShops = allShops.filter(shop =>
+                          shop.name.toLowerCase().includes(query)
+                        );
+
+                        if (filteredShops.length > 0) {
+                          setRelatedPlaces(filteredShops)
+                          setPlaceSidebar("half");
+                        } else {
+                          setRelatedPlaces([]);
+                          setPlaceSidebar("half");
+                        }
+                        setShowSuggestions(false);
+                      }
+                    }
+                  }}
+
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchValue(value);
+                    setShowSuggestions(true);
+
+                    if (!value.trim()) {
+                      setSuggestions([]);
+                      setNoMatches(false);
+                      return;
+                    }
+
+                    const filtered = allShops.filter((shop) =>
+                      shop.name.toLowerCase().includes(value.toLowerCase()) ||
+                      shop.address.toLowerCase().includes(value.toLowerCase()) ||
+                      shop.cuisine.toLowerCase().includes(value.toLowerCase())
+                    );
+
+                    setSuggestions(filtered.slice(0, 5));
+
+                    setNoMatches(filtered.length === 0);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  
+                  className="search-width md:flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+                />
+                <div 
+                  className="relative group"
+                  onClick={() => {
+                    setShowSuggestions(true);  
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+
+                  <div 
+                    className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
+                    rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
+                  >
+                    Search
+                  </div>
+                </div>
+
+                <div className="md:mr-[14px]" />
+
+              </div>
+            </div>
+
+            {/* Suggestion Row */}
+            {showSuggestions && (
+              <div ref={suggestionBoxRef} className="absolute top-full left-0 search-width z-20">
+                <div className="bg-white shadow-lg rounded-b-xl border-t border-gray-200 pt-[8px] pb-[10px]">
+                  {combinedList.length > 0 && (
+                    <>
+                    <div className="flex flex-col space-y-[0px]">
+                      {combinedList.map((item, index) => {
+                        const isHighlighted = highlightedIndex === index;
+                        const baseClass = `hover:bg-gray-100 cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
+                          isHighlighted ? "bg-gray-100" : ""
+                        }`;
+
+                        const isInputEmpty = searchValue.trim() === "";
+
+                        if (item.type === "recent") {
+                          const place = item.data as RecentPlace;
+                          return (
+                            <div
+                              key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                              className={`px-[14px] md:px-[20px] ${baseClass} group`}
+                              onMouseDown={() => {
+                                setSearchValue(place.title);
+                                setShowSuggestions(true);
+
+                                const shop = allShops.find((s) => s.name === place.title);
+                                if (shop) {
+                                  handleShopSuggestion(shop);
+                                } else {
+                                  console.warn("Shop not found for recent place:", place.title);
+                                }
+                              }}
+                            >
+                              <div className="flex bg-red-00 items-center justify-between w-full group">
+                                <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
+                                  {isInputEmpty ? (
+                                    <div className="md:w-10 md:h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
+                                      <AccessTimeIcon className="text-black w-6 h-6"  />
+                                    </div>
+                                  ) : (
+                                    <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                      <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
+                                    </div>
+                                  )}
+
+                                  {isInputEmpty ? (
+                                    <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
+                                      <span className="font-medium text-[14.5px] text-black truncate">
+                                        {place.title}
+                                      </span>
+                                      {place.subtitle && (
+                                        <span className="text-gray-600 text-[14px] truncate">
+                                          {place.subtitle}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[14.5px] text-black font-medium truncate">
+                                      {place.title}
+                                      {place.subtitle && (
+                                        <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {isInputEmpty && (
+                                  <button
+                                    tabIndex={-1}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setRecentPlaces((prev) => {
+                                        const updated = prev.filter(
+                                          (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                        );
+                                        localStorage.setItem("recent_places", JSON.stringify(updated));
+                                        return updated;
+                                      });
+                                    }}
+                                    className="opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (item.type === "suggestion") {
+                          const shop = item.data;
+                          return (
+                            <div
+                              key={shop.shopId}
+                              className={baseClass}
+                              onMouseDown={() => handleShopSuggestion(shop)}
+                            >
+                              <div className="flex items-center gap-[10px] overflow-hidden">
+                                <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                  <LocationOnIcon className="text-[#007B8A]" style={{ fontSize: "21px" }} />
+                                </div>
+                                <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
+                                  {shop.name}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (item.type === "more") {
+                          return (
+                            <div
+                              key="more"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                exploreButtonFunction();
+                                setShowSuggestions(false);
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                exploreButtonFunction();
+                                setShowSuggestions(false);
+                              }}
+                              className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
+                                highlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
+                              }`}
+                            >
+                              <span className="text-[14.5px] tracking-wide font-medium">
+                                See all shops list
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    </>
+                  )}
+                  {noMatches && (
+                    <div className="px-[20px] py-[12px] text-center text-black">
+                      <p className="font-medium text-[15px] text-black">
+                        Sorry, can't find that place name.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex md:hidden items-center">
+            <img
+              src="/logo.jpg"
+              alt="User Profile"
+              className="w-[40px] h-[40px] object-cover rounded-full"
+            />
+          </div>
+          {/*
+          <div className="flex md:hidden items-center">
+            <button
+              onClick={() => setLoginModalOpen(true)}
+              className="w-10 h-10 rounded-full overflow-hidden shadow-md cursor-pointer bg-transparent border-none 
+                        transition-transform duration-200 hover:scale-110"
+            >
+              <img
+                src="https://www.gravatar.com/avatar/?d=mp&s=40"
+                alt="User Profile"
+                className="w-full h-full object-cover rounded-full"
+              />
+            </button>
+          </div>
+          */}
+        </div>
+
+        {/* Category Filters */}
+        {/*
+        {!showSidebar && !['saved', 'recent'].includes(topSidebar ?? '')  && (
+          <div className="relative category-width">
+            <button
+                onClick={() => scrollCategory("left")}
+                className={`absolute left-[-14px] top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-[8px] cursor-pointer hover:bg-gray-100 ${
+                showLeftArrow ? "block" : "hidden"
+                }`}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </button>
+
+            <div
+                ref={arrowScrollRef}
+                className="overflow-x-auto whitespace-nowrap scrollbar-hide px-1 md:px-6"
+                onScroll={handleCategoryScroll}
+            >
+              <div className="flex items-center gap-[8px]">
+                {[
+                    { icon: <RestaurantIcon style={{ fontSize: '17px' }} />, label: "Restaurants", type: "restaurant" },
+                    { icon: <HotelIcon style={{ fontSize: '18px' }} />, label: "Hotels", type: "lodging" },
+                    { icon: <CameraAltOutlinedIcon style={{ fontSize: '18px' }} />, label: "Things to do", type: "tourist_attraction" },
+                    { icon: <MuseumOutlinedIcon style={{ fontSize: '18px' }} />, label: "Museums", type: "museum"},
+                    { icon: <DirectionsTransitOutlinedIcon style={{ fontSize: '18px' }} />, label: "Transit", type: "transit_station" },
+                    { icon: <LocalPharmacyOutlinedIcon style={{ fontSize: '18px' }} />, label: "Pharmacies", type: "pharmacy" },
+                    { icon: <LocalAtmIcon style={{ fontSize: '18px' }} />, label: "ATMs",type: "atm" },
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    className="flex items-center gap-[5px] bg-white rounded-full px-[10px] py-[6px] shadow-2xl text-[14px] hover:bg-gray-100 whitespace-nowrap tracking-wide font-medium cursor-pointer"
+                    onClick={() => {
+                      if (!mapInstanceRef.current) return;
+
+                      const service = new google.maps.places.PlacesService(mapInstanceRef.current);
+
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (position) => {
+                            if (!mapInstanceRef.current) return;
+                            const location = new google.maps.LatLng(
+                              position.coords.latitude,
+                              position.coords.longitude
+                            );
+
+                            runNearbySearch(service, location, item.type);
+
+                            
+                            // if (locateMeMarkerRef.current) {
+                            //  locateMeMarkerRef.current.setPosition(location);
+                            // } else {
+                            //  locateMeMarkerRef.current = new google.maps.Marker({
+                            //    position: location,
+                            //    map: mapInstanceRef.current,
+                            //    title: "Your Location",
+                            //  });
+                            //}
+
+                          },
+                          () => {
+                            const location = mapInstanceRef.current?.getCenter();
+                            if (location) runNearbySearch(service, location, item.type);
+                          }
+                        );
+                      }
+                    }}
+                    >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => scrollCategory("right")}
+              className={`absolute right-[-12px] top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-[8px] cursor-pointer hover:bg-gray-100 ${
+              showRightArrow ? "block" : "hidden"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+            </button>
+          </div>
+        )}
+
+        <div className="hidden md:block">
+          <button
+            onClick={() => setLoginModalOpen(true)}
+            className="w-10 h-10 rounded-full overflow-hidden shadow-md cursor-pointer bg-transparent border-none 
+                      transition-transform duration-200 hover:scale-110"
+          >
+            <img
+              src="https://www.gravatar.com/avatar/?d=mp&s=40"
+              alt="User Profile"
+              className="w-full h-full object-cover rounded-full"
+            />
+          </button>
+        </div>
+        */}
+      </div>
+
+      {/* Direction Sidebar */}
+      <div
+        ref={directionSidebarRef}
+        className={`fixed bg-white text-black shadow-2xl z-40 transition-transform duration-300 flex flex-col
+          bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-full md:translate-y-0
+          ${showSidebar ? 'translate-y-0' : 'translate-y-full'}
+          ${showSidebar ? 'md:translate-x-0' : 'md:-translate-x-[410px]'}`}
+      >
+        {/* Tabs and Inputs */}
+        <div className="py-4 border-b border-gray-300">
+          <div className="flex items-center justify-end mt-1 mr-[20px] relative group">
+            <button
+              className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-[18px] text-black hover:bg-gray-200 transition duration-150 relative cursor-pointer"
+              onClick={closeSidebar}
+              aria-label="Close directions"
+            >
+              ✕
+            </button>
+            <div className="pointer-events-none absolute bottom-[-32px] right-[-30px] translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition duration-200 whitespace-nowrap z-100">
+              Close directions
+            </div>
+          </div>
+
+          <div className="flex items-start gap-[18px] pl-[26px] pr-[20px] mt-6">
+            <div className="flex flex-col items-center mt-[14px]">
+              <div className="w-[13px] h-[13px] border-[2px] border-black rounded-full mb-[10px]"></div>
+              <div className="flex flex-col items-center gap-[4px] mb-[10px]">
+                <div className="w-[2px] h-[2px] bg-black rounded-full"></div>
+                <div className="w-[2px] h-[2px] bg-black rounded-full"></div>
+                <div className="w-[2px] h-[2px] bg-black rounded-full"></div>
+              </div>
+              <LocationOnIcon style={{ fontSize: '21px' }} className="text-red-500" />
+            </div>
+
+            <div ref={directionBoxRef} className="flex flex-col w-full max-w-md gap-3">
+              <div className="relative group">
+                <input
+                  ref={startingPlaceInputRef}
+                  type="text"
+                  spellCheck={false} 
+                  autoComplete="off" 
+                  autoCorrect="off" 
+                  autoCapitalize="off"
+                  placeholder="Choose starting point, or click on the map"
+                  value={startLocation}
+                  onChange={(e) => {
+                    setStartLocation(e.target.value);
+                    fetchStartLocationSuggestions(e.target.value); 
+                  }}
+                  className={`w-full pl-2 ${
+                    focusedInput === "start" ? "pr-[44px]" : "pr-3"
+                  } py-2 border border-black rounded-[8px] text-[14.5px] focus:outline-none focus:ring-1 focus:ring-[#007D8A]`}
+
+                  onFocus={() => {
+                    setFocusedInput("start");
+                    setShowDestSuggestions(false);
+                  }}
+                  onBlur={() => {
+                    setFocusedInput(null);
+                    setStartHighlightedIndex(-1);
+                  }}
+                  onKeyDown={(e) => handleKeyDown(e, true)}
+                />
+                {focusedInput === "start" && (
+                  <SearchIcon
+                    className="absolute right-[12px] top-1/2 -translate-y-1/2 text-[#007D8A]"
+                    style={{ fontSize: "24px" }}
+                  />
+                )}
+                <div className="pointer-events-none absolute bottom-[-18px] left-[18px] bg-black text-white text-[14.5px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition duration-200 whitespace-nowrap z-100">
+                  Choose starting point, or click on the map...
+                </div>
+
+                {showStartSuggestions && startSuggestions.length > 0 && (
+                    <div className="absolute top-[105px] left-[-65px] w-[410px] bg-white shadow-lg pt-[8px] pb-[10px] z-20 border-t border-gray-300 overflow-hidden">
+                      {startSuggestions.map((suggestion, i) => (
+                        <div
+                          key={suggestion.place_id}
+                          className={`flex items-center px-[24px] py-2 cursor-pointer ${
+                              startHighlightedIndex === i ? "bg-gray-100" : "hover:bg-gray-100"}`}
+                          onMouseDown={() => handleDirectionSidebarSelectSuggestion(suggestion.place_id, true)}
+                        >
+                          <LocationOnIcon className="text-[#007B8A] mr-[26px]" />
+                          <div className="flex items-center text-[14px] whitespace-nowrap overflow-hidden">
+                            <span className="font-medium text-gray-900">
+                              {suggestion.structured_formatting.main_text}
+                            </span>
+                            &nbsp;
+                            <span className="text-gray-500">
+                              {suggestion.structured_formatting.secondary_text}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+              </div>
+
+              <div className="relative group">
+                <input
+                  ref={destinationInputRef}
+                  type="text"
+                  spellCheck={false} 
+                  autoComplete="off" 
+                  autoCorrect="off" 
+                  autoCapitalize="off"
+                  placeholder="Choose destination..."
+                  value={destinationLocation}
+                  onChange={(e) => {
+                    setDestinationLocation(e.target.value);
+                    fetchDestinationSuggestions(e.target.value);
+                  }}
+                  className={`w-full pl-2 ${
+                    focusedInput === "destination" ? "pr-[44px]" : "pr-3"}
+                    py-2 border border-black rounded-[8px] text-[14.5px] focus:outline-none focus:ring-1 focus:ring-[#007D8A]`}
+                    onFocus={() => {
+                    setFocusedInput("destination");
+                    setShowStartSuggestions(false);
+                  }}
+                  onBlur={() => {
+                    setFocusedInput(null);
+                    setDestHighlightedIndex(-1);
+                  }}
+                  onKeyDown={(e) => handleKeyDown(e, false)}
+                />
+                {focusedInput === "destination" && (
+                  <SearchIcon
+                    className="absolute right-[10px] top-1/2 -translate-y-1/2 text-[#007D8A]"
+                    style={{ fontSize: "24px" }}
+                  />
+                )}
+                <div className="pointer-events-none absolute bottom-[-20px] left-[20px] bg-black text-white text-[14.5px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition duration-200 whitespace-nowrap z-100">
+                  Choose destination...
+                </div>
+                {showDestSuggestions && destSuggestions.length > 0 && (
+                  <div className="absolute top-[55px] left-[-65px] w-[410px] bg-white shadow-lg pt-[8px] pb-[10px] z-20 border-t border-gray-300 overflow-hidden">
+                    {destSuggestions.map((suggestion,i) => (
+                      <div
+                        key={suggestion.place_id}
+                        className={`flex items-center px-[24px] py-2 cursor-pointer ${
+                              destHighlightedIndex === i ? "bg-gray-100" : "hover:bg-gray-100"}`}
+                        onMouseDown={() => handleDirectionSidebarSelectSuggestion(suggestion.place_id, false)}
+                      >
+                        <LocationOnIcon className="text-[#007B8A] mr-[26px]" />
+                        <div className="flex items-center text-[14px] whitespace-nowrap overflow-hidden">
+                            <span className="font-medium text-gray-900">
+                              {suggestion.structured_formatting.main_text}
+                            </span>
+                            &nbsp;
+                            <span className="text-gray-500">
+                              {suggestion.structured_formatting.secondary_text}
+                            </span>
+                          </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div 
+              className="mt-7 cursor-pointer relative group"
+                onClick={() => {
+                setStartLocation(destinationLocation);
+                setDestinationLocation(startLocation);
+                setStartCoords(destinationCoords);
+                setDestinationCoords(startCoords);
+              }}
+            >
+              <SwapVertIcon style={{ fontSize: '28px' }} className="text-black" />
+              <div className="pointer-events-none absolute bottom-[-34px] right-[-90px] translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition duration-200 whitespace-nowrap z-100">
+                Reverse starting point and destination
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Places */}
+        <div className="overflow-y-auto flex-1 py-2">
+          <div 
+            className="w-full group hover:bg-[#f2f2f2] cursor-pointer transition-colors duration-200"
+              onClick={handleYourLocationClick}
+          >
+            <div className="flex items-center gap-3 px-[20px] py-[10px]">
+              <div className="w-10 h-10 bg-[#CCF3F9] rounded-full flex items-center justify-center">
+                <MyLocationIcon className="text-black" style={{ fontSize: '24px' }} />
+              </div>
+              <div className="flex flex-col max-w-[220px]">
+                <span className="text-[14.5px] font-medium text-black truncate">Your location</span>
+              </div>
+            </div>
+          </div>
+          
+          {recentPlaces.map((place, index) => (
+            <div
+              key={index}
+              className="w-full group hover:bg-[#f2f2f2] cursor-pointer transition-colors duration-200"
+              onClick={() => handleRecentPlaceClick(place)}
+            >
+              <div className="flex items-center gap-3 px-[20px] py-[10px]">
+                <div className="w-10 h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
+                  <AccessTimeIcon className="text-black" style={{ fontSize: '26px' }} />
+                </div>
+                <div className="flex flex-col max-w-[300px]">
+                  <span className="font-medium text-[14.5px] text-black truncate">{place.title}</span>
+                  {place.subtitle && (
+                    <span className="text-gray-600 text-[14px] truncate">{place.subtitle}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+        </div>
+      </div>
+
+      {/* Full Place Sidebar */}
+      <div
+        id="fullSidebar"
+        className={`fixed bg-white text-black z-30 transition-transform duration-300 flex flex-col
+          bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
+          ${placeSidebar === "full" ? "z-40" : "z-30"}
+          ${placeSidebar === "full" ? "translate-y-0" : "translate-y-full"}
+          ${placeSidebar === "full" ? "md:translate-x-0" : "md:-translate-x-[410px]"}`}
+      >
+        <div className="flex flex-col h-full">
+          
+          <div className="relative md:hidden top-0 left-0 w-full pt-[22px] pb-[16px] bg-white z-20 flex items-center justify-between text-black transition-opacity duration-200 ">
+            <h2 className="font-semibold text-[18px] truncate pointer-events-none tracking-wide mx-auto text-center max-w-[220px]">
+              {searchValue || "Shop Name"}
+            </h2>
+            <button
+              onClick={closeButtonFunction}
+              className="absolute right-6 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[18px] font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className={`hidden md:block pt-3 pb-[20px] px-4 top-0 z-10 bg-transparent w-full
+            ${fullSidebarActiveTab === "fullSidebarOverview"? "absolute left-0": "sticky"}`}
+          >
+            {searchOrigin === "sidebar" ? (
+              <SidebarSearchBox
+                topSidebarSearchBoxRef={firstSearchBoxRef}
+                topSidebarSuggestionBoxRef={firstSuggestionBoxRef}
+                inputRef={inputRef}
+                sidebarSearchValue={sidebarSearchValue}
+                fetchDetailedPlaces={fetchDetailedPlaces} 
+                setSidebarSearchValue={setSidebarSearchValue}
+                showSidebarSuggestions={showSidebarSuggestions}
+                setShowSidebarSuggestions={setShowSidebarSuggestions}
+                sidebarCombinedList={sidebarCombinedList}
+                sidebarHighlightedIndex={sidebarHighlightedIndex}
+                setSidebarHighlightedIndex={setSidebarHighlightedIndex}
+                placeSidebar={placeSidebar}
+                topSidebar={topSidebar}
+                setTopSidebar={setTopSidebar}
+                setPlaceSidebar={setPlaceSidebar}
+                setShowSidebar={setShowSidebar}
+                setRecentSidebar={setRecentSidebar}
+                handleSidebarSelectSuggestion={handleSidebarSelectSuggestion}
+                setSidebarSuggestions={setSidebarSuggestions}
+                setIsLocationSelected={setIsLocationSelected}
+                setRecentPlaces={setRecentPlaces}
+                setRelatedPlaces={setRelatedPlaces}
+                mapInstanceRef={mapInstanceRef}
+                recentPlaces={recentPlaces}
+                markerRef={markerRef}
+                sidebarMarkerRef={sidebarMarkerRef}
+                clearCategoryMarkers={clearCategoryMarkers}
+                keepHalfSidebarOpen={keepHalfSidebarOpen}
+                setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+                activePlaceMarkerRemover={activePlaceMarkerRemover}
+              />
+              ) : searchOrigin === "home" ? (
+              <SearchBox
+                placeSidebarSearchBoxRef={fullSidebarSearchBoxRef}
+                placeSidebarSuggestionBoxRef={fullSidebarSuggestionBoxRef}
+                inputRef={inputRef}
+                searchValue={searchValue}
+                fetchDetailedPlaces={fetchDetailedPlaces} 
+                setSearchValue={setSearchValue}
+                showSuggestions={showSuggestions}
+                setShowSuggestions={setShowSuggestions}
+                combinedList={combinedList}
+                highlightedIndex={highlightedIndex}
+                setHighlightedIndex={setHighlightedIndex}
+                placeSidebar={placeSidebar}
+                topSidebar={topSidebar}
+                setTopSidebar={setTopSidebar}
+                setPlaceSidebar={setPlaceSidebar}
+                setShowSidebar={setShowSidebar}
+                setRecentSidebar={setRecentSidebar}
+                handleSelectSuggestion={handleSelectSuggestion}
+                setSuggestions={setSuggestions}
+                setIsLocationSelected={setIsLocationSelected}
+                setRecentPlaces={setRecentPlaces}
+                setRelatedPlaces={setRelatedPlaces}
+                mapInstanceRef={mapInstanceRef}
+                recentPlaces={recentPlaces}
+                markerRef={markerRef}
+                sidebarMarkerRef={sidebarMarkerRef}
+                clearCategoryMarkers={clearCategoryMarkers}
+                keepHalfSidebarOpen={keepHalfSidebarOpen}
+                setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+                activePlaceMarkerRemover={activePlaceMarkerRemover}
+                handleShopSuggestion={handleShopSuggestion}
+                searchOrigin={searchOrigin}
+                setSearchOrigin={setSearchOrigin}
+                noMatches={noMatches}
+                setNoMatches={setNoMatches}
+                allShops={allShops}
+                exploreButtonFunction={exploreButtonFunction}
+              />
+            ) : null}
+          </div>
+
+          <div className="mb-[10px] mx-auto items-center justify-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (fullSidebarSelectedPlace?.applink) {
+                  window.open(fullSidebarSelectedPlace.applink, "_blank");
+                } else {
+                  window.open("https://play.google.com/store/games?device=windows", "_blank");
+                }
+              }} 
+              className="w-auto px-[16px] rounded-full bg-black text-white py-[8px] text-[14px] font-semibold tracking-wide cursor-pointer"
+            >
+              Download App
+            </button>
+          </div>
+          
+          <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
+        
+            {fullSidebarActiveTab !== "fullSidebarOverview" && (
+              <div className="sticky top-0 z-0 bg-white">
+                <div className="flex justify-around border-b border-gray-400 bg-white">
+                  {fullSidebarTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      className="relative py-[10px] text-[14px] tracking-wide font-medium text-gray-600 hover:text-black"
+                      onClick={() => setFullSidebarActiveTab(tab.id)}
+                    >
+                      {tab.label}
+                      {fullSidebarActiveTab === tab.id && (
+                        <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+  
+            <div className="pt-[14px] pb-[14px] text-[14.5px] text-gray-700">
+              {fullSidebarActiveTab === "fullSidebarMenu" && (
+                <div>
+                  <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[6px] px-[24px] md:px-[26px]">Menu</h2>
+  
+                  {fullSidebarSelectedPlace?.photos?.length ? (
+                    <div className="grid grid-cols-2 gap-3 mt-[20px] px-[24px] md:px-[26px]">
+                      {fullSidebarSelectedPlace.photos.map((url: string, idx: number) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`Menu photo ${idx + 1}`}
+                          className="w-full h-56 md:h-60 object-cover rounded-lg"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 tracking-wide mt-[10px] px-[24px]">No menu photos available.</p>
+                  )}
+                </div>
+              )}
+  
+              {fullSidebarActiveTab === "fullSidebarAbout" && (
+                <div>
+                  <div className="px-[24px] md:px-[26px] pt-[8px] pb-[22px] border-b border-gray-300 mb-[14px]">
+                    <h3 className="text-[14px] md:text-[15px] tracking-wide text-black font-sans font-semibold capitalize mb-[10px]">
+                      About
+                    </h3>
+                    <p className="text-[14px] md:text-[14.5px] text-gray-700">{fullSidebarSelectedPlace?.about || "N/A"}</p>
+                  </div>
+
+                  {fullSidebarSelectedPlace?.cuisine && (
+                    <div className="px-[24px] md:px-[26px] pt-[8px] pb-[22px] border-b border-gray-300 mb-[14px]">
+                      <h3 className="text-[14px] md:text-[15px] tracking-wide text-black font-sans font-semibold capitalize mb-[12px]">
+                        Cuisine
+                      </h3>
+                      <ul className="grid grid-cols-2 gap-y-[10px] gap-x-[20px]">
+                        {fullSidebarSelectedPlace.cuisine.split(",").map((item, i) => (
+                          <li key={i} className="flex items-center gap-[4px] text-[14px] md:text-[14.5px] text-gray-700">
+                            <CheckIcon style={{ fontSize: "18px" }} /> {item.trim()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {fullSidebarSelectedPlace?.serviceability && (
+                    <div className="px-[24px] md:px-[26px] pt-[8px] pb-[12px]">
+                      <h3 className="text-[14px] md:text-[15px] tracking-wide text-black font-sans font-semibold capitalize mb-[12px]">
+                        Serviceability
+                      </h3>
+                      <ul className="grid grid-cols-2 gap-y-[10px] gap-x-[20px]">
+                        {fullSidebarSelectedPlace.serviceability.split(",").map((item, i) => (
+                          <li key={i} className="flex items-center gap-[4px] text-[14px] md:text-[14.5px] text-gray-700">
+                            <CheckIcon style={{ fontSize: "18px" }} /> {item.trim()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Half Place Sidebar */}
+      <div
+        id="halfSidebar"
+        className={`fixed bg-white text-black transition-transform duration-300 flex flex-col
+          bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
+          ${placeSidebar === "half" ? "z-40" : "z-30"}
+          ${placeSidebar === "half" ? "translate-y-0" : "translate-y-full"}
+          ${placeSidebar === "half" ? "md:translate-x-0" : "md:-translate-x-[410px]"}
+        `}
+      >
+        <div className="hidden md:block py-[12px] px-[18px]">
+          {searchOrigin === "sidebar" ? (
+            <SidebarSearchBox
+              topSidebarSearchBoxRef={secondSearchBoxRef}
+              topSidebarSuggestionBoxRef={secondSuggestionBoxRef}
+              inputRef={inputRef}
+              sidebarSearchValue={sidebarSearchValue}
+              fetchDetailedPlaces={fetchDetailedPlaces} 
+              setSidebarSearchValue={setSidebarSearchValue}
+              showSidebarSuggestions={showSidebarSuggestions}
+              setShowSidebarSuggestions={setShowSidebarSuggestions}
+              sidebarCombinedList={sidebarCombinedList}
+              sidebarHighlightedIndex={sidebarHighlightedIndex}
+              setSidebarHighlightedIndex={setSidebarHighlightedIndex}
+              placeSidebar={placeSidebar}
+              topSidebar={topSidebar}
+              setTopSidebar={setTopSidebar}
+              setPlaceSidebar={setPlaceSidebar}
+              setShowSidebar={setShowSidebar}
+              setRecentSidebar={setRecentSidebar}
+              handleSidebarSelectSuggestion={handleSidebarSelectSuggestion}
+              setSidebarSuggestions={setSidebarSuggestions}
+              setIsLocationSelected={setIsLocationSelected}
+              setRecentPlaces={setRecentPlaces}
+              setRelatedPlaces={setRelatedPlaces}
+              mapInstanceRef={mapInstanceRef}
+              recentPlaces={recentPlaces}
+              markerRef={markerRef}
+              sidebarMarkerRef={sidebarMarkerRef}
+              clearCategoryMarkers={clearCategoryMarkers}
+              keepHalfSidebarOpen={keepHalfSidebarOpen}
+              setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+              activePlaceMarkerRemover={activePlaceMarkerRemover}
+            />
+            ) : searchOrigin === "home" ? (
+            <SearchBox
+              placeSidebarSearchBoxRef={halfSidebarSearchBoxRef}
+              placeSidebarSuggestionBoxRef={halfSidebarSuggestionBoxRef}
+              inputRef={inputRef}
+              searchValue={searchValue}
+              fetchDetailedPlaces={fetchDetailedPlaces} 
+              setSearchValue={setSearchValue}
+              showSuggestions={showSuggestions}
+              setShowSuggestions={setShowSuggestions}
+              combinedList={combinedList}
+              highlightedIndex={highlightedIndex}
+              setHighlightedIndex={setHighlightedIndex}
+              placeSidebar={placeSidebar}
+              topSidebar={topSidebar}
+              setTopSidebar={setTopSidebar}
+              setPlaceSidebar={setPlaceSidebar}
+              setShowSidebar={setShowSidebar}
+              setRecentSidebar={setRecentSidebar}
+              handleSelectSuggestion={handleSelectSuggestion}
+              setSuggestions={setSuggestions}
+              setIsLocationSelected={setIsLocationSelected}
+              setRecentPlaces={setRecentPlaces}
+              setRelatedPlaces={setRelatedPlaces}
+              mapInstanceRef={mapInstanceRef}
+              recentPlaces={recentPlaces}
+              markerRef={markerRef}
+              sidebarMarkerRef={sidebarMarkerRef}
+              clearCategoryMarkers={clearCategoryMarkers}
+              keepHalfSidebarOpen={keepHalfSidebarOpen}
+              setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+              activePlaceMarkerRemover={activePlaceMarkerRemover}
+              handleShopSuggestion={handleShopSuggestion}
+              searchOrigin={searchOrigin}
+              setSearchOrigin={setSearchOrigin}
+              setNoMatches={setNoMatches}
+              noMatches={noMatches}
+              allShops={allShops}
+              exploreButtonFunction={exploreButtonFunction}
+            />
+          ) : null}
+        </div>
+        
+        <div ref={halfSidebarRef} className="overflow-y-auto flex-1 py-[2px]">
+          <div className="pt-[4px]">
+            {relatedPlaces.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between px-[24px] pt-[14px] md:pt-[0px]">
+                  <h1 className="text-[20px] text-black font-sans font-normal tracking-wide">
+                    Results
+                  </h1>
+
+                  <button
+                    className="md:hidden w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[17px] font-bold"
+                    onClick={closeButtonFunction}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {relatedPlaces.map((place, index) => {
+                  const name = place.name || "Unnamed Place";
+                  const cuisine = place.cuisine || "";
+                  const address = place.address || "";
+
+                  return (
+                    <div
+                      key={index}
+                      className="flex flex-col gap-[6px] pl-[24px] pr-[20px] py-[16px] md:py-[14px] hover:bg-gray-200 cursor-pointer border-b border-gray-300"
+                      onClick={async () => {
+                        const shop = allShops.find(s => s.shopId === place.shopId);
+                        if (!shop || !mapInstanceRef.current) return;
+
+                        addToHistory(shop);
+
+                        const position = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
+
+                        const marker = new google.maps.Marker({
+                            position,
+                            map: mapInstanceRef.current,
+                            title: shop.name,
+                        });
+
+                        if (activePlaceMarkerRef.current) {
+                            activePlaceMarkerRef.current.setMap(null);
+                        }
+                        activePlaceMarkerRef.current = marker;
+
+                        const additionalImages = await fetchShopImages(String(shop.shopId));
+                        const allPhotos = [...(shop.menu || []), ...additionalImages];
+
+                        setFullSidebarSelectedPlace({
+                            title: shop.name,
+                            nativeName: shop.name,
+                            lat: Number(shop.lat),
+                            lng: Number(shop.lng),
+                            timestamp: Date.now(),
+                            category: shop.cuisine,
+                            isFavorite: false,
+                            photos: allPhotos,
+                            applink: shop.applink,
+                            about: shop.about || "",
+                            cuisine: shop.cuisine || "",
+                            serviceability: shop.serviceability || ""
+                        });
+
+                        setPlaceSidebar("full");
+                        setSearchValue(shop.name);
+                        setFullSidebarActiveTab("fullSidebarMenu");
+                        setKeepHalfSidebarOpen(true);
+                        centerPlaceOnMap(position);
+                      }}
+                      >
+                      {/*
+                      <div className="font-medium font-sans tracking-wide text-[16px] leading-snug text-black">
+                          {name}
+                      </div>
+                      <div className="text-[14px] text-gray-700">{cuisine}</div>
+                      <div className="text-[14px] text-gray-500">{address}</div>
+                      */}
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col min-w-0"> 
+                          <div className="font-medium font-sans tracking-wide text-[16px] leading-snug text-black break-words mb-[6px]">
+                            {name}
+                          </div>
+                          <div className="text-[14px] text-gray-700">{cuisine}</div>
+                        </div>
+
+                        <button
+                          aria-label={`Download "${place.name}" app`}
+                          className="ml-4 p-[6px] md:p-[7px] rounded-full bg-gray-200 hover:bg-white flex items-center justify-center cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (place.applink) {
+                              window.open(place.applink, "_blank");
+                            }
+                            else {
+                              window.open("https://play.google.com/store/games?device=windows", "_blank");
+                            }
+                          }} 
+                        >
+                          <HiDownload className="text-[20px] md:text-[22px] text-gray-700" />
+                        </button>
+                      </div>
+
+                      <div className="text-[14px] text-gray-500 break-words">
+                        {address}
+                      </div>
+                    
+                    </div>
+                    
+                  );
+                })}
+
+                <div className="py-4 text-center font-sans text-gray-700 text-[14px] tracking-wide">
+                  You have reached the end of the list.
+                </div>
+              </>
+            ) : (
+              <div className="px-[24px] text-black">
+                <div className="md:hidden flex items-center justify-between pt-[10px] md:pt-[0px]">
+                  <h1 className="text-[20px] text-black font-sans font-normal tracking-wide">
+                    Results
+                  </h1>
+
+                  <button
+                    className="md:hidden w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[17px] font-bold"
+                    onClick={closeButtonFunction}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="mt-[10px] md:mt-[0px]">
+                  <p className="font-sans font-medium text-[17px] tracking-wide">
+                    Sorry, can't find <span className="font-medium">"{searchValue}"</span>
+                  </p>
+                  <p className="font-sans mt-[6px] text-[14.5px] tracking-wide text-gray-600">
+                    Make sure your search is spelled correctly. Try adding a correct restaurant name.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div> 
+        </div>
+      </div>
+
+      {/* Toggle thumbnail */}
+      {!showRecentDetailsSidebar && (
+        <div
+         className={`absolute z-30 bottom-[90px] md:bottom-5 left-[20px] md:left-[90px]  w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group transition-[left] duration-300 ease-in-out
+          ${showSidebar ? "md:left-[500px]" : ""}
+          ${placeSidebar === "full" ? "md:left-[500px]" : ""}
+          ${placeSidebar === "half" ? "md:left-[500px]" : ""}
+          ${topSidebar === "recent" ? "md:left-[500px]" : ""}
+          ${topSidebar === "saved" ? "md:left-[500px]" : ""}
+          ${isSatellite ? 'border-black bg-black' : 'border-white bg-white'}`}
+          onClick={() => {
+            const currentType = mapInstanceRef.current?.getMapTypeId();
+            const nextType =
+              currentType === google.maps.MapTypeId.HYBRID
+                ? google.maps.MapTypeId.ROADMAP
+                : google.maps.MapTypeId.HYBRID;
+
+            mapInstanceRef.current?.setMapTypeId(nextType);
+            setIsSatellite(nextType === google.maps.MapTypeId.HYBRID);
+          }}
+        >
+          {thumbnailUrl && (
+            <>
+              <img
+                src={thumbnailUrl}
+                alt="Map"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-95 rounded-[8px]"
+              />
+              <div
+                className={`absolute bottom-0 left-0 w-full bg-transparent text-[12px] font-medium text-center py-[4px]
+                  ${isSatellite ? 'text-black' : 'text-white'}`}
+              >
+                {isSatellite ? "Map" : "Satellite"}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      
+      {/* Locate Me Button */}
+      <button
+        onClick={() => {
+          if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser.");
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              if (mapInstanceRef.current) {
+                const location = new google.maps.LatLng(latitude, longitude);
+                mapInstanceRef.current.panTo(location);
+                mapInstanceRef.current.setZoom(15);
+
+                 if (locateMeMarkerRef.current) {
+                  locateMeMarkerRef.current.setPosition(location);
+                } else {
+                  locateMeMarkerRef.current = new google.maps.Marker({
+                    position: location,
+                    map: mapInstanceRef.current,
+                    title: "Your Location",
+                  });
+                }
+              }
+            },
+            (error) => {
+              console.warn("Geolocation error:", error);
+            }
+          );
+        }}
+        className={`absolute z-10 right-[20px] bottom-[158px] md:bottom-[90px] w-[30px] h-[30px] flex items-center justify-center bg-white rounded-[8px] shadow-md hover:scale-105 transition-transform`}
+      >
+        <MyLocationIcon className="text-black cursor-pointer" style={{ width: 19, height: 19 }} />
+      </button>
+
+      {/* Custom Zoom Controls */}
+      <div className={`absolute z-10 right-[20px] bottom-[92px] md:bottom-[24px] flex flex-col bg-white rounded-[8px] shadow-md overflow-hidden`}>
+        <button
+          className="w-[30px] h-[30px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
+          onClick={() => {
+            const map = mapInstanceRef.current;
+            if (map) {
+              const zoom = map.getZoom();
+              if (typeof zoom === "number") {
+                map.setZoom(zoom + 1);
+              }
+            }
+          }}
+        >
+          <span className="text-[20px] font-bold text-gray-600 hover:text-black hover:scale-110">
+            +
+          </span>
+        </button>
+
+        <div className="px-1">
+          <div className="w-full h-[1px] bg-gray-400" />
+        </div>
+        
+        <button
+          className="w-[30px] h-[30px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
+          onClick={() => {
+            const map = mapInstanceRef.current;
+            if (map) map.setZoom((map.getZoom() ?? 0) - 1);
+          }}
+        >
+          <span className="text-[20px] font-bold text-gray-600 hover:text-black hover:scale-110">
+            −
+          </span>
+        </button>
+      </div>
+      
+      {/*Details sidebar's overview tab's share button toolip */}
+      <div>
+        {locationCopied && (
+          <div className="absolute bottom-[5px] left-1/2 -translate-x-1/2 bg-black z-50 text-white text-[16px] tracking-wide font-sans font-medium px-[14px] py-[12px]">
+            Location copied to clipboard
+          </div>
+        )}
+      </div>
+
+      <div ref={mapRef} className="w-full h-full" />
+    </div>
+  );
+};
+
+export default Map;
