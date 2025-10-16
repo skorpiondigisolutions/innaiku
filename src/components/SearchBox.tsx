@@ -2,7 +2,6 @@ import React from "react";
 import SearchIcon from "@mui/icons-material/Search";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
-import HomeIcon from "@mui/icons-material/Home";
 import type { RecentPlace, CombinedItem, Shop } from "./Map";
 
 type Props = {
@@ -39,7 +38,7 @@ type Props = {
   setSuggestions: React.Dispatch<React.SetStateAction<Shop[]>>;
   setIsLocationSelected: React.Dispatch<React.SetStateAction<boolean>>;
   setRecentPlaces: React.Dispatch<React.SetStateAction<RecentPlace[]>>;
-  setRelatedPlaces: React.Dispatch<React.SetStateAction<any[]>>;
+  setRelatedPlaces: React.Dispatch<React.SetStateAction<Shop[]>>;
   mapInstanceRef: React.RefObject<google.maps.Map | null>;
   recentPlaces: RecentPlace[];
   fetchDetailedPlaces: (results: google.maps.places.PlaceResult[]) => Promise<RecentPlace[]>;
@@ -67,17 +66,11 @@ export default function SearchBox({
   setHighlightedIndex,
   placeSidebar,
   setPlaceSidebar,
-  topSidebar,
-  setTopSidebar,
   setShowSidebar,
-  setRecentSidebar,
-  handleSelectSuggestion,
   setSuggestions,
   setIsLocationSelected,
   setRecentPlaces,
   setRelatedPlaces,
-  mapInstanceRef,
-  fetchDetailedPlaces,
   markerRef,
   sidebarMarkerRef,
   clearCategoryMarkers,
@@ -432,7 +425,7 @@ export default function SearchBox({
             {noMatches && (
               <div className="px-[20px] py-[12px] text-center text-black">
                 <p className="font-medium text-[15px] text-black">
-                  Sorry, can't find that place name.
+                  Sorry, can&apos;t find that place name.
                 </p>
               </div>
             )}

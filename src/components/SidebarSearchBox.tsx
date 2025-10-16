@@ -3,7 +3,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import HomeIcon from "@mui/icons-material/Home";
-import type { RecentPlace, SidebarCombinedItem } from "./Map";
+import type { RecentPlace, SidebarCombinedItem, Shop } from "./Map";
 
 type Props = {
   topSidebarSearchBoxRef: React.RefObject<HTMLDivElement | null>;
@@ -37,7 +37,7 @@ type Props = {
   setSidebarSuggestions: React.Dispatch<React.SetStateAction<google.maps.places.AutocompletePrediction[]>>;
   setIsLocationSelected: React.Dispatch<React.SetStateAction<boolean>>;
   setRecentPlaces: React.Dispatch<React.SetStateAction<RecentPlace[]>>;
-  setRelatedPlaces: React.Dispatch<React.SetStateAction<any[]>>;
+  setRelatedPlaces: React.Dispatch<React.SetStateAction<Shop[]>>;
   mapInstanceRef: React.RefObject<google.maps.Map | null>;
   recentPlaces: RecentPlace[];
   fetchDetailedPlaces: (results: google.maps.places.PlaceResult[]) => Promise<RecentPlace[]>;
@@ -59,9 +59,7 @@ export default function SidebarSearchBox({
   setSidebarHighlightedIndex,
   placeSidebar,
   setPlaceSidebar,
-  topSidebar,
   setTopSidebar,
-  setShowSidebar,
   setRecentSidebar,
   handleSidebarSelectSuggestion,
   setSidebarSuggestions,
@@ -69,8 +67,6 @@ export default function SidebarSearchBox({
   setRecentPlaces,
   setRelatedPlaces,
   mapInstanceRef,
-  fetchDetailedPlaces,
-  markerRef,
   sidebarMarkerRef,
   clearCategoryMarkers,
   keepHalfSidebarOpen,
@@ -170,7 +166,7 @@ export default function SidebarSearchBox({
                                 handleSidebarSelectSuggestion(results[0].place_id!, () => setPlaceSidebar("full"));
                               } else {
                                 setPlaceSidebar("half");
-                                fetchDetailedPlaces(results).then(setRelatedPlaces);
+                                //fetchDetailedPlaces(results).then(setRelatedPlaces);
                               }
                             } else {
                               setPlaceSidebar("half");

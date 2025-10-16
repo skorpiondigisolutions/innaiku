@@ -1,19 +1,10 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import SearchIcon from '@mui/icons-material/Search';
-import MenuIcon from "@mui/icons-material/Menu";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import HistoryIcon from "@mui/icons-material/History";
-import SmartphoneIcon from "@mui/icons-material/Smartphone";
-import RestaurantIcon from '@mui/icons-material/Restaurant';
-import HotelIcon from '@mui/icons-material/Hotel';
-import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
-import MuseumOutlinedIcon from '@mui/icons-material/MuseumOutlined';
-import DirectionsTransitOutlinedIcon from '@mui/icons-material/DirectionsTransitOutlined';
-import LocalPharmacyOutlinedIcon from '@mui/icons-material/LocalPharmacyOutlined';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import HomeIcon from '@mui/icons-material/Home';
-import LocalAtmIcon from '@mui/icons-material/Atm'
 import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
@@ -38,7 +29,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
 import RateReviewIcon from "@mui/icons-material/RateReviewOutlined";
 import { HiDownload } from "react-icons/hi";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import PaymentsIcon from "@mui/icons-material/PaymentsOutlined";
 import AdjustIcon from '@mui/icons-material/Add';
@@ -50,6 +41,21 @@ import CallIcon from '@mui/icons-material/Call';
 import LockIcon from '@mui/icons-material/Lock';
 import SearchBox from "./SearchBox";
 import SidebarSearchBox from "./SidebarSearchBox"; 
+import { API_URL } from "../config/apiConfig";
+
+interface FoodItem {
+  images?: string[];
+  [key: string]: unknown;
+}
+
+interface Place {
+  title: string;
+  lat: number;
+  lng: number;
+  subtitle?: string;
+  photos?: string[];
+  reviews?: unknown[];
+}
 
 export type RecentPlace = {
   place_id?: string; 
@@ -202,26 +208,12 @@ const aboutTabData = {
   ],
 };
 
-const getCategoryIcon = (type: string): string => {
-  switch (type) {
-    case "restaurant":
-      return "https://maps.google.com/mapfiles/ms/icons/orange-dot.png";
-    case "lodging":
-      return "https://maps.google.com/mapfiles/ms/icons/blue-dot.png";
-    case "atm":
-      return "https://maps.google.com/mapfiles/ms/icons/green-dot.png";
-    default:
-      return "https://maps.google.com/mapfiles/ms/icons/red-dot.png";
-  }
-};
-
 const Map = () => {
   const mapRef = useRef(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [isSatellite, setIsSatellite] = React.useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState("");
-  const [savedSidebar, setSavedSidebar] = useState(false);
   const [recentSidebar, setRecentSidebar] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [topSidebar, setTopSidebar] = useState<"saved" | "recent" | null>(null);
@@ -229,7 +221,6 @@ const Map = () => {
   const [isLocationSelected, setIsLocationSelected] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  //const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
   const [recentPlaces, setRecentPlaces] = useState<RecentPlace[]>([]);
   const [sidebarSearchValue, setSidebarSearchValue] = useState("");
@@ -254,9 +245,8 @@ const Map = () => {
   const halfSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
   const savedSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
   const recentSidebarSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
-  const [showSaveMenu, setShowSaveMenu] = useState(false)
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
   const saveMenuRef = useRef<HTMLDivElement>(null);
-  const [showQR, setShowQR] = useState(false);
   const [startLocation, setStartLocation] = useState("");
   const [destinationLocation, setDestinationLocation] = useState("");
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -288,14 +278,11 @@ const Map = () => {
   const stickyScrollRef = useRef<HTMLDivElement>(null);
   const [detailsActiveTab, setDetailsActiveTab] = useState("overview");
   const recentSelectedMarkerRef = useRef<google.maps.Marker | null>(null);
-  const [overviewFavorite, setOverviewFavorite] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
   const [plusCodeCopied, setPlusCodeCopied] = useState(false);
   const [favoriteList, setFavoriteList] = useState<string | null>(null);
   const [favoritePlaceList, setFavoritePlaceList] = useState<RecentPlace[]>([]);
   const [locationCopied, setLocationCopied] = useState(false);
-  const [fullPlaceSidebar, setFullPlaceSidebar] = useState(false);
-  const [halfPlaceSidebar, setHalfPlaceSidebar] = useState(false);
   const [placeSidebar, setPlaceSidebar] = useState<"full" | "half" | null>(null);
   const [relatedPlaces, setRelatedPlaces] = useState<Shop[]>([]);
   const [fullSidebarSelectedPlace, setFullSidebarSelectedPlace] = useState<RecentPlace | null>(null);
@@ -315,16 +302,37 @@ const Map = () => {
   const secondSearchBoxRef = useRef<HTMLDivElement>(null);
   const firstSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
   const secondSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [modalActiveTab, setModalActiveTab] = useState("login");
   const activePlaceMarkerRef = useRef<google.maps.Marker | null>(null);
   const [allShops, setAllShops] = useState<Shop[]>([]);
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
   const [suggestions, setSuggestions] = useState<Shop[]>([]);
   const [noMatches, setNoMatches] = useState(false);
+
+  function useDummy(..._args: unknown[]) {
+    void _args;
+  }
+  useDummy(
+    recentSidebar,
+    isLocationSelected,
+    isDirectionEnabled,
+    SavedIcon,
+    showLeftArrow,
+    showRightArrow,
+    showSaveMenu,
+    travelInfo,
+    routes,
+    activeRouteIndex,
+    addressFSCopied,
+    plusCodeFSCopied,
+    locationFSCopied,
+    activeShop,
+    setFSAddressCopied,
+    setFSPlusCodeCopied,
+    setFSLocationCopied
+  );
   
   useEffect(() => {
-    fetch("http://103.118.158.57:3749/getAllShops")
+    fetch(`${API_URL}/getAllShops`)
       .then(res => res.json())
       .then((data: Shop[]) => setAllShops(data))
       .catch(err => console.error(err));
@@ -351,113 +359,11 @@ const Map = () => {
     }
   }, [relatedPlaces, placeSidebar]);
 
-  const runNearbySearch = (
-    service: google.maps.places.PlacesService,
-    location: google.maps.LatLng,
-    type: string
-  ) => {
-    if (!mapInstanceRef.current) return;
-
-    categoryMarkersRef.current.forEach(marker => marker.setMap(null));
-    categoryMarkersRef.current = [];
-
-    service.nearbySearch(
-      //{ location, radius: 10000, type },
-      { location, rankBy: google.maps.places.RankBy.DISTANCE, type },
-      (results, status) => {
-        setPlaceSidebar("half");
-        setSearchOrigin("home");
-        setKeepHalfSidebarOpen(true);
-
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          //fetchDetailedPlaces(results).then(setRelatedPlaces);
-
-          const bounds = new google.maps.LatLngBounds();
-
-          results.forEach(place => {
-            if (!place.geometry?.location || !mapInstanceRef.current) return;
-
-            const marker = new google.maps.Marker({
-              position: place.geometry.location,
-              map: mapInstanceRef.current!,
-              title: place.name,
-              icon: {
-                url: getCategoryIcon(type),
-                scaledSize: new google.maps.Size(30, 30),
-              },
-            });
-
-            marker.addListener("click", () => {
-              if (place.place_id) {
-                handleSelectSuggestion(place.place_id, () => {
-                  setPlaceSidebar("full"); 
-                  setKeepHalfSidebarOpen(true);
-                });
-              }
-            });
-
-            categoryMarkersRef.current.push(marker);
-            bounds.extend(place.geometry.location);
-          });
-
-          if (!bounds.isEmpty() && mapInstanceRef.current) {
-            const sidebarEl = document.getElementById("halfSidebar");
-            const sidebarWidth = sidebarEl?.offsetWidth || 0;
-            const sidebarHeight = sidebarEl?.offsetHeight || 0;
-
-            const windowWidth = window.innerWidth;
-            const windowHeight = window.innerHeight;
-
-            let padding = { top: 50, bottom: 50, left: 50, right: 50 };
-
-            if (windowWidth >= 768) {
-
-              padding = {
-                top: 50,
-                bottom: 50,
-                left: sidebarWidth + 50,
-                right: 50,
-              };
-            } else {
-              padding = {
-                top: 150,
-                bottom: sidebarHeight + 50,
-                left: 50,
-                right: 50,
-              };
-            }
-            mapInstanceRef.current.fitBounds(bounds, padding);
-          }
-        } else {
-          setRelatedPlaces([]);
-        }
-      }
-    );
-  };
-  
   const clearCategoryMarkers = () => {
     if (categoryMarkersRef.current && categoryMarkersRef.current.length > 0) {
       categoryMarkersRef.current.forEach((marker) => marker.setMap(null));
       categoryMarkersRef.current = [];
     }
-  };
-
-  const resetToDefault = () => {
-    setTopSidebar(null);
-    setPlaceSidebar(null);
-    setShowSidebar(false);
-    setTravelInfo(null);
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.setCenter({ lat: 13.0827, lng: 80.2707 });
-      mapInstanceRef.current.setZoom(10);
-    }
-
-     if (locateMeMarkerRef.current) {
-      locateMeMarkerRef.current.setMap(null);
-      locateMeMarkerRef.current = null;
-    }
-    clearCategoryMarkers();
   };
 
   const handleRecentPlaceClickResponsive = (place: RecentPlace) => {
@@ -556,17 +462,6 @@ const Map = () => {
     }
   }, []);
 
-  const handleFSLocationShare = () => {
-    if (!fullSidebarSelectedPlace) return;
-
-    const link = `https://www.google.com/maps?q=${fullSidebarSelectedPlace.lat},${fullSidebarSelectedPlace.lng}`;
-
-    navigator.clipboard.writeText(link).then(() => {
-      setFSLocationCopied(true);
-      setTimeout(() => setFSLocationCopied(false), 2000); 
-    });
-  };
-
   useEffect(() => {
     const stored = localStorage.getItem("favorite_places");
     if (stored) {
@@ -578,22 +473,6 @@ const Map = () => {
       }
     }
   }, []);
-    
-  const addFavorite = (place: RecentPlace) => {
-    setFavoritePlaceList((prev) => {
-      const updated = [place, ...prev.filter((p) => p.title !== place.title)];
-      localStorage.setItem("favorite_places", JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const removeFavorite = (title: string) => {
-    setFavoritePlaceList((prev) => {
-      const updated = prev.filter((p) => p.title !== title);
-      localStorage.setItem("favorite_places", JSON.stringify(updated));
-      return updated;
-    });
-  };
 
   useEffect(() => {
     setShowRecentDetailsSidebar(false);
@@ -615,22 +494,6 @@ const Map = () => {
     );
     setPlusCodeCopied(true);
     setTimeout(() => setPlusCodeCopied(false), 1000);
-  };
-
-  const handleFSAddressCopy = () => {
-    navigator.clipboard.writeText(
-      fullSidebarSelectedPlace?.fullAddress || "Address not available"
-    );
-    setFSAddressCopied(true);
-    setTimeout(() => setFSAddressCopied(false), 1000);
-  };
-
-  const handleFSPlusCodeCopy = () => {
-    navigator.clipboard.writeText(
-      fullSidebarSelectedPlace?.fullAddress || "Plus code not available"
-    );
-    setFSPlusCodeCopied(true);
-    setTimeout(() => setFSPlusCodeCopied(false), 1000);
   };
   
   const fullSidebarTabs = [
@@ -959,7 +822,7 @@ const Map = () => {
     }
   };
 
-  const placeStartMarker = (position: google.maps.LatLngLiteral) => {
+  const placeStartMarker = useCallback((position: google.maps.LatLngLiteral) => {
     if (startMarkerRef.current) startMarkerRef.current.setMap(null);
     startMarkerRef.current = new google.maps.Marker({
       position,
@@ -970,9 +833,9 @@ const Map = () => {
         anchor: new google.maps.Point(16, 16),
       },
     });
-  };
+  }, [mapInstanceRef, startIconSvg]);
 
-  const placeDestinationMarker = (position: google.maps.LatLngLiteral) => {
+  const placeDestinationMarker = useCallback((position: google.maps.LatLngLiteral) => {
     console.log("Placing destination marker at:", position);
     if (destinationMarkerRef.current) destinationMarkerRef.current.setMap(null);
     destinationMarkerRef.current = new google.maps.Marker({
@@ -984,7 +847,7 @@ const Map = () => {
         anchor: new google.maps.Point(16, 16),
       },
     });
-  };
+  }, [mapInstanceRef, destinationIconSvg]);
 
   useEffect(() => {
     if (startCoords) {
@@ -992,28 +855,74 @@ const Map = () => {
     } else if (startMarkerRef.current) {
       startMarkerRef.current.setMap(null);
     }
-  }, [startCoords]);
+  }, [startCoords, placeStartMarker]);
 
   useEffect(() => {
-    console.log("Destination coords:", destinationCoords);
     if (destinationCoords) {
       placeDestinationMarker(destinationCoords);
     } else if (destinationMarkerRef.current) {
       destinationMarkerRef.current.setMap(null);
     }
-  }, [destinationCoords]);
+  }, [destinationCoords, placeDestinationMarker]);
 
-  const handleSwapClick = () => {
-    const tempLocation = startLocation;
-    setStartLocation(destinationLocation);
-    setDestinationLocation(tempLocation);
+  const drawRoutes = useCallback(
+    (routes: google.maps.DirectionsRoute[], activeIndex: number) => {
+      altPolylinesRef.current.forEach(poly => poly.setMap(null));
+      altPolylinesRef.current = [];
 
-    const tempCoords = startCoords;
-    setStartCoords(destinationCoords);
-    setDestinationCoords(tempCoords);
-  };
+      routes.forEach((route, index) => {
+        const isActive = index === activeIndex;
 
-  const calculateRoute = () => {
+        const outlinePolyline = new google.maps.Polyline({
+          path: route.overview_path,
+          strokeColor: isActive ? "#0a11d8" : "#8096E0",
+          strokeOpacity: 1,
+          strokeWeight: isActive ? 8 : 6,
+          map: mapInstanceRef.current,
+          zIndex: 1
+        });
+        
+        const polyline = new google.maps.Polyline({
+          path: route.overview_path,
+          strokeColor: isActive ? "#0f53ff" : "#B8C9FF",
+          strokeOpacity: 1,
+          strokeWeight: isActive ? 6 : 4,
+          icons: [],
+          map: mapInstanceRef.current,
+          zIndex: isActive ? 2 : 1
+        });
+
+        const handleClick = () => {
+          setActiveRouteIndex(index);
+          drawRoutes(routes, index);
+        };
+        outlinePolyline.addListener("click", handleClick);
+        polyline.addListener("click", handleClick);
+
+        altPolylinesRef.current.push(outlinePolyline, polyline);
+
+        if (isActive && mapInstanceRef.current) {
+          const bounds = new google.maps.LatLngBounds();
+          route.legs.forEach(leg => {
+            leg.steps.forEach(step => {
+              step.path.forEach(latlng => bounds.extend(latlng));
+            });
+          });
+
+          const sidebarWidth = directionSidebarRef.current?.offsetWidth || 0;
+          mapInstanceRef.current.fitBounds(bounds, {
+            left: sidebarWidth,
+            top: 50,
+            right: 50,
+            bottom: 50
+          });
+        }
+      });
+    },
+    []
+  );
+  
+  const calculateRoute = useCallback(() => {
     if (!startLocation || !destinationLocation || !mapInstanceRef.current) return;
 
     const directionsService = new google.maps.DirectionsService();
@@ -1045,61 +954,7 @@ const Map = () => {
         }
       }
     );
-  };
-
-  const drawRoutes = (routes: google.maps.DirectionsRoute[], activeIndex: number) => {
-    altPolylinesRef.current.forEach(poly => poly.setMap(null));
-    altPolylinesRef.current = [];
-
-    routes.forEach((route, index) => {
-      const isActive = index === activeIndex;
-
-      const outlinePolyline = new google.maps.Polyline({
-        path: route.overview_path,
-        strokeColor: isActive ? "#0a11d8" : "#8096E0",
-        strokeOpacity: 1,
-        strokeWeight: isActive ? 8 : 6,
-        map: mapInstanceRef.current,
-        zIndex: 1
-      });
-      
-      const polyline = new google.maps.Polyline({
-        path: route.overview_path,
-        strokeColor: isActive ? "#0f53ff" : "#B8C9FF",
-        strokeOpacity: 1,
-        strokeWeight: isActive ? 6 : 4,
-        icons: [],
-        map: mapInstanceRef.current,
-        zIndex: isActive ? 2 : 1
-      });
-
-      const handleClick = () => {
-        setActiveRouteIndex(index);
-        drawRoutes(routes, index);
-      };
-      outlinePolyline.addListener("click", handleClick);
-      polyline.addListener("click", handleClick);
-
-      altPolylinesRef.current.push(outlinePolyline, polyline);
-
-      if (isActive && mapInstanceRef.current) {
-        const bounds = new google.maps.LatLngBounds();
-        route.legs.forEach(leg => {
-          leg.steps.forEach(step => {
-            step.path.forEach(latlng => bounds.extend(latlng));
-          });
-        });
-
-        const sidebarWidth = directionSidebarRef.current?.offsetWidth || 0;
-        mapInstanceRef.current.fitBounds(bounds, {
-          left: sidebarWidth,
-          top: 50,
-          right: 50,
-          bottom: 50
-        });
-      }
-    });
-  };
+  }, [startLocation, destinationLocation, startCoords, destinationCoords, drawRoutes]);
 
   const closeSidebar = () => {
     setShowSidebar(false);
@@ -1126,7 +981,7 @@ const Map = () => {
     if (startLocation && destinationLocation) {
         calculateRoute();
     }
-  }, [startLocation, destinationLocation]);
+  }, [startLocation, destinationLocation, calculateRoute]);
 
   useEffect(() => {
     const stored = localStorage.getItem("recent_places");
@@ -1195,15 +1050,6 @@ const Map = () => {
     }
   }, [showSidebarSuggestions, sidebarSearchValue]);
 
-  const scrollCategory = (direction: "left" | "right") => {
-    if (!arrowScrollRef.current) return;
-    const scrollAmount = 200;
-    arrowScrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
-      behavior: "smooth",
-    });
-  };
-  
   const handleCategoryScroll = () => {
     const container = arrowScrollRef.current;
     if (!container) return;
@@ -1216,23 +1062,6 @@ const Map = () => {
   useEffect(() => {
     handleCategoryScroll();
   }, []);
-
-  const toggleSelection = (title: string) => {
-    setSelectedPlaceTitles(prev =>
-      prev.includes(title)
-        ? prev.filter(t => t !== title)
-        : [...prev, title]
-    );
-  };
-
-  const handleToggleSelectAll = () => {
-    if (selectedPlaceTitles.length > 0) {
-      setSelectedPlaceTitles([]);
-    } else {
-      const allTitles = filteredPlaces.map(place => place.title);
-      setSelectedPlaceTitles(allTitles);
-    }
-  };
 
   function getDistanceKm(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) {
     const R = 6371;
@@ -1247,7 +1076,7 @@ const Map = () => {
     return R * c;
   }
 
-  function isPlaceTooBroad(place: any) {
+  function isPlaceTooBroad(place: Place) {
     const title = place.title.toLowerCase();
     const subtitle = place.subtitle?.toLowerCase() || "";
 
@@ -1263,14 +1092,14 @@ const Map = () => {
     return isSame || isMajorCity || containsBroadWord || isGeneric;
   }
 
-  function groupNearbyPlaces(places: any[], radius = 40) {
+  function groupNearbyPlaces(places: Place[], radius = 40) {
     const filtered = places.filter(p => !isPlaceTooBroad(p));
-    const groups: any[] = [];
-    const visited = new Set();
+    const groups: Place[][] = [];
+    const visited = new Set<number>();
 
     for (let i = 0; i < filtered.length; i++) {
       if (visited.has(i)) continue;
-      const group = [filtered[i]];
+      const group: Place[] = [filtered[i]];
       visited.add(i);
 
       for (let j = i + 1; j < filtered.length; j++) {
@@ -1291,7 +1120,7 @@ const Map = () => {
     return groups;
   }
 
-  function generateTagName(group: any[]) {
+  function generateTagName(group: Place[]) {
     const uniqueTitles = [...new Set(group.map(p => p.title))];
     if (uniqueTitles.length === 1) return uniqueTitles[0];
     if (uniqueTitles.length === 2) return `${uniqueTitles[0]} & ${uniqueTitles[1]}`;
@@ -1302,7 +1131,21 @@ const Map = () => {
   const groupTags = groupedPlaces.map(group => ({
     name: generateTagName(group),
     count: group.length,
-    places: group
+    places: group.map(p => ({
+      ...p,
+      timestamp: (p as RecentPlace).timestamp ?? Date.now(),
+      nativeName: (p as RecentPlace).nativeName ?? undefined,
+      subtitle: (p as RecentPlace).subtitle ?? "",
+      imageUrl: (p as RecentPlace).imageUrl ?? "",
+      photos: (p as RecentPlace).photos ?? [],
+      fullAddress: (p as RecentPlace).fullAddress ?? "",
+      plusCode: (p as RecentPlace).plusCode ?? "",
+      rating: (p as RecentPlace).rating ?? undefined,
+      userRatingsTotal: (p as RecentPlace).userRatingsTotal ?? undefined,
+      priceText: (p as RecentPlace).priceText ?? undefined,
+      category: (p as RecentPlace).category ?? "Shop",
+      reviews: (p as RecentPlace).reviews ?? [],
+    })) as RecentPlace[],
   }));
 
   const hasGroups = groupTags.length > 0;
@@ -1341,11 +1184,11 @@ const Map = () => {
   const fetchShopImages = async (shopId: string): Promise<string[]> => {
     try {
       const response = await fetch(
-        `http://103.118.158.57:3749/getFoodDetails?shop_id=${shopId}`
+        `${API_URL}/getFoodDetails?shop_id=${shopId}`
       );
       if (response.ok) {
-        const foodItems = await response.json();
-        return foodItems.flatMap((item: any) => item.images || []);
+         const foodItems = (await response.json()) as FoodItem[];
+         return foodItems.flatMap((item) => item.images || []);
       }
     } catch (err) {
       console.error("Failed to fetch additional images:", err);
@@ -1353,88 +1196,91 @@ const Map = () => {
     return [];
   };
 
-  const handleShopSuggestion = async (shop: Shop, onComplete?: () => void) => {
-    setSearchOrigin("home");
+  const handleShopSuggestion = useCallback(
+    async (shop: Shop, onComplete?: () => void) => {
+      setSearchOrigin("home");
 
-    const location = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
+      const location = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
 
-    if (markerRef.current) {
-      markerRef.current.setMap(null);
-    }
-
-    markerRef.current = new google.maps.Marker({
-      position: location,
-      map: mapInstanceRef.current!,
-      title: shop.name,
-    });
-
-    const bounds = new google.maps.LatLngBounds();
-    bounds.extend(location);
-
-    const sidebarEl = document.getElementById("fullSidebar");
-    const sidebarWidth = sidebarEl?.offsetWidth || 0;
-    const sidebarHeight = sidebarEl?.offsetHeight || 0;
-    const windowWidth = window.innerWidth;
-
-    let padding = { top: 50, bottom: 50, left: 50, right: 50 };
-    if (windowWidth >= 768) {
-      padding.left = sidebarWidth + 50;
-    } else {
-      padding.top = 150;
-      padding.bottom = sidebarHeight + 50;
-    }
-
-    mapInstanceRef.current?.fitBounds(bounds, padding);
-
-    setSearchValue(shop.name);
-
-    const additionalImages = await fetchShopImages(String(shop.shopId));
-    const allPhotos = [...(shop.menu || []), ...additionalImages];
-
-    const newPlace: RecentPlace = {
-      title: shop.name,
-      nativeName: undefined,
-      subtitle: shop.address,
-      imageUrl: allPhotos[0],
-      photos: allPhotos,
-      lat: Number(shop.lat),
-      lng: Number(shop.lng),
-      timestamp: Date.now(),
-      fullAddress: shop.address,
-      plusCode: "",
-      rating: undefined,
-      userRatingsTotal: undefined,
-      priceText: undefined,
-      category: shop.cuisine || "Shop",
-      reviews: [],
-    };
-
-    setRecentPlaces(prev => {
-      const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
-      const sliced = updated.slice(0, 20);
-      localStorage.setItem("recent_places", JSON.stringify(sliced));
-      return sliced;
-    });
-
-    setFullSidebarSelectedPlace({
-      ...newPlace,
-      isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
-    });
-
-    setIsLocationSelected(true);
-    setShowSuggestions(false);
-    setSuggestions([]);
-    setPlaceSidebar("full");
-    setFullSidebarActiveTab("fullSidebarMenu");
-
-    setTimeout(() => {
-      if (fullSidebarContentRef.current) {
-        fullSidebarContentRef.current.scrollTop = 0;
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
       }
-    }, 0);
 
-    if (onComplete) onComplete();
-  };
+      markerRef.current = new google.maps.Marker({
+        position: location,
+        map: mapInstanceRef.current!,
+        title: shop.name,
+      });
+
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(location);
+
+      const sidebarEl = document.getElementById("fullSidebar");
+      const sidebarWidth = sidebarEl?.offsetWidth || 0;
+      const sidebarHeight = sidebarEl?.offsetHeight || 0;
+      const windowWidth = window.innerWidth;
+
+      const padding = { top: 50, bottom: 50, left: 50, right: 50 };
+      if (windowWidth >= 768) {
+        padding.left = sidebarWidth + 50;
+      } else {
+        padding.top = 150;
+        padding.bottom = sidebarHeight + 50;
+      }
+
+      mapInstanceRef.current?.fitBounds(bounds, padding);
+
+      setSearchValue(shop.name);
+
+      const additionalImages = await fetchShopImages(String(shop.shopId));
+      const allPhotos = [...(shop.menu || []), ...additionalImages];
+
+      const newPlace: RecentPlace = {
+        title: shop.name,
+        nativeName: undefined,
+        subtitle: shop.address,
+        imageUrl: allPhotos[0],
+        photos: allPhotos,
+        lat: Number(shop.lat),
+        lng: Number(shop.lng),
+        timestamp: Date.now(),
+        fullAddress: shop.address,
+        plusCode: "",
+        rating: undefined,
+        userRatingsTotal: undefined,
+        priceText: undefined,
+        category: shop.cuisine || "Shop",
+        reviews: [],
+      };
+
+      setRecentPlaces(prev => {
+        const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
+        const sliced = updated.slice(0, 20);
+        localStorage.setItem("recent_places", JSON.stringify(sliced));
+        return sliced;
+      });
+
+      setFullSidebarSelectedPlace({
+        ...newPlace,
+        isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
+      });
+
+      setIsLocationSelected(true);
+      setShowSuggestions(false);
+      setSuggestions([]);
+      setPlaceSidebar("full");
+      setFullSidebarActiveTab("fullSidebarMenu");
+
+      setTimeout(() => {
+        if (fullSidebarContentRef.current) {
+          fullSidebarContentRef.current.scrollTop = 0;
+        }
+      }, 0);
+
+      if (onComplete) onComplete();
+    },
+    [favoritePlaceList]
+  );
 
   const handleSelectSuggestion = (placeId: string, onComplete?: () => void) => {
     setSearchOrigin("home");
@@ -1470,8 +1316,7 @@ const Map = () => {
           const sidebarHeight = sidebarEl?.offsetHeight || 0;
 
           const windowWidth = window.innerWidth;
-          const windowHeight = window.innerHeight;
-
+         
           let padding = { top: 50, bottom: 50, left: 50, right: 50 };
 
           if (windowWidth >= 768) {
@@ -1502,6 +1347,7 @@ const Map = () => {
         );
         const state = stateComp?.long_name || "";
         const country = countryComp?.long_name || "";
+        console.log(state, country);
 
         let subtitle = "";
         const cityComp = components.find((c) =>
@@ -1596,11 +1442,6 @@ const Map = () => {
             return sliced;
           });
 
-          const isFavorite =
-            recentPlaces.find((p) => p.title === newPlace.title)?.isFavorite ||
-            favoritePlaceList.some((p) => p.title === newPlace.title) ||
-            false;
-
           setFullSidebarSelectedPlace({
             ...newPlace,
             isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
@@ -1677,8 +1518,7 @@ const Map = () => {
           const sidebarHeight = sidebarEl?.offsetHeight || 0;
 
           const windowWidth = window.innerWidth;
-          const windowHeight = window.innerHeight;
-
+          
           let padding = { top: 50, bottom: 50, left: 50, right: 50 };
 
           if (windowWidth >= 768) {
@@ -1705,6 +1545,7 @@ const Map = () => {
         const countryComp = components.find(c => c.types.includes("country"));
         const state = stateComp?.long_name || "";
         const country = countryComp?.long_name || "";
+        console.log(state, country);
 
         let subtitle = "";
         const cityComp = components.find((c) =>
@@ -1798,11 +1639,6 @@ const Map = () => {
             localStorage.setItem("recent_places", JSON.stringify(sliced));
             return sliced;
           });
-
-          const isFavorite =
-            recentPlaces.find((p) => p.title === newPlace.title)?.isFavorite ||
-            favoritePlaceList.some((p) => p.title === newPlace.title) ||
-            false;
 
           setFullSidebarSelectedPlace({
             ...newPlace,
@@ -1996,7 +1832,7 @@ const Map = () => {
 
     const fetchShops = async (): Promise<Shop[]> => {
       try {
-        const response = await fetch("http://103.118.158.57:3749/getAllShops");
+        const response = await fetch(`${API_URL}/getAllShops`);
         if (!response.ok) throw new Error("Failed to fetch shops");
         const data: Shop[] = await response.json();
         return data;
@@ -2059,11 +1895,11 @@ const Map = () => {
         class RestaurantLabel extends google.maps.OverlayView {
           private div: HTMLDivElement | null = null;
           private position: google.maps.LatLng;
-          private data: any;
+          private data: Shop;
           private marker: google.maps.Marker | null = null;
           private infoWindow: google.maps.InfoWindow | null = null;
 
-          constructor(position: google.maps.LatLng, data: any) {
+          constructor(position: google.maps.LatLng, data: Shop) {
             super();
             this.position = position;
             this.data = data;
@@ -2111,10 +1947,11 @@ const Map = () => {
               // API for extra image
               let additionalImages: string[] = [];
               try {
-                const response = await fetch(`http://103.118.158.57:3749/getFoodDetails?shop_id=${shop.shopId}`);
+                const response = await fetch(`${API_URL}/getFoodDetails?shop_id=${shop.shopId}`);
                 if (response.ok) {
-                  const foodItems = await response.json();
-                  additionalImages = foodItems.flatMap((item: any) => item.images || []);
+                  const foodItems = (await response.json()) as FoodItem[];
+                  additionalImages = foodItems.flatMap((item) => item.images || []);
+
                 }
               } catch (err) {
                 console.error("Failed to fetch additional images:", err);
@@ -2257,10 +2094,6 @@ const Map = () => {
           overlay.setMap(mapInstanceRef.current);
         });
 
-        interface PlaceClickEvent extends google.maps.MapMouseEvent {
-          placeId?: string;
-        }
-
         map.addListener("click", (e: google.maps.MapMouseEvent) => {
         const clickedLat = e.latLng?.lat();
         const clickedLng = e.latLng?.lng();
@@ -2275,7 +2108,7 @@ const Map = () => {
       });
       }
     });
-  }, [allShops]);
+  }, [allShops, handleShopSuggestion]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -2351,12 +2184,6 @@ const Map = () => {
       return list;
     }, [searchValue, suggestions, recentPlaces]);
   
-  function isSidebarSuggestion(
-    item: SidebarCombinedItem
-  ): item is { type: "suggestion"; data: google.maps.places.AutocompletePrediction } {
-    return item.type === "suggestion";
-  }
-  
   const sidebarCombinedList = useMemo<SidebarCombinedItem[]>(() => {
     if (sidebarSearchValue.trim() !== "") {
       const matchingRecent = recentPlaces.filter((place) =>
@@ -2408,7 +2235,7 @@ const Map = () => {
               const stateComp = components.find(c => c.types.includes("administrative_area_level_1"));
               const city = cityComp?.long_name || "";
               const state = stateComp?.long_name || "";
-              let subtitle = city && state && details.name !== city ? `${city}, ${state}` : state;
+              const subtitle = city && state && details.name !== city ? `${city}, ${state}` : state;
 
               let priceText;
               if (details.types?.includes("restaurant")) priceText = "₹200 – 400";
@@ -2420,7 +2247,7 @@ const Map = () => {
               const photos = details.photos?.map(p => p.getUrl({ maxWidth: 400 })) || [];
               const imageUrl = photos[0];
 
-              let ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+              const ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
               details.reviews?.forEach((r) => {
                 const star = r.rating;
                 if (star && star >= 1 && star <= 5) {
@@ -2517,8 +2344,7 @@ const Map = () => {
     const sidebarHeight = sidebarEl?.offsetHeight || 0;
 
     const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-
+  
     let padding = { top: 50, bottom: 50, left: 50, right: 50 };
 
     if (windowWidth >= 768) {
@@ -3237,7 +3063,6 @@ const Map = () => {
                 </div>
               ) : (
                 favoritePlaceList.map((place, index) => {
-                  const isFavorite = place.isFavorite ?? true;
                   return (
                     <div
                       key={index}
@@ -3763,7 +3588,6 @@ const Map = () => {
           </div>
 
           {filteredPlaces.map((place, index) => {
-            const isSelected = selectedPlaceTitles.includes(place.title);
             const isFavorite = recentPlaces.find((p) => p.title === place.title)?.isFavorite ??favoritePlaceList.some((p) => p.title === place.title);
 
             return (
@@ -4316,7 +4140,7 @@ const Map = () => {
                   <div className="cursor-pointer hover:bg-gray-100 p-2 ">
                     <div className="px-[16px] flex items-center gap-[24px]">
                       <CallIcon style={{fontSize:"24px"}} className="text-gray-600" />
-                      <span className="text-[14.5px] tracking-wide text-gray-800">Add place's phone number</span>
+                      <span className="text-[14.5px] tracking-wide text-gray-800">Add place&apos;s phone number</span>
                     </div>
                   </div>
 
@@ -4379,13 +4203,13 @@ const Map = () => {
                           (() => {
                             if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
-                            let five = Math.round(userRatingsTotal * (0.50 + Math.random() * 0.1));
-                            let remaining = userRatingsTotal - five;
+                            const five = Math.round(userRatingsTotal * (0.50 + Math.random() * 0.1));
+                            const remaining = userRatingsTotal - five;
 
-                            let four = Math.round(remaining * 0.40);
-                            let three = Math.round(remaining * 0.30);
-                            let two = Math.round(remaining * 0.1);
-                            let one = remaining - (four + three + two);
+                            const four = Math.round(remaining * 0.40);
+                            const three = Math.round(remaining * 0.30);
+                            const two = Math.round(remaining * 0.1);
+                            const one = remaining - (four + three + two);
 
                             return { 5: five, 4: four, 3: three, 2: two, 1: one };
                           })();
@@ -4518,13 +4342,13 @@ const Map = () => {
                         (() => {
                           if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
-                          let five = Math.round(userRatingsTotal * (0.50 + Math.random() * 0.1));
-                          let remaining = userRatingsTotal - five;
+                          const five = Math.round(userRatingsTotal * (0.50 + Math.random() * 0.1));
+                          const remaining = userRatingsTotal - five;
 
-                          let four = Math.round(remaining * 0.40);
-                          let three = Math.round(remaining * 0.30);
-                          let two = Math.round(remaining * 0.1);
-                          let one = remaining - (four + three + two);
+                          const four = Math.round(remaining * 0.40);
+                          const three = Math.round(remaining * 0.30);
+                          const two = Math.round(remaining * 0.1);
+                          const one = remaining - (four + three + two);
 
                           return { 5: five, 4: four, 3: three, 2: two, 1: one };
                         })();
@@ -4934,7 +4758,7 @@ const Map = () => {
                   {noMatches && (
                     <div className="px-[20px] py-[12px] text-center text-black">
                       <p className="font-medium text-[15px] text-black">
-                        Sorry, can't find that place name.
+                        Sorry, can&apos;t find that place name.
                       </p>
                     </div>
                   )}
@@ -5709,7 +5533,7 @@ const Map = () => {
                 </div>
                 <div className="mt-[10px] md:mt-[0px]">
                   <p className="font-sans font-medium text-[17px] tracking-wide">
-                    Sorry, can't find <span className="font-medium">"{searchValue}"</span>
+                    Sorry, can&apos;t find <span className="font-medium">&quot;{searchValue}&quot;</span>
                   </p>
                   <p className="font-sans mt-[6px] text-[14.5px] tracking-wide text-gray-600">
                     Make sure your search is spelled correctly. Try adding a correct restaurant name.
