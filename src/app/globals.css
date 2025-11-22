@@ -24,13 +24,26 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+/* If you're using Tailwind 3+, add this to your globals.css */
+/* unified scrollbar-hide utility */
+.scrollbar-hide,
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
 }
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.scrollbar-hide::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;             /* Safari and Chrome */
+}
+
+/* Prevent blue highlight / text drag behavior on touch devices
+   Scoped to a utility so you can opt-in where needed */
+.no-tap-highlight,
+.no-tap-highlight * {
+  -webkit-tap-highlight-color: transparent;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 /*Category part*/
@@ -64,27 +77,27 @@ body {
 }
 @media (min-width: 768px) {
   .category-width {
-    max-width: 180px;
+    max-width: 230px;
   }
 }
 @media (min-width: 820px) {
   .category-width {
-    max-width: 200px;
+    max-width: 270px;
   }
 }
 @media (min-width: 850px) {
   .category-width {
-    max-width: 240px;
+    max-width: 300px;
   }
 }
 @media (min-width: 900px) {
   .category-width {
-    max-width: 280px;
+    max-width: 360px;
   }
 }
 @media (min-width: 1024px) {
   .category-width {
-    max-width: 420px;
+    max-width: 480px;
   }
 }
 @media (min-width: 1280px) {
@@ -115,30 +128,5 @@ body {
 @media (min-width: 768px) {
   .responsive-width {
     max-width: 245px;
-  }
-}
-
-/*Search bar part*/
-.search-width {
-  width: 90%;
-}
-@media (min-width: 410px) {
-  .search-width {
-    width:100%;
-  }
-}
-@media (min-width: 540px) {
-  .search-width {
-    width: 375px;
-  }
-}
-
-/*Seach icon space*/
-.search-margin {
-  margin-right: 20px;
-}
-@media (min-width: 540px) {
-  .search-margin {
-    margin-right: 30px;
   }
 }

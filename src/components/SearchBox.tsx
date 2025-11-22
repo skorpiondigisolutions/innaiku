@@ -51,6 +51,10 @@ type Props = {
   setNoMatches: React.Dispatch<React.SetStateAction<boolean>>;
   allShops: Shop[];
   exploreButtonFunction: () => void;
+  sidebarHeight: number;
+  setSidebarHeight: React.Dispatch<React.SetStateAction<number>>;
+
+  closeCategoryMode: () => void;
 };
 
 export default function SearchBox({
@@ -83,7 +87,9 @@ export default function SearchBox({
   noMatches,
   setNoMatches,
   allShops,
-  exploreButtonFunction
+  exploreButtonFunction,
+  setSidebarHeight,
+  closeCategoryMode,
 }: Props) {
   return (
     <div className="relative" ref={placeSidebarSearchBoxRef}>
@@ -224,7 +230,6 @@ export default function SearchBox({
                   onClick={() => {
                     setSearchValue("");
                     setSuggestions([]);
-                    setNoMatches(false);
                     setIsLocationSelected(false);
                     setShowSuggestions(false);
                     if (placeSidebar === "full" && keepHalfSidebarOpen) {
@@ -247,9 +252,13 @@ export default function SearchBox({
                       sidebarMarkerRef.current.setMap(null);
                       sidebarMarkerRef.current = null;
                     }
+                    if (window.innerWidth < 768) {
+                      setSidebarHeight(window.innerHeight * 0.5);
+                    }
 
-                     activePlaceMarkerRemover();
-                     
+                    activePlaceMarkerRemover();
+                    setNoMatches(false);
+                    closeCategoryMode();
                   }}
                 >
                   <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
@@ -425,7 +434,7 @@ export default function SearchBox({
             {noMatches && (
               <div className="px-[20px] py-[12px] text-center text-black">
                 <p className="font-medium text-[15px] text-black">
-                  Sorry, can&apos;t find that place name.
+                 Sorry, can&apos;t find that place name.
                 </p>
               </div>
             )}
