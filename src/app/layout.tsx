@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Google Maps",
+  title: "Innaiku.com",
   description: "",
    icons: {
     icon: "/map.webp",

@@ -13,13 +13,6 @@ import CheckIcon from '@mui/icons-material/Check';
 import { Share2} from "lucide-react";
 import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import OutlinedFlagIcon from '@mui/icons-material/OutlinedFlag';
-import StarOutlineIcon from '@mui/icons-material/StarOutline';
-import LuggageIcon from '@mui/icons-material/LuggageOutlined';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
-import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
-import LaunchIcon from '@mui/icons-material/Launch';
 import EditLocationAltOutlinedIcon from '@mui/icons-material/EditLocationAltOutlined';
 import ShareLocationOutlinedIcon from '@mui/icons-material/ShareLocationOutlined';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
@@ -38,6 +31,7 @@ import SearchBox from "./SearchBox";
 import SidebarSearchBox from "./SidebarSearchBox"; 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL } from "../config/apiConfig";
+import Image from "next/image";
 
 interface Place {
   title: string;
@@ -127,6 +121,8 @@ export interface Shop {
   priceText?: string;
   rating?: number;
   userRatingsTotal?: number;
+  cuisines?: string[];
+  itemsByCuisine?: Record<string, FoodItem[]>; 
 }
 
 export type CombinedItem =
@@ -307,7 +303,7 @@ const Map = () => {
   const isAnySelected = selectedPlaceTitles.length > 0;
   const isDirectionEnabled = isAnySelected && selectedPlaceTitles.length <= 10;
   const SavedIcon = topSidebar === "saved" ? BookmarkRoundedIcon : BookmarkBorderIcon;
-  const [activeTab, setActiveTab] = useState("lists");
+  const FavIcon = topSidebar === "saved" ? FavoriteIcon : FavoriteBorderIcon;
   const [menuSidebar, setMenuSidebar] = useState(false);
   const arrowScrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -373,7 +369,6 @@ const Map = () => {
   const secondSearchBoxRef = useRef<HTMLDivElement>(null);
   const firstSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
   const secondSuggestionBoxRef = useRef<HTMLDivElement | null>(null);
-
   const [overviewFSImages, setOverviewFSImages] = useState<string[]>([]);
   const [menuFSImages, setMenuFSImages] = useState<string[]>([]);
   const [highlightFSImages, setHighlightFSImages] = useState<string[]>([]);
@@ -382,13 +377,20 @@ const Map = () => {
   const [menuLeftArrow, setMenuLeftArrow] = useState(false);
   const [menuRightArrow, setMenuRightArrow] = useState(true);
   const menuScrollRef = useRef<HTMLDivElement | null>(null);
+  const [overviewDSImages, setOverviewDSImages] = useState<string[]>([]);
+  const [menuDSImages, setMenuDSImages] = useState<string[]>([]);
+  const [highlightDSImages, setHighlightDSImages] = useState<string[]>([]);
+  const [menuDSCategories, setMenuDSCategories] = useState<MenuCategory[]>([]);
+  const [menuActiveDSTab, setmenuActiveDSTab] = useState<string>("");
+  const [menuDSLeftArrow, setDSMenuLeftArrow] = useState(false);
+  const [menuDSRightArrow, setDSMenuRightArrow] = useState(true);
+  const menuDSScrollRef = useRef<HTMLDivElement | null>(null);
   const fullSidebarRef = useRef<HTMLDivElement | null>(null);
   const halfSidebarRef = useRef<HTMLDivElement>(null);
   const [sidebarDragging, setSidebarDragging] = useState(false);
   const [startY, setStartY] = useState(0);
   const [sidebarStartHeight, setSidebarStartHeight] = useState(0);
   const [sidebarHeight, setSidebarHeight] = useState( window.innerWidth < 768 ? window.innerHeight * 0.5 : window.innerHeight);
-
   const [allShops, setAllShops] = useState<Shop[]>([]);
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
   const activePlaceMarkerRef = useRef<google.maps.Marker | null>(null);
@@ -396,40 +398,35 @@ const Map = () => {
   const [suggestions, setSuggestions] = useState<Shop[]>([]);
   const [relatedPlaces, setRelatedPlaces] = useState<Shop[]>([]);
   const [sidebarSuggestions, setSidebarSuggestions] = useState<Shop[]>([]);
-  
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-
   const [extraShopImages, setExtraShopImages] = useState<Record<string, string[]>>({});
-
   const initialZoomRef = useRef<number>(10);
-
   const categoryModeRef = useRef(false);
 
-
-    function useDummy(..._args: unknown[]) {
-      void _args;
-    }
-    useDummy(
-      recentSidebar,
-      isLocationSelected,
-      isDirectionEnabled,
-      SavedIcon,
-      showLeftArrow,
-      showRightArrow,
-      showSaveMenu,
-      travelInfo,
-      routes,
-      activeRouteIndex,
-      addressFSCopied,
-      plusCodeFSCopied,
-      locationFSCopied,
-      activeShop,
-      setFSAddressCopied,
-      setFSPlusCodeCopied,
-      setFSLocationCopied,
-      selectedCategory,
-    );
+  function useDummy(..._args: unknown[]) {
+    void _args;
+  }
+  useDummy(
+    recentSidebar,
+    isLocationSelected,
+    isDirectionEnabled,
+    SavedIcon,
+    showLeftArrow,
+    showRightArrow,
+    showSaveMenu,
+    travelInfo,
+    routes,
+    activeRouteIndex,
+    addressFSCopied,
+    plusCodeFSCopied,
+    locationFSCopied,
+    activeShop,
+    setFSAddressCopied,
+    setFSPlusCodeCopied,
+    setFSLocationCopied,
+    selectedCategory,
+  );
 
   const closeCategoryMode = () => {
     categoryModeRef.current = false;
@@ -757,8 +754,23 @@ const Map = () => {
     setMenuRightArrow(!isAtEnd);
   };
 
+    const handleDSMenuScroll = () => {
+    const el = menuDSScrollRef.current;
+    if (!el) return;
+
+    const isAtStart = el.scrollLeft <= 10;
+    const isAtEnd = el.scrollWidth - el.scrollLeft - el.clientWidth <= 10;
+
+    setDSMenuLeftArrow(!isAtStart);
+    setDSMenuRightArrow(!isAtEnd);
+  };
+
   useEffect(() => {
     handleMenuScroll();
+  }, []);
+
+  useEffect(() => {
+    handleDSMenuScroll();
   }, []);
 
   useEffect(() => {
@@ -782,6 +794,29 @@ const Map = () => {
     setMenuFSCategories(dynamicCategories);
   
   }, [fullSidebarSelectedPlace]);
+
+
+  useEffect(() => {
+    if (!recentSelectedPlace) return;
+  
+    const photos = recentSelectedPlace.photos || [];
+    const highlights = recentSelectedPlace.highlights || [];
+    const cuisines = recentSelectedPlace.cuisines || [];
+    const itemsByCuisine = recentSelectedPlace.itemsByCuisine || {};
+  
+    setOverviewDSImages([...photos, ...highlights]);
+    setMenuDSImages(photos);
+    setHighlightDSImages(highlights);
+  
+    const dynamicDSCategories = cuisines.map((c) => ({
+      name: c,
+      photos: photos,
+      items: itemsByCuisine[c] || []
+    }));
+  
+    setMenuDSCategories(dynamicDSCategories);
+  
+  }, [recentSelectedPlace]);
   
   const availableTabs = useMemo(() => {
     const tabs: { key: string; label: string }[] = [];
@@ -797,11 +832,31 @@ const Map = () => {
     return tabs;
   }, [overviewFSImages, menuFSCategories]);
 
+    const availableDSTabs = useMemo(() => {
+    const tabs: { key: string; label: string }[] = [];
+
+    if (overviewDSImages.length > 0) {
+      tabs.push({ key: "overview", label: "Overview" });
+    }
+
+    menuDSCategories.forEach((cat) => {
+      tabs.push({ key: cat.name, label: cat.name });
+    });
+
+    return tabs;
+  }, [overviewDSImages, menuDSCategories]);
+
   useEffect(() => {
     if (availableTabs.length > 0) {
       setmenuActiveFSTab((prev) => prev || availableTabs[0].key);
     }
   }, [availableTabs]);
+
+    useEffect(() => {
+    if (availableDSTabs.length > 0) {
+      setmenuActiveDSTab((prev) => prev || availableDSTabs[0].key);
+    }
+  }, [availableDSTabs]);
   
   useEffect(() => {
     if (fullSidebarActiveTab !== "fullSidebarMenu") {
@@ -811,9 +866,9 @@ const Map = () => {
   
   useEffect(() => {
     if (detailsActiveTab !== "menu") {
-      setmenuActiveFSTab(availableTabs[0]?.key || "");
+      setmenuActiveDSTab(availableDSTabs[0]?.key || "");
     }
-  }, [detailsActiveTab,availableTabs]);
+  }, [detailsActiveTab, availableDSTabs]);
 
   const closeButtonFunction = () => {
     setSearchValue("");
@@ -857,29 +912,38 @@ const Map = () => {
     }
   };
 
+  const convertRecentPlaceToShop = (place: RecentPlace): Shop => ({
+    shopId: place.shopId!,
+    name: place.title,
+    address: place.fullAddress || "",
+    lat: String(place.lat),
+    lng: String(place.lng),
+    imageUrls: place.highlights || place.photos || (place.imageUrl ? [place.imageUrl] : []),
+    menu: place.photos || [],
+    cuisine: place.category || "Shop",
+    applink: place.applink || "",
+    about: place.about || "",
+    serviceability: place.serviceability || "",
+    openCloseTiming: place.openCloseTiming || "",
+    createdAt: new Date().toISOString(),
+    priceText: place.priceText,
+    rating: place.rating,
+    userRatingsTotal: place.userRatingsTotal,
+    cuisines: place.cuisines,
+    itemsByCuisine: place.itemsByCuisine
+  });
+
   const handleRecentPlaceClickResponsive = (place: RecentPlace) => {
     const width = window.innerWidth;
 
     if (width >= 1024) {
       handleDetailsRecentPlaceClick(place);
     } else {
-      const autocompleteService = new google.maps.places.AutocompleteService();
-      autocompleteService.getPlacePredictions(
-        {
-          input: place.title,
-          componentRestrictions: { country: "in" },
-        },
-        (predictions, status) => {
-          if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
-            predictions?.[0]
-          ) {
-            handleSelectSuggestion(predictions[0].place_id, () => {
-              setPlaceSidebar("full");
-            });
-          }
-        }
-      );
+      const shop = convertRecentPlaceToShop(place);
+
+      handleShopSuggestion(shop, () => {
+        setPlaceSidebar("full");
+      });
     }
   };
 
@@ -2791,7 +2855,7 @@ const Map = () => {
       });
       }
     });
-  }, [allShops,  handleShopSuggestion, addToHistory, favoritePlaceList]);
+  }, [allShops]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -2982,8 +3046,8 @@ const Map = () => {
               }
             }}
           >
-            <SavedIcon style={{ fontSize: '25px' }} className="text-black" />
-            <span className="text-[12px] tracking-wide font-medium">Saved</span>
+            <FavIcon style={{ fontSize: '25px' }} className={topSidebar === "saved" ? "text-red-500" : "text-black"} />
+            <span className="text-[12px] tracking-wide font-medium">Favorite</span>
           </div>
 
           <div 
@@ -3024,8 +3088,8 @@ const Map = () => {
               }
             }}
           >
-            <SavedIcon style={{ fontSize: '25px' }} className="text-black" />
-            <span className="text-[12px] tracking-wide font-medium">Saved</span>
+            <FavIcon style={{ fontSize: '25px' }}  className={topSidebar === "saved" ? "text-red-500" : "text-black"} />
+            <span className="text-[12px] tracking-wide font-medium">Favorite</span>
           </div>
 
           <div 
@@ -3079,7 +3143,7 @@ const Map = () => {
         >
 
           <div className="flex items-center justify-between pl-[22px] pr-[28px] mb-[18px]">
-            <img src="/logo.png" alt="Google Maps" className="h-[24px]" />
+            <Image src="/logo.png" alt="Google Maps" width={100} height={24} unoptimized className="h-[24px]" />
             <button
               onClick={() => setMenuSidebar(false)}
               className="text-[17px] text-gray-800 font-bold"
@@ -3473,242 +3537,145 @@ const Map = () => {
             )}
           </div>
         </div>
+        
+        {/*Favorite place tab*/}
+        <div className="flex flex-col h-full">
+          <div className="flex flex-col items-start px-[26px] pt-[18px] pb-[16px] border-b justify-start border-gray-200">
+            <h2 className="text-[20px] font-sans font-normal text-black">Favorites</h2>
+            <div className="flex items-center text-gray-500 text-[14px] tracking-wide mt-[4px]">
+                {/*<LockIcon style={{ fontSize: "14px" }} className="mr-[3px]"/> */}
+                {/*Private <b className="mx-1">·</b> */} {favoritePlaceList.length} places
+            </div>
+          </div>
 
-        {!favoriteList ? (
-          <>
-            {/*Four Tabs*/}
-            <div className="flex items-center border-b border-[#e0e0e0] shadow-[0px_1px_2px_rgba(0,0,0,0.2)] pt-[11px] justify-evenly px-0 md:px-[18px] md:gap-[32px]">
-              {["lists", "labeled", "visited", "maps"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`capitalize text-[14.5px] font-medium tracking-wide cursor-pointer 
-                    hover:bg-[#f2f2f2] pt-[14px] px-[14px] pb-[11px] hover:text-black text-gray-600
-                  `}
-                >
-                  <span
-                    className={`pb-[12px] border-b-[3px] ${
-                      activeTab === tab ? "text-gray-600 border-[#007B8A]" : "text-gray-800 border-transparent"
+          <div className="overflow-y-auto flex-1 px-[14px] py-[14px]">
+            {favoritePlaceList.length === 0 ? (
+              <div className="px-[12px] py-[22px]">
+                <span className="flex text-[18px] text-black font-sans font-medium tracking-wide text-center justify-center">
+                  List is empty
+                </span>
+              </div>
+            ) : (
+              favoritePlaceList.map((place, index) => {
+                //const isFavorite = place.isFavorite ?? true;
+                return (
+                  <div
+                    key={index}
+                    onClick={() => handleRecentPlaceClickResponsive(place)}
+                    className={`w-full mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group ${
+                      recentSelectedPlace?.title === place.title
+                        ? "bg-gray-200"
+                        : "group hover:bg-gray-100"
                     }`}
                   >
-                    {tab}
-                  </span>
-                </button>
-              ))}
-            </div>
+                    <div className="flex items-center justify-between py-[10px]">
+                      <div className="flex items-start gap-[16px]">
+                        <div className="relative w-[64px] h-[64px]">
+                          <Image
+                            src={place.imageUrl || "/fallback.jpg"}
+                            alt={place.title}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "/fallback.jpg";
+                            }}
+                            width={64}
+                            height={64}
+                            unoptimized
+                            className="w-full h-full rounded-[10px] object-cover"
+                          />
 
-            {/*Tab content*/}
-            <div>
-              {activeTab === "lists" && (
-                <div className="space-y-[6px] leading-snug">
-                  <div className="bg-[#D9F7FF] hover:bg-[#CDEFF5] mx-auto md:ml-[26px] w-[90%] md:w-[360px] mt-4 text-gray-700 text-[14.5px] py-[9px] rounded-full font-medium cursor-pointer flex items-center justify-center gap-[12px]">
-                    <span className="text-[22px] leading-none">+</span>
-                    <span className="tracking-wide">New list</span>
-                  </div>
-                  {[
-                    { icon: <FavoriteBorderIcon className="text-[20px] text-red-600" />, title: "Favorites",  subtitle: `Private · ${favoritePlaceList.length} places`, },
-                    { icon: <OutlinedFlagIcon className="text-[20px] text-red-600" />, title: "Want to go", subtitle: "Private · 0 places" },
-                    { icon: <StarOutlineIcon className="text-[20px] text-red-600" />, title: "Starred places", subtitle: "Private" },
-                    { icon: <LuggageIcon className="text-[20px] text-cyan-700" />, title: "Travel plans", subtitle: "Private · 0 places" },
-                  ].map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center py-2 px-[26px] hover:bg-gray-100 cursor-pointer"
-                      onClick={() => item.title === "Favorites" && setFavoriteList("favorites")}
-                    >
-                      <div className="flex items-center gap-6">
-                        <span className="text-xl">{item.icon}</span>
-                        <div>
-                          <div className="font-medium text-[15.5px] tracking-wide text-black">{item.title}</div>
-                          <div className="text-[14px] text-gray-600">{item.subtitle}</div>
-                        </div>
-                      </div>
-                      <MoreVertIcon className="text-gray-700" style={{fontSize:"20px"}} />
-                    </div>
-                  ))}
-                </div>
-              )}
+                          <button
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setFavoritePlaceList((prevFavs) => {
+                                const updatedFavs = prevFavs.filter((p) => p.title !== place.title);
+                                localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                                return updatedFavs;
+                              });
 
-              {activeTab === "labeled" && (
-                <div className="space-y-[0px]">
-                  {[
-                    {
-                      icon: <HomeOutlinedIcon className="text-cyan-700" style={{fontSize:"24px"}} />,
-                      title: "Home",
-                      subtitle: "Set your home address",
-                    },
-                    {
-                      icon: <WorkOutlineIcon className="text-cyan-700" style={{fontSize:"24px"}}/>,
-                      title: "Work",
-                      subtitle: "Set your work address",
-                    },
-                  ].map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center py-[12px] px-[26px] hover:bg-gray-100 cursor-pointer leading-snug"
-                    >
-                      <div className="flex items-center gap-[24px]">
-                        <div>{item.icon}</div>
-                        <div>
-                          <div className="text-[15.5px] font-medium text-gray-800">
-                            {item.title}
-                          </div>
-                          <div className="text-[14px] text-gray-600">{item.subtitle}</div>
-                        </div>
-                      </div>
-                      <MoreVertIcon className="text-gray-700" style={{ fontSize: "20px" }} />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === "visited" && (
-                <div className="px-[14px] mt-6">
-                  <div className="text-[14px] text-gray-800 font-medium tracking-wide mb-[10px] ml-4">
-                    Places from your Timeline
-                  </div>
-                  <div
-                    className="flex items-center gap-[10px] text-[#007B83] text-[14.5px] font-medium px-[12px] py-[10px] rounded-full cursor-pointer hover:bg-gray-100 w-fit"
-                  >
-                    <LaunchIcon style={{ fontSize: "18px" }} />
-                    <span className="font-medium">Open Timeline</span>
-                  </div>
-                </div>
-              )}
-                
-              {activeTab === "maps" && (
-                <div className="px-[14px] mt-6">
-                  <div className="text-[14px] text-gray-800 font-medium tracking-wide mb-[10px] ml-4">
-                    Create and manage maps in My Maps
-                  </div>
-                  <div
-                    className="flex items-center gap-[10px] text-[#007B83] text-[14.5px] font-medium px-[12px] py-[10px] rounded-full cursor-pointer hover:bg-gray-100 w-fit"
-                  >
-                    <LaunchIcon style={{ fontSize: "18px" }} />
-                    <span className="font-medium">Open My Maps</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col h-full">
-            <div className="flex flex-col items-start px-[26px] pt-[18px] pb-[16px] border-b justify-start border-gray-200">
-              <h2 className="text-[20px] font-sans font-normal text-black">Favorites</h2>
-              <div className="flex items-center text-gray-500 text-[14px] tracking-wide mt-[10px]">
-                  <LockIcon style={{ fontSize: "14px" }} className="mr-[3px]"/> 
-                  Private <b className="mx-1">·</b> {favoritePlaceList.length} places
-              </div>
-            </div>
-
-            <div className="overflow-y-auto flex-1 px-[14px] py-[14px]">
-              {favoritePlaceList.length === 0 ? (
-                <div className="px-[12px] py-[22px]">
-                  <span className="flex text-[18px] text-black font-sans font-medium tracking-wide text-center justify-center">
-                    List is empty
-                  </span>
-                </div>
-              ) : (
-                favoritePlaceList.map((place, index) => {
-                  //const isFavorite = place.isFavorite ?? true;
-                  return (
-                    <div
-                      key={index}
-                      onClick={() => handleRecentPlaceClickResponsive(place)}
-                      className={`w-full mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group ${
-                        recentSelectedPlace?.title === place.title
-                          ? "bg-gray-200"
-                          : "group hover:bg-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between py-[10px]">
-                        <div className="flex items-start gap-[16px]">
-                          <div className="relative w-[64px] h-[64px]">
-                            <img
-                              src={place.imageUrl || "/fallback.jpg"}
-                              alt={place.title}
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = "/fallback.jpg";
-                              }}
-                              className="w-full h-full rounded-[10px] object-cover"
-                            />
-
-                            <button
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setFavoritePlaceList((prevFavs) => {
-                                  const updatedFavs = prevFavs.filter((p) => p.title !== place.title);
-                                  localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
-                                  return updatedFavs;
-                                });
-
-                                setRecentPlaces((prev) => {
-                                  const updated = prev.map((p) =>
-                                    p.title === place.title ? { ...p, isFavorite: false } : p
-                                  );
-                                  localStorage.setItem("recent_places", JSON.stringify(updated));
-                                  return updated;
-                                });
-
-                                setRecentSelectedPlace((prev) =>
-                                  prev && prev.title === place.title ? { ...prev, isFavorite: false } : prev
+                              setRecentPlaces((prev) => {
+                                const updated = prev.map((p) =>
+                                  p.title === place.title ? { ...p, isFavorite: false } : p
                                 );
-                              }}
-                              className={`absolute -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white hover:bg-[#f2f2f2] shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
-                                transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
-                            >
-                              ✕
-                            </button>
-                          </div>
+                                localStorage.setItem("recent_places", JSON.stringify(updated));
+                                return updated;
+                              });
 
-                          <div className="flex flex-col gap-[8px] max-w-[245px] leading-none">
-                            <span className="font-medium text-[16.5px] text-black truncate">
-                              {place.title}
-                            </span>
+                              setRecentSelectedPlace((prev) =>
+                                prev && prev.title === place.title ? { ...prev, isFavorite: false } : prev
+                              );
+                            }}
+                            className={`absolute -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white hover:bg-[#f2f2f2] shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
+                              transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
+                          >
+                            ✕
+                          </button>
+                        </div>
 
-                            {place.rating ? (
+                        <div className="flex flex-col gap-[8px] max-w-[245px] leading-none">
+                          <span className="font-medium text-[16.5px] text-black truncate">
+                            {place.title}
+                          </span>
+
+                          {place.rating ? (
+                            <>
+                              <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
+                                <span>{place.rating}</span>
+                                <StarRating rating={place.rating} />
+                                {place.userRatingsTotal && (
+                                  <span className="text-gray-500">
+                                    ({place.userRatingsTotal.toLocaleString()})
+                                  </span>
+                                )}
+                                {place.priceText && (
+                                  <>
+                                    <span><b>·</b></span>
+                                    <span>{place.priceText}</span>
+                                  </>
+                                )}
+                              </span>
+
+                              {place.category && (
+                                <span className="text-gray-600 text-[14px] truncate">
+                                  {place.category}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            place.subtitle && (
                               <>
                                 <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
-                                  <span>{place.rating}</span>
-                                  <StarRating rating={place.rating} />
+                                  <span>{4.5}</span>
+                                  <StarRating rating={4.5} />
                                   {place.userRatingsTotal && (
                                     <span className="text-gray-500">
-                                      ({place.userRatingsTotal.toLocaleString()})
+                                      (548)
                                     </span>
                                   )}
-                                  {place.priceText && (
+                                  {place.priceText || (
                                     <>
-                                      <span><b>·</b></span>
-                                      <span>{place.priceText}</span>
+                                      <span className="hidden md:inline"><b>·</b></span>
+                                      <span className="hidden md:inline">₹200 – 400</span>
                                     </>
                                   )}
                                 </span>
 
                                 {place.category && (
-                                  <span className="text-gray-600 text-[14px] truncate">
+                                  <span className="text-gray-600 text-[14px] truncate pb-[1px]">
                                     {place.category}
                                   </span>
                                 )}
                               </>
-                            ) : (
-                              place.subtitle && (
-                                <span className="text-gray-600 text-[14.5px] truncate">
-                                  {place.subtitle !== place.title
-                                    ? `${place.title}, ${place.subtitle}`
-                                    : place.subtitle}
-                                </span>
-                              )
-                            )}
-                          </div>
+                            )
+                          )}
                         </div>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/*Recents Sidebar*/}
@@ -4108,12 +4075,15 @@ const Map = () => {
                 <div className="flex items-center justify-between py-[10px]">
                   <div className="flex items-start gap-[14px]">
                     <div className="relative w-[64px] h-[64px]">
-                      <img
+                      <Image
                         src={place.imageUrl || "/fallback.jpg"}
                         alt={place.title}
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = "/fallback.jpg";
                         }}
+                        width={64}
+                        height={64}
+                        unoptimized
                         className="w-full h-full rounded-[10px] object-cover"
                       />
                       
@@ -4306,12 +4276,15 @@ const Map = () => {
           {detailsActiveTab === "overview" && (
             <>
               <div className="relative w-full h-64 bg-gray-200 rounded-t-[20px] overflow-hidden">
-                <img
+                <Image
                   src={recentSelectedPlace?.imageUrl || "/fallback.jpg"}
                   alt={recentSelectedPlace?.title || "Place"}
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "/fallback.jpg";
                   }}
+                  width={800}
+                  height={400}
+                  unoptimized
                   className="w-full h-full object-cover rounded-t-[20px]"
                 />
 
@@ -4758,9 +4731,12 @@ const Map = () => {
                       <div className="flex gap-3 mt-[18px] overflow-x-auto px-[16px]">
                         {recentSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
                           <div key={idx} className="relative min-w-[150px]">
-                            <img
+                            <Image
                               src={url}
                               alt={`Menu highlight ${idx + 1}`}
+                              width={160}
+                              height={180}
+                              unoptimized
                               className="w-[160px] h-[180px] object-cover rounded-lg"
                             />
                           </div>
@@ -4857,13 +4833,19 @@ const Map = () => {
                         >
                           <div className="px-[24px]">
                               <div className="flex items-center gap-[12px]">
-                                <img
+                                <Image
                                   src={
                                     review.profile_photo_url
                                       ? review.profile_photo_url.replace("http://", "https://")
                                       : "https://www.gravatar.com/avatar/?d=mp&s=40"
                                   }
                                   alt={review.author_name}
+                                  width={36}
+                                  height={36}
+                                  unoptimized
+                                  onError={(e) => {
+                                    e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40";
+                                  }}
                                   className="w-9 h-9 rounded-full object-cover"
                                 />
                                 <span className="font-medium text-[16px] tracking-wide text-black">
@@ -4925,15 +4907,15 @@ const Map = () => {
 
             {detailsActiveTab === "menu" && (
               <>
-                {availableTabs.length > 1 && (
+                {availableDSTabs.length > 1 && (
                   <div className="flex flex-nowrap justify-evenly gap-[12px] md:gap-[14px] px-[20px] md:px-[24px] overflow-x-auto scrollbar-hide pb-[8px] border-b border-gray-400 bg-white">
-                    {availableTabs.map((tab) => (
+                    {availableDSTabs.map((tab) => (
                       <button
                         key={tab.key}
-                        onClick={() => setmenuActiveFSTab(tab.key)}
+                        onClick={() => setmenuActiveDSTab(tab.key)}
                         className={`px-[10px] py-[6px] md:py-2 text-[13px] md:text-[14px] rounded-[10px] transition-all duration-200 cursor-pointer font-sans font-medium tracking-wide whitespace-nowrap
                           ${
-                            menuActiveFSTab === tab.key
+                            menuActiveDSTab === tab.key
                               ? "bg-gray-300 text-black hover:bg-gray-300"
                               : "bg-transparent text-gray-600"
                           }`}
@@ -4945,7 +4927,7 @@ const Map = () => {
                 )}
 
                 <div className="px-0">
-                  {menuActiveFSTab === "overview" && overviewFSImages.length > 0 && (
+                  {menuActiveDSTab === "overview" && overviewDSImages.length > 0 && (
                     <>
                       <div className="border-b border-gray-300 pb-[20px]">
                         <h2 className="font-sans font-medium tracking-wide text-black text-[16px] my-[14px] px-[24px] md:px-[26px]">
@@ -4953,42 +4935,45 @@ const Map = () => {
                         </h2>
 
                         <div className="relative w-full px-[0px] md:px-[2px] group">
-                          {menuFSImages.length > 2 && (
+                          {menuDSImages.length > 2 && (
                             <button
                               onClick={() => {
-                                  if (menuScrollRef.current) {
-                                    menuScrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
+                                  if (menuDSScrollRef.current) {
+                                    menuDSScrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
                                   }
                                 }}
                               className={`absolute left-[12px] top-1/2 -translate-y-1/2 bg-white rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
-                                lg:opacity-0 lg:group-hover:opacity-100 ${ menuLeftArrow ? "block" : "hidden"}`}
+                                lg:opacity-0 lg:group-hover:opacity-100 ${ menuDSLeftArrow ? "block" : "hidden"}`}
                             >
                               <ChevronLeft size={20} />
                             </button>
                           )}
                             <div
-                              ref={menuScrollRef}
-                              onScroll={handleMenuScroll}
+                              ref={menuDSScrollRef}
+                              onScroll={handleDSMenuScroll}
                               className="flex overflow-x-auto gap-[12px] md:gap-[10px] scroll-smooth scrollbar-hide pl-[24px]"
                             >
-                              {menuFSImages.map((url, idx) => (
-                                <img
+                              {menuDSImages.map((url, idx) => (
+                                <Image
                                   key={idx}
                                   src={url}
                                   alt={`Overview photo ${idx + 1}`}
+                                  width={130}
+                                  height={130}
+                                  unoptimized
                                   className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-cover rounded-lg mr-[0px] last:mr-[24px]"
                                 />
                               ))}
                             </div>
-                          {menuFSImages.length > 2 && (
+                          {menuDSImages.length > 2 && (
                             <button
                               onClick={() => {
-                                  if (menuScrollRef.current) {
-                                    menuScrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
+                                  if (menuDSScrollRef.current) {
+                                    menuDSScrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
                                   }
                                 }}
                               className={`absolute right-[14px] top-1/2 -translate-y-1/2 bg-white rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
-                                lg:opacity-0 lg:group-hover:opacity-100 ${menuRightArrow ? "block" : "hidden"}`}
+                                lg:opacity-0 lg:group-hover:opacity-100 ${menuDSRightArrow ? "block" : "hidden"}`}
                             >
                               <ChevronRight size={20} />
                             </button>
@@ -4999,11 +4984,14 @@ const Map = () => {
                       <div>
                         <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]">Highlights</h2>
                         <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px]">
-                          {highlightFSImages.map((url, idx) => (
-                            <img
+                          {highlightDSImages.map((url, idx) => (
+                            <Image
                               key={idx}
                               src={url}
                               alt={`Overview photo ${idx + 1}`}
+                              width={600}
+                              height={240}
+                              unoptimized
                               className="w-full h-56 md:h-60 object-cover rounded-lg"
                             />
                           ))}
@@ -5012,10 +5000,10 @@ const Map = () => {
                     </>
                   )}
                   
-                  {menuFSCategories.map((cat) => {
+                  {menuDSCategories.map((cat) => {
                     const showItems = Array.isArray(cat.items) && cat.items.length > 0;
                     if (!showItems) return null;
-                    if (menuActiveFSTab !== cat.name) return null;
+                    if (menuActiveDSTab !== cat.name) return null;
 
                     return (
                       <div key={cat.name} className="space-y-4">
@@ -5120,7 +5108,7 @@ const Map = () => {
                       >
                         <div className="px-[24px]">
                             <div className="flex items-center gap-[12px]">
-                              <img
+                              <Image
                                 src={
                                   review.profile_photo_url
                                     ? review.profile_photo_url.replace("http://", "https://")
@@ -5128,6 +5116,9 @@ const Map = () => {
                                 }
                                 onError={(e) => (e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40")}
                                 alt={review.author_name}
+                                width={36}
+                                height={36}
+                                unoptimized
                                 className="w-9 h-9 rounded-full object-cover"
                               />
                               <span className="font-medium text-[16px] tracking-wide text-black">
@@ -5956,12 +5947,15 @@ const Map = () => {
             {fullSidebarActiveTab === "fullSidebarOverview" && (
               <>
                 <div className="relative w-full h-60 bg-gray-200 overflow-hidden">
-                  <img
+                  <Image
                     src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
                     alt={fullSidebarSelectedPlace?.title || "Place"}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "/fallback.jpg";
                     }}
+                    width={800}
+                    height={240}
+                    unoptimized
                     className="w-full h-full object-cover"
                   />
 
@@ -6362,9 +6356,12 @@ const Map = () => {
                         <div className="flex justify-between gap-[12px] md:justify-none md:gap-[14px] mt-[18px] overflow-x-auto px-[22px] md:px-[24px]">
                           {fullSidebarSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
                             <div key={idx} className="relative flex-1 min-w-0 md:flex-none">
-                              <img
+                              <Image
                                 src={url}
                                 alt={`Menu highlight ${idx + 1}`}
+                                width={174}
+                                height={200}
+                                unoptimized
                                 className="w-full md:w-[174px] h-[200px] object-cover rounded-lg"
                               />
                             </div>
@@ -6461,13 +6458,19 @@ const Map = () => {
                           >
                             <div className="px-[24px] md:px-[26px]">
                                 <div className="flex items-center gap-[12px]">
-                                  <img
+                                  <Image
                                     src={
                                       review.profile_photo_url
                                         ? review.profile_photo_url.replace("http://", "https://")
                                         : "https://www.gravatar.com/avatar/?d=mp&s=40"
                                     }
                                     alt={review.author_name}
+                                    width={36}
+                                    height={36}
+                                    unoptimized
+                                    onError={(e) => {
+                                      e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40";
+                                    }}
                                     className="w-9 h-9 rounded-full object-cover"
                                   />
                                   <span className="font-medium text-[16px] tracking-wide text-black">
@@ -6576,10 +6579,13 @@ const Map = () => {
                                 className="flex overflow-x-auto gap-[12px] md:gap-[10px] scroll-smooth scrollbar-hide pl-[24px]"
                               >
                                 {menuFSImages.map((url, idx) => (
-                                  <img
+                                  <Image
                                     key={idx}
                                     src={url}
                                     alt={`Overview photo ${idx + 1}`}
+                                    width={130}
+                                    height={130}
+                                    unoptimized
                                     className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-cover rounded-lg mr-[0px] last:mr-[24px]"
                                   />
                                 ))}
@@ -6604,10 +6610,13 @@ const Map = () => {
                           <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]">Highlights</h2>
                           <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px]">
                             {highlightFSImages.map((url, idx) => (
-                              <img
+                              <Image
                                 key={idx}
                                 src={url}
                                 alt={`Overview photo ${idx + 1}`}
+                                width={600}
+                                height={240}
+                                unoptimized
                                 className="w-full h-56 md:h-60 object-cover rounded-lg"
                               />
                             ))}
@@ -6725,7 +6734,7 @@ const Map = () => {
                         >
                           <div className="px-[24px] md:px-[26px]">
                               <div className="flex items-center gap-[12px]">
-                                <img
+                                <Image
                                   src={
                                     review.profile_photo_url
                                       ? review.profile_photo_url.replace("http://", "https://")
@@ -6733,6 +6742,9 @@ const Map = () => {
                                   }
                                   onError={(e) => (e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40")}
                                   alt={review.author_name}
+                                  width={36}
+                                  height={36}  
+                                  unoptimized
                                   className="w-9 h-9 rounded-full object-cover"
                                 />
                                 <span className="font-medium text-[16px] tracking-wide text-black">
@@ -7063,9 +7075,12 @@ const Map = () => {
                           </div>
 
                           {photo && (
-                            <img
+                            <Image
                               src={photo}
                               alt={name}
+                              width={85}
+                              height={85}
+                              unoptimized
                               className="hidden md:flex w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
                             /> 
                           )}
@@ -7100,20 +7115,68 @@ const Map = () => {
                             <span className="text-[12px] tracking-wide font-medium">Download</span>
                           </div>
                 
-                          <div 
+                          <div
                             className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (topSidebar !== "saved") {
-                                setTopSidebar("saved");
-                                //setPlaceSidebar(null);
-                              }
+
+                              //const isNowFavorite = favoritePlaceList.some((p) => p.title === place.name);
+
+                              setFavoritePlaceList((prevFavs) => {
+                                const isNowFavorite = prevFavs.some((p) => p.shopId === place.shopId);
+
+                                let updatedFavs;
+
+                                if (isNowFavorite) {
+                                  updatedFavs = prevFavs.filter((p) => p.shopId !== place.shopId);
+                                } else {
+                                  const favPlace: RecentPlace = {
+                                    shopId: place.shopId,
+                                    title: place.name,
+                                    subtitle: place.address,
+                                    imageUrl: place.imageUrls?.[0],
+                                    photos: place.menu || [],
+                                    highlights: extraShopImages?.[place.shopId] || [],
+                                    lat: Number(place.lat),
+                                    lng: Number(place.lng),
+                                    timestamp: Date.now(),
+                                    fullAddress: place.address,
+                                    plusCode: "",
+                                    rating: place.rating,
+                                    userRatingsTotal: place.userRatingsTotal,
+                                    priceText: place.priceText,
+                                    category: place.cuisine || "Shop",
+                                    reviews: [],
+                                    applink: place.applink,
+                                    about: place.about,
+                                    serviceability: place.serviceability,
+                                    openCloseTiming: place.openCloseTiming,
+                                    cuisines: place.cuisines || [],
+                                    itemsByCuisine: place.itemsByCuisine || {},
+                                    isFavorite: true
+                                  };
+
+                                  updatedFavs = [favPlace, ...prevFavs];
+                                }
+
+                                localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                                return updatedFavs;
+                              });
                             }}
                           >
-                            <SavedIcon style={{ fontSize: '20px' }} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Saved</span>
+                            {favoritePlaceList.some((p) => p.title === place.name) ? (
+                              <>
+                                <FavoriteIcon style={{ fontSize: "20px" }} className="text-red-500" />
+                                <span className="text-[12px] tracking-wide font-medium">Remove</span>
+                              </>
+                            ) : (
+                              <>
+                                <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
+                                <span className="text-[12px] tracking-wide font-medium">Favorite</span>
+                              </>
+                            )}
                           </div>
-                
+
                           <div 
                             className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
                           >
@@ -7167,18 +7230,24 @@ const Map = () => {
                         <div className="mt-[8px] flex gap-2 px-[16px] overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar">
                           {Array.isArray(image) ? (
                             allPhotos.map((url, i) => (
-                              <img
+                              <Image
                                 key={i}
                                 src={url}
                                 alt={`${name}-${i}`}
+                                width={85}
+                                height={85}
+                                unoptimized
                                 className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
                               />
                             ))
                           ) : (
                             photo && (
-                              <img
+                              <Image
                                 src={photo}
                                 alt={name}
+                                width={85}
+                                height={85}
+                                unoptimized
                                 className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
                               />
                             )
@@ -7218,14 +7287,62 @@ const Map = () => {
                             className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (topSidebar !== "saved") {
-                                setTopSidebar("saved");
-                                //setPlaceSidebar(null);
-                              }
+
+                              //const isNowFavorite = favoritePlaceList.some((p) => p.title === place.name);
+
+                              setFavoritePlaceList((prevFavs) => {
+                                const isNowFavorite = prevFavs.some((p) => p.shopId === place.shopId);
+
+                                let updatedFavs;
+
+                                if (isNowFavorite) {
+                                  updatedFavs = prevFavs.filter((p) => p.shopId !== place.shopId);
+                                } else {
+                                  const favPlace: RecentPlace = {
+                                    shopId: place.shopId,
+                                    title: place.name,
+                                    subtitle: place.address,
+                                    imageUrl: place.imageUrls?.[0],
+                                    photos: place.menu || [],
+                                    highlights: extraShopImages?.[place.shopId] || [],
+                                    lat: Number(place.lat),
+                                    lng: Number(place.lng),
+                                    timestamp: Date.now(),
+                                    fullAddress: place.address,
+                                    plusCode: "",
+                                    rating: place.rating,
+                                    userRatingsTotal: place.userRatingsTotal,
+                                    priceText: place.priceText,
+                                    category: place.cuisine || "Shop",
+                                    reviews: [],
+                                    applink: place.applink,
+                                    about: place.about,
+                                    serviceability: place.serviceability,
+                                    openCloseTiming: place.openCloseTiming,
+                                    cuisines: place.cuisines || [],
+                                    itemsByCuisine: place.itemsByCuisine || {},
+                                    isFavorite: true
+                                  };
+
+                                  updatedFavs = [favPlace, ...prevFavs];
+                                }
+
+                                localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                                return updatedFavs;
+                              });
                             }}
                           >
-                            <SavedIcon style={{ fontSize: '20px' }} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Saved</span>
+                            {favoritePlaceList.some((p) => p.title === place.name) ? (
+                              <>
+                                <FavoriteIcon style={{ fontSize: "20px" }} className="text-red-500" />
+                                <span className="text-[12px] tracking-wide font-medium">Remove</span>
+                              </>
+                            ) : (
+                              <>
+                                <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
+                                <span className="text-[12px] tracking-wide font-medium">Favorite</span>
+                              </>
+                            )}
                           </div>
                 
                           <div 
@@ -7279,12 +7396,15 @@ const Map = () => {
             setIsSatellite(nextType === google.maps.MapTypeId.HYBRID);
           }}
         >
-          {thumbnailUrl && (
+           {thumbnailUrl && (
             <>
-              <img
+              <Image
                 src={thumbnailUrl}
                 alt="Map"
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-95 rounded-[8px]"
+                fill
+                sizes="100%"
+                unoptimized
+                className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-95 rounded-[8px]"
               />
               <div
                 className={`absolute bottom-0 left-0 w-full bg-transparent text-[12px] font-medium text-center py-[4px]
