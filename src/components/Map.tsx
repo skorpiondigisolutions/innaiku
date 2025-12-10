@@ -3117,13 +3117,18 @@ const Map = () => {
             </span>
           </div>
         </div>
-        {/*
-        <div className="flex flex-col items-center gap-[6px] cursor-pointer" onClick={() => setShowQR(true)}>
-          <div className="w-[40px] border-t border-gray-300 mb-[6px]"></div>
-          <SmartphoneIcon style={{ fontSize: '25px' }} className="text-black"/>
-          <span className="text-center text-[12px] tracking-wide font-medium leading-tight">Get the<br />app</span>
+        
+        <div className="flex flex-col items-center gap-[6px] cursor-pointer">
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={42}
+            height={42}
+            unoptimized
+            className="w-[50px] h-[50px] shadow-lg rounded-full object-cover"
+          />
         </div>
-        */}
+        
       </div>
 
       {/*Menu Sidebar*/}
@@ -5180,346 +5185,355 @@ const Map = () => {
         </div>
       </div>
 
-      <div className="absolute top-1 left-[0px] md:left-[72px] z-10 flex flex-col md:flex-row items-start md:items-center gap-[18px] md:gap-[28px] lg:gap-[34px] xl:gap-[40px] px-4 py-2 text-black">
+      <div className="w-full md:w-auto absolute top-1 left-[0px] md:left-[72px] z-10 flex flex-col md:flex-row items-start md:items-center gap-[18px] md:gap-[28px] lg:gap-[34px] xl:gap-[40px] px-4 py-2 text-black">
         {/* Search bar */}
-        <div className="relative w-full" ref={searchBoxRef}>
-          <div 
-            className={`relative bg-white shadow-2xl w-full md:w-[375px] ${
-              showSuggestions ? "rounded-t-xl" : "rounded-full"
-            }`}
-          >
-            <div className="flex items-center pl-6 pr-5 md:pr-4 py-[12px]">
-              <input
-                ref={inputRef}
-                type="text"
-                spellCheck={false} 
-                autoComplete="off" 
-                autoCorrect="off" 
-                autoCapitalize="off"
-                placeholder="Search Google Maps"
-                value={searchValue}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown") {
-                    if (combinedList.length > 0) {
-                      e.preventDefault();
-                      setHighlightedIndex((prev) => {
-                        if (prev < combinedList.length - 1) return prev + 1;
-                        return -1;
-                      });
-                    }
-                    return;
-                  }
-
-                  if (e.key === "ArrowUp") {
-                    if (combinedList.length > 0) {
-                      e.preventDefault();
-                      setHighlightedIndex((prev) => {
-                        if (prev === -1) return combinedList.length - 1;
-                        return prev - 1;
-                      });
-                    }
-                    return;
-                  }
-
-                  if (e.key === "Enter") {
-                    const selectedItem = combinedList[highlightedIndex];
-
-                    if (selectedItem) {
-                      if (selectedItem.type === "recent") {
-                        const shop = allShops.find((s) => s.name === selectedItem.data.title);
-                        if (shop) {
-                          handleShopSuggestion(shop, () => setPlaceSidebar("full"));
-                        } else {
-                          console.warn("Shop not found for recent item:", selectedItem.data.title);
-                        }
-                      } else if (selectedItem.type === "suggestion") {
-                      const shop = allShops.find(
-                        (s) => s.name === selectedItem.data.name
-                      );
-                      if (shop) {
-                        handleShopSuggestion(shop, () => {
-                          setPlaceSidebar("full");
+        <div className="flex items-center gap-[10px] w-full">
+          <div className="flex items-center md:hidden">
+            <img 
+              src="/logo.png"
+              alt="Logo"
+              className="w-[40px] h-[40px] object-cover rounded-full"
+            />
+          </div>
+          <div className="relative w-auto md:w-full" ref={searchBoxRef}>
+            <div 
+              className={`relative bg-white shadow-2xl w-full md:w-[375px] ${
+                showSuggestions ? "rounded-t-xl" : "rounded-full"
+              }`}
+            >
+              <div className="flex items-center pl-6 pr-5 md:pr-4 py-[12px]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  spellCheck={false} 
+                  autoComplete="off" 
+                  autoCorrect="off" 
+                  autoCapitalize="off"
+                  placeholder="Search Google Maps"
+                  value={searchValue}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) => {
+                          if (prev < combinedList.length - 1) return prev + 1;
+                          return -1;
                         });
                       }
-                      } else if (selectedItem.type === "home") {
-                        alert("Set Home clicked");
-                      } else if (selectedItem.type === "more") {
-                        exploreButtonFunction(); 
-                      }
-                      setShowSuggestions(false);
-                    } 
-                    else if (searchValue.trim()) {
-                      const query = searchValue.trim().toLowerCase();
-
-                      if (!searchOrigin || searchOrigin !== "home") {
-                        setSearchOrigin("home");
-                      }
-
-                      const filteredShops = allShops.filter(shop =>
-                        shop.name.toLowerCase().includes(query)
-                      );
-
-                      if (filteredShops.length > 0) {
-                        setRelatedPlaces(filteredShops)
-                        setPlaceSidebar("half");
-                      } else {
-                        setRelatedPlaces([]);
-                        setPlaceSidebar("half");
-                      }
-                      setShowSuggestions(false);
+                      return;
                     }
-                  }
-                }}
 
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSearchValue(value);
-                  setShowSuggestions(true);
+                    if (e.key === "ArrowUp") {
+                      if (combinedList.length > 0) {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) => {
+                          if (prev === -1) return combinedList.length - 1;
+                          return prev - 1;
+                        });
+                      }
+                      return;
+                    }
 
-                  if (!value.trim()) {
-                    setSuggestions([]);
-                    return;
-                  }
+                    if (e.key === "Enter") {
+                      const selectedItem = combinedList[highlightedIndex];
 
-                  const filtered = allShops.filter((shop) =>
-                    shop.name.toLowerCase().includes(value.toLowerCase()) ||
-                    shop.address.toLowerCase().includes(value.toLowerCase()) ||
-                    shop.cuisine.toLowerCase().includes(value.toLowerCase())
-                  );
+                      if (selectedItem) {
+                        if (selectedItem.type === "recent") {
+                          const shop = allShops.find((s) => s.name === selectedItem.data.title);
+                          if (shop) {
+                            handleShopSuggestion(shop, () => setPlaceSidebar("full"));
+                          } else {
+                            console.warn("Shop not found for recent item:", selectedItem.data.title);
+                          }
+                        } else if (selectedItem.type === "suggestion") {
+                        const shop = allShops.find(
+                          (s) => s.name === selectedItem.data.name
+                        );
+                        if (shop) {
+                          handleShopSuggestion(shop, () => {
+                            setPlaceSidebar("full");
+                          });
+                        }
+                        } else if (selectedItem.type === "home") {
+                          alert("Set Home clicked");
+                        } else if (selectedItem.type === "more") {
+                          exploreButtonFunction(); 
+                        }
+                        setShowSuggestions(false);
+                      } 
+                      else if (searchValue.trim()) {
+                        const query = searchValue.trim().toLowerCase();
 
-                  setSuggestions(filtered.slice(0, 5));
+                        if (!searchOrigin || searchOrigin !== "home") {
+                          setSearchOrigin("home");
+                        }
 
-                  setNoMatches(filtered.length === 0);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                  
-                className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
-              />
+                        const filteredShops = allShops.filter(shop =>
+                          shop.name.toLowerCase().includes(query)
+                        );
 
-              <div 
-                className="relative group"
-                onClick={() => {
-                  setShowSuggestions(true);  
-                  inputRef.current?.focus();
-                }}
-              >
-                <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+                        if (filteredShops.length > 0) {
+                          setRelatedPlaces(filteredShops)
+                          setPlaceSidebar("half");
+                        } else {
+                          setRelatedPlaces([]);
+                          setPlaceSidebar("half");
+                        }
+                        setShowSuggestions(false);
+                      }
+                    }
+                  }}
+
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchValue(value);
+                    setShowSuggestions(true);
+
+                    if (!value.trim()) {
+                      setSuggestions([]);
+                      return;
+                    }
+
+                    const filtered = allShops.filter((shop) =>
+                      shop.name.toLowerCase().includes(value.toLowerCase()) ||
+                      shop.address.toLowerCase().includes(value.toLowerCase()) ||
+                      shop.cuisine.toLowerCase().includes(value.toLowerCase())
+                    );
+
+                    setSuggestions(filtered.slice(0, 5));
+
+                    setNoMatches(filtered.length === 0);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                    
+                  className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+                />
 
                 <div 
-                  className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
-                  rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
+                  className="relative group"
+                  onClick={() => {
+                    setShowSuggestions(true);  
+                    inputRef.current?.focus();
+                  }}
                 >
-                  Search
+                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+
+                  <div 
+                    className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
+                    rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
+                  >
+                    Search
+                  </div>
                 </div>
-              </div>
-              
-              <div className="mr-[4px]" />
-              {/*
-              <div className="mr-[30px]" />
+                
+                <div className="mr-[4px]" />
+                {/*
+                <div className="mr-[30px]" />
 
-              <div className="relative group">
-                {isLocationSelected ? (
-                  <>
-                    <div
-                      className="w-[20px] h-[20px] bg-tranparent rounded-full flex items-center justify-center cursor-pointer"
-                      onClick={() => {
-                        setSearchValue("");
-                        setSuggestions([]);
-                        setIsLocationSelected(false);
-                        setShowSuggestions(false);
-                        if (markerRef.current) {
-                            markerRef.current.setMap(null);
-                            markerRef.current = null;
-                          }
-                      }}
-                    >
-                      <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
-                    </div>
-                    <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
-                      Close
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div 
-                      className="w-[20px] h-[20px] bg-[#007B8A] rounded-full flex items-center justify-center cursor-pointer"
-                       onClick={() => setShowSidebar(true)}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        width="18px"
-                        height="18px"
-                        fill="white"
+                <div className="relative group">
+                  {isLocationSelected ? (
+                    <>
+                      <div
+                        className="w-[20px] h-[20px] bg-tranparent rounded-full flex items-center justify-center cursor-pointer"
+                        onClick={() => {
+                          setSearchValue("");
+                          setSuggestions([]);
+                          setIsLocationSelected(false);
+                          setShowSuggestions(false);
+                          if (markerRef.current) {
+                              markerRef.current.setMap(null);
+                              markerRef.current = null;
+                            }
+                        }}
                       >
-                        <path d="M17.17,11l-1.59,1.59L17,14l4-4l-4-4l-1.41,1.41L17.17,9L9,9c-1.1,0-2,0.9-2,2v9h2v-9L17.17,11z" />
-                      </svg>
-                    </div>
-                    <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
-                      Directions
-                    </div>
-                  </>
-                )}
+                        <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
+                      </div>
+                      <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
+                        Close
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div 
+                        className="w-[20px] h-[20px] bg-[#007B8A] rounded-full flex items-center justify-center cursor-pointer"
+                        onClick={() => setShowSidebar(true)}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          width="18px"
+                          height="18px"
+                          fill="white"
+                        >
+                          <path d="M17.17,11l-1.59,1.59L17,14l4-4l-4-4l-1.41,1.41L17.17,9L9,9c-1.1,0-2,0.9-2,2v9h2v-9L17.17,11z" />
+                        </svg>
+                      </div>
+                      <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
+                        Directions
+                      </div>
+                    </>
+                  )}
+                </div>
+                */}
               </div>
-              */}
             </div>
-          </div>
 
-          {/* Suggestion Row */}
-          {showSuggestions && (
-            <div ref={suggestionBoxRef} className="absolute top-full left-0 w-full md:w-[375px] z-20">
-              <div className="bg-white shadow-lg rounded-b-xl border-t border-gray-200 pt-[8px] pb-[10px]">
-                {combinedList.length > 0 && (
-                  <>
-                  <div className="flex flex-col space-y-[0px]">
-                    {combinedList.map((item, index) => {
-                      const isHighlighted = highlightedIndex === index;
-                      const baseClass = `hover:bg-gray-100 cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
-                        isHighlighted ? "bg-gray-100" : ""
-                      }`;
+            {/* Suggestion Row */}
+            {showSuggestions && (
+              <div ref={suggestionBoxRef} className="absolute top-full left-0 w-full md:w-[375px] z-20">
+                <div className="bg-white shadow-lg rounded-b-xl border-t border-gray-200 pt-[8px] pb-[10px]">
+                  {combinedList.length > 0 && (
+                    <>
+                    <div className="flex flex-col space-y-[0px]">
+                      {combinedList.map((item, index) => {
+                        const isHighlighted = highlightedIndex === index;
+                        const baseClass = `hover:bg-gray-100 cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
+                          isHighlighted ? "bg-gray-100" : ""
+                        }`;
 
-                      const isInputEmpty = searchValue.trim() === "";
+                        const isInputEmpty = searchValue.trim() === "";
 
-                      if (item.type === "recent") {
-                        const place = item.data as RecentPlace;
-                        return (
-                          <div
-                            key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
-                            className={`px-[14px] md:px-[20px] ${baseClass} group`}
-                            onMouseDown={() => {
-                              setSearchValue(place.title);
-                              setShowSuggestions(true);
+                        if (item.type === "recent") {
+                          const place = item.data as RecentPlace;
+                          return (
+                            <div
+                              key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                              className={`px-[14px] md:px-[20px] ${baseClass} group`}
+                              onMouseDown={() => {
+                                setSearchValue(place.title);
+                                setShowSuggestions(true);
 
-                              const shop = allShops.find((s) => s.name === place.title);
-                              if (shop) {
-                                handleShopSuggestion(shop);
-                              } else {
-                                console.warn("Shop not found for recent place:", place.title);
-                              }
-                            }}
-                          >
-                            <div className="flex bg-red-00 items-center justify-between w-full group">
-                              <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
-                                {isInputEmpty ? (
-                                  <div className="md:w-10 md:h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
-                                    <AccessTimeIcon className="text-black w-6 h-6"  />
-                                  </div>
-                                ) : (
-                                  <div className="py-[8px] bg-transparent flex items-center justify-center">
-                                    <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
-                                  </div>
-                                )}
+                                const shop = allShops.find((s) => s.name === place.title);
+                                if (shop) {
+                                  handleShopSuggestion(shop);
+                                } else {
+                                  console.warn("Shop not found for recent place:", place.title);
+                                }
+                              }}
+                            >
+                              <div className="flex bg-red-00 items-center justify-between w-full group">
+                                <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
+                                  {isInputEmpty ? (
+                                    <div className="md:w-10 md:h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
+                                      <AccessTimeIcon className="text-black w-6 h-6"  />
+                                    </div>
+                                  ) : (
+                                    <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                      <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
+                                    </div>
+                                  )}
 
-                                {isInputEmpty ? (
-                                  <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
-                                    <span className="font-medium text-[14.5px] text-black truncate">
-                                      {place.title}
-                                    </span>
-                                    {place.subtitle && (
-                                      <span className="text-gray-600 text-[14px] truncate">
-                                        {place.subtitle}
+                                  {isInputEmpty ? (
+                                    <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
+                                      <span className="font-medium text-[14.5px] text-black truncate">
+                                        {place.title}
                                       </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="text-[14.5px] text-black font-medium truncate">
-                                    {place.title}
-                                    {place.subtitle && (
-                                      <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
-                                    )}
-                                  </div>
+                                      {place.subtitle && (
+                                        <span className="text-gray-600 text-[14px] truncate">
+                                          {place.subtitle}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[14.5px] text-black font-medium truncate">
+                                      {place.title}
+                                      {place.subtitle && (
+                                        <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {isInputEmpty && (
+                                  <button
+                                    tabIndex={-1}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setRecentPlaces((prev) => {
+                                        const updated = prev.filter(
+                                          (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                        );
+                                        localStorage.setItem("recent_places", JSON.stringify(updated));
+                                        return updated;
+                                      });
+                                    }}
+                                    className="opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
+                                  >
+                                    ✕
+                                  </button>
                                 )}
                               </div>
-
-                              {isInputEmpty && (
-                                <button
-                                  tabIndex={-1}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setRecentPlaces((prev) => {
-                                      const updated = prev.filter(
-                                        (p) => !(p.lat === place.lat && p.lng === place.lng)
-                                      );
-                                      localStorage.setItem("recent_places", JSON.stringify(updated));
-                                      return updated;
-                                    });
-                                  }}
-                                  className="opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
-                                >
-                                  ✕
-                                </button>
-                              )}
                             </div>
-                          </div>
-                        );
-                      }
+                          );
+                        }
 
-                      if (item.type === "suggestion") {
-                        const shop = item.data;
-                        return (
-                          <div
-                            key={shop.shopId}
-                            className={baseClass}
-                            onMouseDown={() => handleShopSuggestion(shop)}
-                          >
-                            <div className="flex items-center gap-[10px] overflow-hidden">
-                              <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
-                                <LocationOnIcon className="text-[#007B8A]" style={{ fontSize: "21px" }} />
+                        if (item.type === "suggestion") {
+                          const shop = item.data;
+                          return (
+                            <div
+                              key={shop.shopId}
+                              className={baseClass}
+                              onMouseDown={() => handleShopSuggestion(shop)}
+                            >
+                              <div className="flex items-center gap-[10px] overflow-hidden">
+                                <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                  <LocationOnIcon className="text-[#007B8A]" style={{ fontSize: "21px" }} />
+                                </div>
+                                <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
+                                  {shop.name}
+                                </span>
                               </div>
-                              <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
-                                {shop.name}
+                            </div>
+                          );
+                        }
+
+                        if (item.type === "more") {
+                          return (
+                            <div
+                              key="more"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                exploreButtonFunction();
+                                setShowSuggestions(false);
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                exploreButtonFunction();
+                                setShowSuggestions(false);
+                              }}
+                              className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
+                                highlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
+                              }`}
+                            >
+                              <span className="text-[14.5px] tracking-wide font-medium">
+                                See all shops list
                               </span>
                             </div>
-                          </div>
-                        );
-                      }
-
-                      if (item.type === "more") {
-                        return (
-                          <div
-                            key="more"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              exploreButtonFunction();
-                              setShowSuggestions(false);
-                            }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              exploreButtonFunction();
-                              setShowSuggestions(false);
-                            }}
-                            className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
-                              highlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
-                            }`}
-                          >
-                            <span className="text-[14.5px] tracking-wide font-medium">
-                              See all shops list
-                            </span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
-                  </div>
-                  </>
-                )}
-                {noMatches && (
-                  <div className="px-[20px] py-[12px] text-center text-black">
-                    <p className="font-medium text-[15px] text-black">
-                      Sorry, can&apos;t find that place name.
-                    </p>
-                  </div>
-                )}
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    </>
+                  )}
+                  {noMatches && (
+                    <div className="px-[20px] py-[12px] text-center text-black">
+                      <p className="font-medium text-[15px] text-black">
+                        Sorry, can&apos;t find that place name.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Category Filters */}
