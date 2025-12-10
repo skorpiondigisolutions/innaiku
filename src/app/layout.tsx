@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Innaiku.com",
   description: "",
    icons: {
-    icon: "/map.webp",
+    icon: "/favicon.png",
   },
 };
 
