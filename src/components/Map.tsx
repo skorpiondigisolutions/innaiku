@@ -26,7 +26,7 @@ import { HiDownload } from "react-icons/hi";
 import { ArrowLeft } from "lucide-react";
 import PaymentsIcon from "@mui/icons-material/PaymentsOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import LockIcon from '@mui/icons-material/Lock';
+//import LockIcon from '@mui/icons-material/Lock';
 import SearchBox from "./SearchBox";
 import SidebarSearchBox from "./SidebarSearchBox"; 
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -443,7 +443,7 @@ const Map = () => {
     categoryMarkersRef.current = [];
 
     const bounds = new google.maps.LatLngBounds();
-    const fetchedShops: any[] = [];
+    const fetchedShops: Shop[] = [];
 
     try {
       for (const id of shopIds) {
