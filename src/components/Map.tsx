@@ -55,11 +55,8 @@ type MenuCategory = {
 };
 
 type Category = {
-  category_id: number;
   name: string;
-  images: string[];
-  delete_status: boolean;
-  shop_id: number;
+  shop_ids: number[];
 };
 
 type FoodItem = {
@@ -399,7 +396,7 @@ const Map = () => {
   const [relatedPlaces, setRelatedPlaces] = useState<Shop[]>([]);
   const [sidebarSuggestions, setSidebarSuggestions] = useState<Shop[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [extraShopImages, setExtraShopImages] = useState<Record<string, string[]>>({});
   const initialZoomRef = useRef<number>(10);
   const categoryModeRef = useRef(false);
@@ -439,46 +436,51 @@ const Map = () => {
   };
   
   {/*Shop details will show when category tile is cliked*/}
-  const runCategorySearch = async (shopId: number) => {
+  const runCategorySearch = async (shopIds: number[]) => {
     if (!mapInstanceRef.current) return;
 
-    categoryMarkersRef.current.forEach(m => m.setMap(null));
+    categoryMarkersRef.current.forEach((m) => m.setMap(null));
     categoryMarkersRef.current = [];
 
+    const bounds = new google.maps.LatLngBounds();
+    const fetchedShops: any[] = [];
+
     try {
-      const res = await fetch(`${API_URL}/getShopByID?shop_id=${shopId}`);
-      const shop = await res.json();
+      for (const id of shopIds) {
+        const res = await fetch(`${API_URL}/getShopByID?shop_id=${id}`);
+        const shop = await res.json();
 
-      if (!shop || !shop.lat || !shop.lng) return;
+        if (!shop || !shop.lat || !shop.lng) continue;
 
-      const location = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
+        fetchedShops.push(shop);
 
-      const marker = new google.maps.Marker({
-        position: location,
-        map: mapInstanceRef.current!,
-        title: shop.name,
-        icon: {
-          url: "https://cdn-icons-png.flaticon.com/128/4287/4287725.png",
-          scaledSize: new google.maps.Size(32, 34),
-        },
-      });
+        const location = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
 
-      marker.addListener("click", () => {
-        handleShopSuggestion(shop, () => {
-          setPlaceSidebar("full");
-          setKeepHalfSidebarOpen(true);
+        const marker = new google.maps.Marker({
+          position: location,
+          map: mapInstanceRef.current!,
+          title: shop.name,
+          icon: {
+            url: "https://cdn-icons-png.flaticon.com/128/4287/4287725.png",
+            scaledSize: new google.maps.Size(32, 34),
+          },
         });
-      });
 
-      categoryMarkersRef.current.push(marker);
+        marker.addListener("click", () => {
+          handleShopSuggestion(shop, () => {
+            setPlaceSidebar("full");
+            setKeepHalfSidebarOpen(true);
+          });
+        });
 
-      setRelatedPlaces([shop]);
+        categoryMarkersRef.current.push(marker);
+        bounds.extend(location);
+      }
+
+      setRelatedPlaces(fetchedShops);
       setPlaceSidebar("half");
       setKeepHalfSidebarOpen(true);
       setSearchOrigin("home");
-
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(location);
 
       setTimeout(() => {
         const sidebarEl = document.getElementById("halfSidebar");
@@ -495,7 +497,6 @@ const Map = () => {
 
         mapInstanceRef.current!.fitBounds(bounds, padding);
       }, 300);
-
     } catch (err) {
       console.error("Category shop fetch error:", err);
     }
@@ -505,9 +506,35 @@ const Map = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await fetch(`${API_URL}/getCategory`);
+        const res = await fetch(`${API_URL}/getShopCuisine`);
         const data = await res.json();
-        setCategories(data);
+
+        const grouped: Record<string, number[]> = {};
+
+        data.forEach((item: { name: string; shop_id: number }) => {
+
+          const cleaned = item.name
+            .replace(/[‐-–—]/g, "-")
+            .toLowerCase()
+            .trim();
+
+          const cuisines = cleaned.split(",").map(c => c.trim());
+
+          cuisines.forEach((cuisine) => {
+            if (!grouped[cuisine]) grouped[cuisine] = [];
+            grouped[cuisine].push(item.shop_id);
+          });
+        });
+
+        const finalCategories = Object.keys(grouped).map((cuisine) => ({
+          name: cuisine
+            .split(" ")
+            .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+            .join(" "),
+          shop_ids: grouped[cuisine],
+        }));
+
+        setCategories(finalCategories);
       } catch (err) {
         console.error("Error fetching categories:", err);
       }
@@ -5556,13 +5583,13 @@ const Map = () => {
               <div className="flex items-center gap-[8px]">
                 {categories.map((cat) => (
                   <button
-                    key={cat.category_id}
+                    key={cat.name}
                     className="flex items-center gap-[5px] bg-white rounded-full px-[10px] py-[6px] shadow-2xl text-[14px] hover:bg-gray-100 whitespace-nowrap tracking-wide font-medium cursor-pointer"
                     onClick={() => {
                       categoryModeRef.current = true;
                       {/*categoryModeRef.current = false;*/}
-                      setSelectedCategory(cat.category_id);
-                      runCategorySearch(cat.shop_id);
+                      setSelectedCategory(cat.name);
+                      runCategorySearch(cat.shop_ids);
                     }}
                   >
                     <RestaurantIcon style={{ fontSize: "18px" }} />
