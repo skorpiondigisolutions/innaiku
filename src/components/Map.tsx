@@ -26,7 +26,6 @@ import { HiDownload } from "react-icons/hi";
 import { ArrowLeft } from "lucide-react";
 import PaymentsIcon from "@mui/icons-material/PaymentsOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-//import LockIcon from '@mui/icons-material/Lock';
 import SearchBox from "./SearchBox";
 import SidebarSearchBox from "./SidebarSearchBox"; 
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -355,6 +354,7 @@ const Map = () => {
   const [addressFSCopied, setFSAddressCopied] = useState(false);
   const [plusCodeFSCopied, setFSPlusCodeCopied] = useState(false);
   const [locationFSCopied, setFSLocationCopied] = useState(false);
+  const [locationHSCopied, setHSLocationCopied] = useState(false);
   const fullSidebarContentRef = useRef<HTMLDivElement | null>(null);
   const [searchOrigin, setSearchOrigin] = useState<"home" | "sidebar" | null>(null);
   const locateMeMarkerRef = useRef<google.maps.Marker | null>(null);
@@ -398,8 +398,104 @@ const Map = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [extraShopImages, setExtraShopImages] = useState<Record<string, string[]>>({});
-  const initialZoomRef = useRef<number>(10);
+  const initialZoomRef = useRef<number>(11);
   const categoryModeRef = useRef(false);
+  const [halfSidebarShopRatings, setHalfSidebarShopRatings] = useState<Record<number, number>>({});
+  const [halfSidebarShopPrices, setHalfSidebarShopPrices] = useState<Record<number, string>>({});
+
+  {/*API for shop price range*/}
+  const fetchShopPriceText = async (shopId: number): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_URL}/getFoodPriceRange?shop_id=${shopId}`);
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      return data.range_display ?? null;
+    } catch (err) {
+      console.error("Price fetch error:", err);
+      return null;
+    }
+  };
+
+  {/*useEffect for shop price range*/}
+  useEffect(() => {
+    if (!relatedPlaces || relatedPlaces.length === 0) return;
+
+    let cancelled = false;
+
+    const loadPriceTexts = async () => {
+      const map: Record<number, string> = {};
+
+      for (const p of relatedPlaces) {
+        if (p.shopId == null) continue;
+
+        try {
+          const priceText = await fetchShopPriceText(p.shopId);
+          if (!cancelled && priceText !== null) {
+            map[p.shopId] = priceText;
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch priceText for shop ${p.shopId}`, e);
+        }
+      }
+
+      if (!cancelled) setHalfSidebarShopPrices(map);
+    };
+
+    loadPriceTexts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [relatedPlaces]);
+
+  {/*API for shop rating*/}
+  const fetchShopRating = async (shopId: number): Promise<number | null> => {
+    try {
+      const res = await fetch(
+        `${API_URL}/getShopRatingAverage?shop_id=${shopId}`
+      );
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      return data.average_rating ?? null;
+    } catch (err) {
+      console.error("Rating fetch error:", err);
+      return null;
+    }
+  };
+
+  {/*useEffect for shop rating*/}
+  useEffect(() => {
+    if (!relatedPlaces || relatedPlaces.length === 0) return;
+
+    let cancelled = false;
+
+    const loadRatings = async () => {
+      const map: Record<number, number> = {};
+
+      for (const p of relatedPlaces) {
+        if (p.shopId == null) continue;
+
+        try {
+          const rating = await fetchShopRating(p.shopId);
+          if (!cancelled && rating !== null) {
+            map[p.shopId] = rating;
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch rating for shop ${p.shopId}`, e);
+        }
+      }
+
+      if (!cancelled) setHalfSidebarShopRatings(map);
+    };
+
+    loadRatings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [relatedPlaces]);
 
   function useDummy(..._args: unknown[]) {
     void _args;
@@ -584,6 +680,24 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
 
+    {/*Fetch shop rating*/}
+    let shopRating: number | undefined = undefined;
+    try {
+      const fetchedRating = await fetchShopRating(shop.shopId);
+      if (fetchedRating !== null) shopRating = fetchedRating;
+    } catch (err) {
+      console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
+    }
+
+    {/* Fetch shop priceText */}
+    let shopPriceRange: string | undefined = undefined;
+    try {
+      const fetchedPrice = await fetchShopPriceText(shop.shopId);
+      if (fetchedPrice !== null) shopPriceRange = fetchedPrice;
+    } catch (err) {
+      console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
+    }
+    
     const newPlace: RecentPlace = {
       shopId: shop.shopId,
       title: shop.name,
@@ -597,9 +711,9 @@ const Map = () => {
       timestamp: Date.now(),
       fullAddress: shop.address,
       plusCode: "",
-      rating: undefined,
+      rating: shopRating ?? 4.5,
       userRatingsTotal: undefined,
-      priceText: undefined,
+      priceText: shopPriceRange ?? "₹200 – 400",
       category: shop.cuisine || "Shop",
       reviews: [],
       applink: shop.applink || "",
@@ -1021,17 +1135,6 @@ const Map = () => {
     }
   }, [topSidebar]);
 
-  const handleLocationShare = () => {
-    if (!recentSelectedPlace) return;
-
-    const link = `https://www.google.com/maps?q=${recentSelectedPlace.lat},${recentSelectedPlace.lng}`;
-
-    navigator.clipboard.writeText(link).then(() => {
-      setLocationCopied(true);
-      setTimeout(() => setLocationCopied(false), 2000); 
-    });
-  };
-
   useEffect(() => {
     const stored = localStorage.getItem("favorite_places");
     if (stored) {
@@ -1044,6 +1147,18 @@ const Map = () => {
     }
   }, []);
 
+  {/*
+  const handleLocationShare = () => {
+    if (!recentSelectedPlace) return;
+
+    const link = `https://www.google.com/maps?q=${recentSelectedPlace.lat},${recentSelectedPlace.lng}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+      setLocationCopied(true);
+      setTimeout(() => setLocationCopied(false), 2000); 
+    });
+  };
+  
   const handleFSLocationShare = () => {
     if (!fullSidebarSelectedPlace) return;
 
@@ -1052,6 +1167,52 @@ const Map = () => {
     navigator.clipboard.writeText(link).then(() => {
       setFSLocationCopied(true);
       setTimeout(() => setFSLocationCopied(false), 2000); 
+    });
+  };
+  */}
+
+  const handleFSLocationShare = () => {
+    if (!fullSidebarSelectedPlace) return;
+
+    let linkToCopy = "";
+    if (fullSidebarSelectedPlace.applink) {
+      linkToCopy = fullSidebarSelectedPlace.applink;
+    } 
+    else {
+      linkToCopy = `https://www.google.com/maps?q=${fullSidebarSelectedPlace.lat},${fullSidebarSelectedPlace.lng}`;
+    }
+    navigator.clipboard.writeText(linkToCopy).then(() => {
+      setFSLocationCopied(true);
+      setTimeout(() => setFSLocationCopied(false), 2000);
+    });
+  };
+
+  const handleLocationShare = () => {
+    if (!recentSelectedPlace) return;
+
+    let linkToCopy = "";
+    if (recentSelectedPlace.applink) {
+      linkToCopy = recentSelectedPlace.applink;
+    } 
+    else {
+      linkToCopy = `https://www.google.com/maps?q=${recentSelectedPlace.lat},${recentSelectedPlace.lng}`;
+    }
+    navigator.clipboard.writeText(linkToCopy).then(() => {
+      setLocationCopied(true);
+      setTimeout(() => setLocationCopied(false), 2000); 
+    });
+  };
+
+  const handleHSLocationShare = (place: typeof relatedPlaces[0]) => {
+    if (!place) return;
+
+    const linkToCopy = place.applink
+      ? place.applink
+      : `https://www.google.com/maps?q=${place.lat},${place.lng}`;
+
+    navigator.clipboard.writeText(linkToCopy).then(() => {
+      setHSLocationCopied(true);
+      setTimeout(() => setHSLocationCopied(false), 2000);
     });
   };
 
@@ -2339,7 +2500,25 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     //const allPhotos = [...(shop.menu || []), ...additionalImages];
-  
+    
+    {/*Fetch shop rating*/}
+    let shopRating: number | undefined = undefined;
+    try {
+      const fetchedRating = await fetchShopRating(shop.shopId);
+      if (fetchedRating !== null) shopRating = fetchedRating;
+    } catch (err) {
+      console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
+    }
+
+    {/* Fetch shop priceText */}
+    let shopPriceRange: string | undefined = undefined;
+    try {
+      const fetchedPrice = await fetchShopPriceText(shop.shopId);
+      if (fetchedPrice !== null) shopPriceRange = fetchedPrice;
+    } catch (err) {
+      console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
+    }
+    
     const newPlace: RecentPlace = {
       shopId: shop.shopId, 
       title: shop.name,
@@ -2353,9 +2532,9 @@ const Map = () => {
       timestamp: Date.now(),
       fullAddress: shop.address,
       plusCode: "",
-      rating: undefined,
+      rating : shopRating ?? 4.5,
       userRatingsTotal: undefined,
-      priceText: undefined,
+      priceText: shopPriceRange ?? "₹200 – 400",
       category: shop.cuisine || "Shop",
       reviews: [],
       applink: shop.applink || "",
@@ -2417,6 +2596,24 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
 
+    {/*Fetch shop rating*/}
+    let shopRating: number | undefined = undefined;
+    try {
+      const fetchedRating = await fetchShopRating(shop.shopId);
+      if (fetchedRating !== null) shopRating = fetchedRating;
+    } catch (err) {
+      console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
+    }
+
+    {/* Fetch shop priceText */}
+    let shopPriceRange: string | undefined = undefined;
+    try {
+      const fetchedPrice = await fetchShopPriceText(shop.shopId);
+      if (fetchedPrice !== null) shopPriceRange = fetchedPrice;
+    } catch (err) {
+      console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
+    }
+
     const newPlace: RecentPlace = {
       shopId: shop.shopId,  
       title: shop.name,
@@ -2430,9 +2627,9 @@ const Map = () => {
       timestamp: Date.now(),
       fullAddress: shop.address,
       plusCode: "",
-      rating: undefined,
+      rating: shopRating ?? 4.5,
       userRatingsTotal: undefined,
-      priceText: undefined,
+      priceText: shopPriceRange ?? "₹200 – 400",
       category: shop.cuisine || "Shop",
       reviews: [],
       applink: shop.applink || "",
@@ -2494,7 +2691,7 @@ const Map = () => {
       if (mapRef.current && inputRef.current) {
         const map = new google.maps.Map(mapRef.current, {
           center: { lat: 13.0827, lng: 80.2707 },
-          zoom: 10,
+          zoom: 11,
           minZoom: 3,
           maxZoom: 20,
           gestureHandling: "greedy",
@@ -2538,18 +2735,49 @@ const Map = () => {
         mapInstanceRef.current = map;
         
         const shops = await fetchShops();
-  
+
+        const shopRatings: Record<number, number> = {};
+        await Promise.all(
+          shops.map(async (shop) => {
+            if (!shop.shopId) return;
+            try {
+              const rating = await fetchShopRating(shop.shopId);
+              if (rating !== null) shopRatings[shop.shopId] = rating;
+            } catch (err) {
+              console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
+            }
+          })
+        );
+        
+        const shopPrices: Record<number, string> = {};
+        await Promise.all(
+          shops.map(async (shop) => {
+            if (!shop.shopId) return;
+            try {
+              const priceRange = await fetchShopPriceText(shop.shopId);
+              if (priceRange !== null) shopPrices[shop.shopId] = priceRange;
+            } catch (err) {
+              console.warn(`Failed to fetch price range for shop ${shop.shopId}`, err);
+            }
+          })
+        );
+
+
         class RestaurantLabel extends google.maps.OverlayView {
           private div: HTMLDivElement | null = null;
           private position: google.maps.LatLng;
           private data: Shop;
+          private rating: number | undefined;
+          private priceRange: string | undefined;
           private marker: google.maps.Marker | null = null;
           private infoWindow: google.maps.InfoWindow | null = null;
   
-          constructor(position: google.maps.LatLng, data: Shop) {
+          constructor(position: google.maps.LatLng, data: Shop, rating?: number, priceRange?: string) {
             super();
             this.position = position;
             this.data = data;
+            this.rating = rating;
+            this.priceRange = priceRange;
           }
   
           onAdd() {
@@ -2621,7 +2849,7 @@ const Map = () => {
               } catch (err) {
                 console.error("Failed to fetch additional images:", err);
               }
-  
+              
               //const allPhotos = [...(shop.menu || []), ...additionalImages];
   
               const newPlace: RecentPlace = {
@@ -2637,9 +2865,9 @@ const Map = () => {
                 timestamp: Date.now(),
                 fullAddress: shop.address,
                 plusCode: "",
-                rating: undefined,
+                rating: this.rating ?? 4.5,
                 userRatingsTotal: undefined,
-                priceText: undefined,
+                priceText: this.priceRange ?? "₹200 – 400",
                 category: shop.cuisine || "Shop",
                 reviews: [],
                 applink: shop.applink || "",
@@ -2703,12 +2931,12 @@ const Map = () => {
                   </div>
 
                   <div style="display:flex; margin-top:1px; align-items:center; gap:5px; font-size:12.5px; color:black; line-height:1;">
-                    <span>${this.data.rating || "4.5"}</span>
+                    <span>${this.rating || "4.5"}</span>
 
                     <span style="display:flex; align-items:center; gap:1px;">
                       ${[1,2,3,4,5].map(i => `
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                            fill="${i <= Math.round(this.data.rating || 4) ? '#f4b400' : '#ddd'}"
+                            fill="${i <= Math.round(this.rating || 4) ? '#f4b400' : '#ddd'}"
                             viewBox="0 0 24 24">
                           <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 
                                   9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
@@ -2718,15 +2946,15 @@ const Map = () => {
 
                     ${this.data.userRatingsTotal
                       ? `<span style="color:#777;">(${Number(this.data.userRatingsTotal).toLocaleString()})</span>`
-                      : "(548)"
+                      : ""
                     }
                   </div>
 
                   <div style="display:flex; margin-top:1px; align-items:center; gap:6px; font-size:12.5px; color:black;">
                     ${ this.data.cuisine ? `<span>${this.data.cuisine}</span>`  : "" }
-                    ${ this.data.priceText
+                    ${ this.priceRange
                         ? `<span><b>·</b></span>
-                          <span>${this.data.priceText}</span>`
+                          <span>₹${this.priceRange}</span>`
                         : `<span><b>·</b></span>
                           <span>₹200 – 400</span>`
                     }
@@ -2734,8 +2962,8 @@ const Map = () => {
 
                   <div style="font-size:12.5px; margin-top:1px; color:black;">
                     ${this.data.openCloseTiming 
-                        ? `<span style="color:red;">Open ${this.data.openCloseTiming.split('–')[0]}</span> <b>·</b> Closes ${this.data.openCloseTiming.split('–')[1]}`
-                        : `<span style="color:red;">Open 10am</span> <b>·</b> Closes 10pm`
+                        ? `Open ${this.data.openCloseTiming.split('–')[0]} <b>·</b> <span style="color:red;">Closes ${this.data.openCloseTiming.split('–')[1]}</span>`
+                        : `Open 10am <b>·</b> <span style="color:red;"> Closes 10pm</span>`
                       }
                   </div>
                 </div>
@@ -2864,7 +3092,7 @@ const Map = () => {
   
         shops.forEach((shop: Shop) => {
           const position = new google.maps.LatLng(parseFloat(shop.lat), parseFloat(shop.lng));
-          const overlay = new RestaurantLabel(position, shop);
+          const overlay = new RestaurantLabel(position, shop, shopRatings[shop.shopId], shopPrices[shop.shopId]);
           overlay.setMap(mapInstanceRef.current);
         });
   
@@ -4152,11 +4380,11 @@ const Map = () => {
                               <span className="text-gray-500">
                                 ({place.userRatingsTotal.toLocaleString()})
                               </span>
-                            )}
+                            )}                            
                             {place.priceText && (
                               <>
                                 <span className="hidden md:inline"><b>·</b></span>
-                                <span className="hidden md:inline">{place.priceText}</span>
+                                <span className="hidden md:inline">₹{place.priceText}</span>
                               </>
                             )}
                           </span>
@@ -4355,7 +4583,7 @@ const Map = () => {
                       {recentSelectedPlace?.priceText && (
                         <>
                           <span><b>·</b></span>
-                          <span>{recentSelectedPlace?.priceText}</span>
+                          <span>₹{recentSelectedPlace?.priceText}</span>
                         </>
                       )}
                     </span>
@@ -4645,13 +4873,13 @@ const Map = () => {
                             const [openTime, closeTime] = recentSelectedPlace.openCloseTiming.split("–");
                             return (
                               <>
-                                <span className="text-red-500">Open {openTime.trim()}</span> <b>·</b> Closes {closeTime?.trim() || "soon"}
+                                Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
                               </>
                             );
                           })()}
                         </>
                       ) : (
-                        <span><span className="text-red-500">Open 10am</span> <b>·</b> Closes 10pm</span>
+                        <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
                       )}
                     </p>
                   </div>
@@ -4835,12 +5063,10 @@ const Map = () => {
 
                       <div className="flex flex-col items-center gap-[6px]">
                         <span className="text-[42px] leading-none font-medium text-black">
-                          4.5
-                          {/*{recentSelectedPlace?.rating?.toFixed(1)}*/}
+                          {recentSelectedPlace?.rating?.toFixed(1)}
                         </span>
                         <StarRating rating={recentSelectedPlace?.rating || 4.5} />
                         <span className="text-gray-500 text-[12.5px]">
-                          548 reviews
                           {/*{recentSelectedPlace?.userRatingsTotal?.toLocaleString()} reviews*/}
                         </span>
                       </div>
@@ -5112,12 +5338,10 @@ const Map = () => {
 
                     <div className="flex flex-col items-center gap-[6px]">
                       <span className="text-[42px] leading-none font-medium text-black">
-                        4.5
-                        {/*{recentSelectedPlace.rating?.toFixed(1)}*/}
+                        {recentSelectedPlace.rating?.toFixed(1)}
                       </span>
                       <StarRating rating={recentSelectedPlace.rating || 4.5} />
                       <span className="text-gray-500 text-[12.5px]">
-                        548 reviews
                         {/*{recentSelectedPlace.userRatingsTotal?.toLocaleString()} reviews*/}
                       </span>
                     </div>
@@ -6036,7 +6260,7 @@ const Map = () => {
                         {fullSidebarSelectedPlace?.priceText && (
                           <>
                             <span><b>·</b></span>
-                            <span>{fullSidebarSelectedPlace?.priceText}</span>
+                            <span>₹{fullSidebarSelectedPlace?.priceText}</span>
                           </>
                         )}
                       </span>
@@ -6278,13 +6502,13 @@ const Map = () => {
                               const [openTime, closeTime] = fullSidebarSelectedPlace.openCloseTiming.split("–");
                               return (
                                 <>
-                                  <span className="text-red-500">Open {openTime.trim()}</span> <b>·</b> Closes {closeTime?.trim() || "soon"}
+                                  Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
                                 </>
                               );
                             })()}
                           </>
                         ) : (
-                          <span><span className="text-red-500">Open 10am</span> <b>·</b> Closes 10pm</span>
+                          <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
                         )}
                       </p>
                     </div>
@@ -6469,12 +6693,10 @@ const Map = () => {
   
                         <div className="flex flex-col items-center gap-[6px]">
                           <span className="text-[42px] leading-none font-medium text-black">
-                            4.5
-                            {/*{fullSidebarSelectedPlace?.rating?.toFixed(1)}*/}
+                            {fullSidebarSelectedPlace?.rating?.toFixed(1)}
                           </span>
                           <StarRating rating={fullSidebarSelectedPlace?.rating || 4.5} />
                           <span className="text-gray-500 text-[12.5px]">
-                            548 reviews
                             {/*{fullSidebarSelectedPlace?.userRatingsTotal?.toLocaleString()} reviews*/}
                           </span>
                         </div>
@@ -6747,12 +6969,10 @@ const Map = () => {
   
                       <div className="flex flex-col items-center gap-[6px]">
                         <span className="text-[42px] leading-none font-medium text-black">
-                          4.5
-                          {/*{fullSidebarSelectedPlace.rating?.toFixed(1)}*/}
+                          {fullSidebarSelectedPlace.rating?.toFixed(1)}
                         </span>
                         <StarRating rating={fullSidebarSelectedPlace.rating || 4.5} />
                         <span className="text-gray-500 text-[12.5px]">
-                          548 reviews
                           {/* {fullSidebarSelectedPlace.userRatingsTotal?.toLocaleString()} reviews */}
                         </span>
                       </div>
@@ -6990,9 +7210,9 @@ const Map = () => {
                   const address = place.address || "";
                   const image = place.imageUrls || [];
                   const photo = place.imageUrls[0] || "";
-                  const priceText = "₹200 – 400";
-                  const rating = 4.5;
-                  const totalRatings = 548 ;
+                  const priceRange = halfSidebarShopPrices[place.shopId] ? `${halfSidebarShopPrices[place.shopId]}` : "";
+                  const shopRating = halfSidebarShopRatings[place.shopId] ?? 4.5;
+                  const totalRatings = "" ;
                   const allPhotos = [...place.imageUrls, ...place.menu,  ...(extraShopImages[place.shopId] || [])]
 
                   return (
@@ -7020,6 +7240,24 @@ const Map = () => {
                         const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
                         const additionalImages = await fetchShopImages(String(shop.shopId));
                         //const allPhotos = [...(shop.menu || []), ...additionalImages];
+                        
+                        {/*Fetch shop rating*/}
+                        let shopRating: number | undefined = undefined;
+                        try {
+                          const fetchedRating = await fetchShopRating(shop.shopId);
+                          if (fetchedRating !== null) shopRating = fetchedRating;
+                        } catch (err) {
+                          console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
+                        }
+
+                        {/* Fetch shop priceText */}
+                        let shopPriceRange: string | undefined = undefined;
+                        try {
+                          const fetchedPrice = await fetchShopPriceText(shop.shopId);
+                          if (fetchedPrice !== null) shopPriceRange = fetchedPrice;
+                        } catch (err) {
+                          console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
+                        }
 
                         const newPlace: RecentPlace = {
                           shopId: shop.shopId, 
@@ -7034,9 +7272,9 @@ const Map = () => {
                           timestamp: Date.now(),
                           fullAddress: shop.address,
                           plusCode: "",
-                          rating: undefined,
+                          rating: shopRating ?? 4.5,
                           userRatingsTotal: undefined,
-                          priceText: undefined,
+                          priceText: shopPriceRange ?? "₹200 – 400",
                           category: shop.cuisine || "Shop",
                           reviews: [],
                           applink: shop.applink || "",
@@ -7076,17 +7314,17 @@ const Map = () => {
                             </div>
 
                             <div className="flex items-center text-[14px] text-gray-700 mt-[3px]">
-                              {rating && (
+                              {shopRating && (
                                 <>
-                                  <span className="font-medium">{rating}</span>
-                                  <span className="ml-[5px]"><StarRating rating={rating} /></span>
+                                  <span className="font-medium">{shopRating}</span>
+                                  <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
                                   {totalRatings && (
                                     <span className="ml-[5px] text-gray-700">({totalRatings})</span>
                                   )}
-                                  {priceText && (
+                                  {priceRange && (
                                     <>
                                     <span className="mx-[4px] hidden md:inline"><b>·</b></span>
-                                    <span className="text-gray-700 hidden md:inline">{priceText}</span>
+                                    <span className="text-gray-700 hidden md:inline">₹{priceRange}</span>
                                     </>
                                   )}
                                 </>
@@ -7104,13 +7342,13 @@ const Map = () => {
                                     const [openTime, closeTime] = place.openCloseTiming.split("–");
                                     return (
                                       <>
-                                        <span className="text-red-500">Open {openTime.trim()}</span> <b>·</b> Closes {closeTime?.trim() || "soon"}
+                                        Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
                                       </>
                                     );
                                   })()}
                                 </>
                               ) : (
-                                <span><span className="text-red-500">Open 10am</span> <b>·</b> Closes 10pm</span>
+                                <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
                               )}
                             </div>
                           </div>
@@ -7183,9 +7421,9 @@ const Map = () => {
                                     timestamp: Date.now(),
                                     fullAddress: place.address,
                                     plusCode: "",
-                                    rating: place.rating,
+                                    rating: shopRating,
                                     userRatingsTotal: place.userRatingsTotal,
-                                    priceText: place.priceText,
+                                    priceText: priceRange,
                                     category: place.cuisine || "Shop",
                                     reviews: [],
                                     applink: place.applink,
@@ -7218,12 +7456,16 @@ const Map = () => {
                             )}
                           </div>
 
-                          <div 
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleHSLocationShare(place);
+                            }}
                             className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
                           >
                            <Share2 size={18} className="text-black" />
                            <span className="text-[12px] tracking-wide font-medium">Share</span>
-                          </div>
+                          </button>
                         </div>
                       </div>
                       
@@ -7234,17 +7476,17 @@ const Map = () => {
                         </div>
 
                         <div className="flex items-center text-[14px] text-gray-700 px-[16px] mt-[3px]">
-                          {rating && (
+                          {shopRating && (
                             <>
-                              <span className="font-medium">{rating}</span>
-                              <span className="ml-[5px]"><StarRating rating={rating} /></span>
+                              <span className="font-medium">{shopRating}</span>
+                              <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
                               {totalRatings && (
                                 <span className="ml-[5px] text-gray-700">({totalRatings})</span>
                               )}
-                              {priceText && (
+                              {priceRange && (
                                 <>
                                 <span className="mx-[4px] inline"><b>·</b></span>
-                                <span className="text-gray-700 inline">{priceText}</span>
+                                <span className="text-gray-700 inline">₹{priceRange}</span>
                                 </>
                               )}
                             </>
@@ -7258,13 +7500,13 @@ const Map = () => {
                                 const [openTime, closeTime] = place.openCloseTiming.split("–");
                                 return (
                                   <>
-                                    <span className="text-red-500">Open {openTime.trim()}</span> <b>·</b> Closes {closeTime?.trim() || "soon"}
+                                    Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
                                   </>
                                 );
                               })()}
                             </>
                           ) : (
-                            <span><span className="text-red-500">Open 10am</span> <b>·</b> Closes 10pm</span>
+                            <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
                           )}
                         </div>
 
@@ -7351,9 +7593,9 @@ const Map = () => {
                                     timestamp: Date.now(),
                                     fullAddress: place.address,
                                     plusCode: "",
-                                    rating: place.rating,
+                                    rating: shopRating,
                                     userRatingsTotal: place.userRatingsTotal,
-                                    priceText: place.priceText,
+                                    priceText: priceRange,
                                     category: place.cuisine || "Shop",
                                     reviews: [],
                                     applink: place.applink,
@@ -7386,12 +7628,16 @@ const Map = () => {
                             )}
                           </div>
                 
-                          <div 
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleHSLocationShare(place);
+                            }} 
                             className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
                           >
                            <Share2 size={18} className="text-black" />
                            <span className="text-[12px] tracking-wide font-medium">Share</span>
-                          </div>
+                          </button>
                         </div>
                       </div>
                     </div>               
@@ -7534,7 +7780,7 @@ const Map = () => {
       <div>
         {locationCopied && (
           <div className="absolute bottom-[5px] left-1/2 -translate-x-1/2 bg-black z-50 text-white text-[14px] md:text-[16px] whitespace-nowrap tracking-wide font-sans font-medium px-[14px] py-[12px]">
-            Location copied to clipboard
+            Copied to clipboard
           </div>
         )}
       </div>
@@ -7542,10 +7788,19 @@ const Map = () => {
       <div>
         {locationFSCopied && (
           <div className="absolute bottom-[5px] left-1/2 -translate-x-1/2 bg-black z-50 text-white text-[14px] md:text-[16px] whitespace-nowrap tracking-wide font-sans font-medium px-[14px] py-[12px]">
-            Location copied to clipboard
+            Copied to clipboard
           </div>
         )}
       </div>
+
+      <div>
+        {locationHSCopied && (
+          <div className="absolute bottom-[5px] left-1/2 -translate-x-1/2 bg-black z-50 text-white text-[14px] md:text-[16px] whitespace-nowrap tracking-wide font-sans font-medium px-[14px] py-[12px] rounded-md">
+            Copied to clipboard
+          </div>
+        )}
+      </div>
+
 
       <div ref={mapRef} className="w-full h-full" />
     </div>
