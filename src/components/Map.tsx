@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from "react";
 import SearchIcon from '@mui/icons-material/Search';
 import MenuIcon from "@mui/icons-material/Menu";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
@@ -1822,9 +1822,11 @@ const Map = () => {
     setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 1);
   };
   
-  useEffect(() => {
-    handleCategoryScroll();
-  }, []);
+useLayoutEffect(() => {
+    requestAnimationFrame(() => {
+      handleCategoryScroll();
+    });
+  }, [categories]);
 
   function getDistanceKm(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) {
     const R = 6371;
@@ -7808,3 +7810,4 @@ const Map = () => {
 };
 
 export default Map;
+
