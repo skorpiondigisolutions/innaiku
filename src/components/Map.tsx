@@ -3281,7 +3281,7 @@ const Map = () => {
     
   return (
     <div className="relative w-full h-screen">
-      <div className="flex flex-row md:hidden absolute bottom-0 left-0 w-full bg-[#f1f6f7] z-30 shadow-md py-2 text-black">
+      <div className="flex flex-row md:hidden fixed bottom-0 left-0 w-full bg-[#f1f6f7] z-30 shadow-md py-2 text-black">
         <div className="flex flex-row items-center justify-evenly w-full">
           <div 
             onClick={exploreButtonFunction}
