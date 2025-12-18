@@ -5,7 +5,7 @@ const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
 export default function Home() {
   return (
-    <main className="h-screen w-full">
+    <main className="h-[100dwh] w-full">
         <Map />
     </main>
   );
