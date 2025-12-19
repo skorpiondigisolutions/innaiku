@@ -31,6 +31,7 @@ import SidebarSearchBox from "./SidebarSearchBox";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL } from "../config/apiConfig";
 import Image from "next/image";
+import MobilePlaceSidebar from './MobilePlaceSidebar';
 
 interface Place {
   title: string;
@@ -402,6 +403,44 @@ const Map = () => {
   const categoryModeRef = useRef(false);
   const [halfSidebarShopRatings, setHalfSidebarShopRatings] = useState<Record<number, number>>({});
   const [halfSidebarShopPrices, setHalfSidebarShopPrices] = useState<Record<number, string>>({});
+  const initialCenterRef = useRef({ lat: 13.0827, lng: 80.2707 });
+  const categoryBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
+  
+  const restoreCategoryView = () => {
+    if (categoryBoundsRef.current && mapInstanceRef.current && keepHalfSidebarOpen) {
+      const isMobileView = window.innerWidth < 768;
+      const padding = { top: 80, bottom: 50, left: 50, right: 50 };
+
+      if (!isMobileView) {
+        const sidebarEl = document.getElementById("halfSidebar");
+        const sidebarWidth = sidebarEl?.offsetWidth || 410;
+        padding.left = sidebarWidth + 50;
+      } else {
+        const drawerHeight = window.innerHeight * 0.5;
+        padding.bottom = drawerHeight + 20;
+        padding.top = 120;
+      }
+      mapInstanceRef.current.fitBounds(categoryBoundsRef.current, padding);
+    }
+  };
+
+  {/*Reset map to initial view when closed the half sidebar which was opened by clicking explore option*/}
+  const resetMapForMobile = () => {
+    if (window.innerWidth < 768 && mapInstanceRef.current) {
+      if (initialCenterRef.current) {
+        const bounds = new google.maps.LatLngBounds(initialCenterRef.current);
+
+        mapInstanceRef.current.fitBounds(bounds, {
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0
+        });
+      }
+
+      mapInstanceRef.current.setZoom(initialZoomRef.current);
+    }
+  };
 
   {/*API for shop price range*/}
   const fetchShopPriceText = async (shopId: number): Promise<string | null> => {
@@ -578,7 +617,10 @@ const Map = () => {
       setKeepHalfSidebarOpen(true);
       setSearchOrigin("home");
 
-      setTimeout(() => {
+      categoryBoundsRef.current = bounds;
+
+      {/*
+        setTimeout(() => {
         const sidebarEl = document.getElementById("halfSidebar");
         const sidebarWidth = sidebarEl?.offsetWidth || 0;
         const sidebarHeight = sidebarEl?.offsetHeight || 0;
@@ -593,6 +635,26 @@ const Map = () => {
 
         mapInstanceRef.current!.fitBounds(bounds, padding);
       }, 300);
+      */}
+
+      setTimeout(() => {
+        const isMobileView = window.innerWidth < 768;
+        const padding = { top: 80, bottom: 50, left: 50, right: 50 };
+
+        if (!isMobileView) {
+          const sidebarEl = document.getElementById("halfSidebar");
+          const sidebarWidth = sidebarEl?.offsetWidth || 410;
+          padding.left = sidebarWidth + 50;
+        } else {
+          const drawerHeight = window.innerHeight * 0.5;
+          padding.bottom = drawerHeight + 20; 
+          padding.top = 120; 
+        }
+
+        if (mapInstanceRef.current && !bounds.isEmpty()) {
+          mapInstanceRef.current.fitBounds(bounds, padding);
+        }
+      }, 400);
     } catch (err) {
       console.error("Category shop fetch error:", err);
     }
@@ -804,6 +866,7 @@ const Map = () => {
     const bounds = new google.maps.LatLngBounds();
     allShops.forEach(shop => bounds.extend({ lat: Number(shop.lat), lng: Number(shop.lng) }));
 
+    {/*
     const sidebarEl = document.getElementById("halfSidebar");
     const sidebarWidth = sidebarEl?.offsetWidth || 0;
     const sidebarHeight = sidebarEl?.offsetHeight || 0;
@@ -821,13 +884,33 @@ const Map = () => {
       };
     } else {
       padding = {
-        top: 250,
+        top: 150,
         bottom: sidebarHeight + 50,
         left: 50,
         right: 50,
       };
     }
     mapInstanceRef.current.fitBounds(bounds, padding);
+    */}
+
+    setTimeout(() => {
+      const isMobileView = window.innerWidth < 768;
+      const padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+      if (!isMobileView) {
+        const sidebarEl = document.getElementById("halfSidebar");
+        const sidebarWidth = sidebarEl?.offsetWidth || 410;
+        padding.left = sidebarWidth + 50;
+      } else {
+        const drawerHeight = window.innerHeight * 0.5;
+        padding.bottom = drawerHeight + 20;
+        padding.top = 150;
+      }
+
+      if (mapInstanceRef.current && !bounds.isEmpty()) {
+        mapInstanceRef.current.fitBounds(bounds, padding);
+      }
+    }, 400);
   }
 
   useEffect(() => {
@@ -1019,11 +1102,14 @@ const Map = () => {
     if (placeSidebar === "full" && keepHalfSidebarOpen) {
       setPlaceSidebar("half");
       setKeepHalfSidebarOpen(true);
+      restoreCategoryView();
     } else {
       setPlaceSidebar(null);
       setKeepHalfSidebarOpen(false);
+      closeCategoryMode();
     }
     if (placeSidebar === "half") 
+    //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768))
     {
       clearCategoryMarkers();
     }
@@ -1037,7 +1123,11 @@ const Map = () => {
     }
     if (window.innerWidth < 768) {
       setSidebarHeight(window.innerHeight * 0.5);
+      resetMapForMobile();
     }
+
+    activePlaceMarkerRemover();
+    setNoMatches(false);
   };
 
   useEffect(() => {
@@ -1822,7 +1912,7 @@ const Map = () => {
     setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 1);
   };
   
-useLayoutEffect(() => {
+  useLayoutEffect(() => {
     requestAnimationFrame(() => {
       handleCategoryScroll();
     });
@@ -2482,17 +2572,17 @@ useLayoutEffect(() => {
     const bounds = new google.maps.LatLngBounds();
     bounds.extend(location);
   
-    const sidebarEl = document.getElementById("fullSidebar");
-    const sidebarWidth = sidebarEl?.offsetWidth || 0;
-    const sidebarHeight = sidebarEl?.offsetHeight || 0;
-    const windowWidth = window.innerWidth;
-  
+    const isMobileView = window.innerWidth < 768;
     const padding = { top: 50, bottom: 50, left: 50, right: 50 };
-    if (windowWidth >= 768) {
+
+    if (!isMobileView) {
+      const sidebarEl = document.getElementById("fullSidebar");
+      const sidebarWidth = sidebarEl?.offsetWidth || 410;
       padding.left = sidebarWidth + 50;
     } else {
+      const drawerHeight = window.innerHeight * 0.5;
+      padding.bottom = drawerHeight + 20; 
       padding.top = 150;
-      padding.bottom = sidebarHeight + 50;
     }
   
     mapInstanceRef.current?.fitBounds(bounds, padding);
@@ -2578,19 +2668,33 @@ useLayoutEffect(() => {
     const map = mapInstanceRef.current!;
     const bounds = new google.maps.LatLngBounds();
     bounds.extend(position);
-  
-    const sidebarEl = document.getElementById("fullSidebar");
-    const sidebarWidth = sidebarEl?.offsetWidth || 0;
-    const sidebarHeight = sidebarEl?.offsetHeight || 0;
-  
-    let padding = { top: 50, bottom: 50, left: 50, right: 50 };
-  
-    if (window.innerWidth >= 768) {
-      padding = { top: 50, bottom: 50, left: sidebarWidth + 50, right: 50 };
+    
+    {/*
+      const sidebarEl = document.getElementById("fullSidebar");
+      const sidebarWidth = sidebarEl?.offsetWidth || 0;
+      const sidebarHeight = sidebarEl?.offsetHeight || 0;
+    
+      let padding = { top: 50, bottom: 50, left: 50, right: 50 };
+      if (window.innerWidth >= 768) {
+        padding = { top: 50, bottom: 50, left: sidebarWidth + 50, right: 50 };
+      } else {
+        padding = { top: 150, bottom: sidebarHeight + 50, left: 50, right: 50 };
+      }
+      map.fitBounds(bounds, padding);
+    */}
+
+    const isMobileView = window.innerWidth < 768;
+    const padding = { top: 50, bottom: 50, left: 50, right: 50 };
+
+    if (!isMobileView) {
+      const sidebarEl = document.getElementById("fullSidebar");
+      const sidebarWidth = sidebarEl?.offsetWidth || 410;
+      padding.left = sidebarWidth + 50;
     } else {
-      padding = { top: 150, bottom: sidebarHeight + 50, left: 50, right: 50 };
+      const drawerHeight = window.innerHeight * 0.5;
+      padding.bottom = drawerHeight + 20; 
+      padding.top = 150;
     }
-  
     map.fitBounds(bounds, padding);
   }
       
@@ -3283,7 +3387,7 @@ useLayoutEffect(() => {
     
   return (
     <div className="relative w-full h-screen">
-      <div className="flex flex-row md:hidden fixed bottom-0 left-0 w-full bg-[#f1f6f7] z-30 shadow-md py-2 text-black">
+      <div className="flex flex-row md:hidden fixed bottom-0 left-0 w-full bg-[#f1f6f7] z-30 shadow-md py-2 text-black pb-[calc(env(safe-area-inset-bottom)+8px)]">
         <div className="flex flex-row items-center justify-evenly w-full">
           <div 
             onClick={exploreButtonFunction}
@@ -6057,7 +6161,7 @@ useLayoutEffect(() => {
         id="fullSidebar"
         ref={fullSidebarRef}
         style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px`: "100vh"}}
-        className={`fixed bg-white text-black z-30flex flex-col
+        className={`fixed bg-transparent md:bg-white text-black z-30 hidden md:flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
           transition-[transform,height] duration-300 overflow-hidden
           ${placeSidebar === "full" ? "z-40" : "z-30"}
@@ -6066,6 +6170,8 @@ useLayoutEffect(() => {
       >
       
         <div className="flex flex-col h-full">
+          <MobilePlaceSidebar isOpen={placeSidebar === "full"}>
+          {/*
           {placeSidebar === "full" && (
             <div
               onMouseDown={handleDragStart}
@@ -6075,6 +6181,7 @@ useLayoutEffect(() => {
               <div className="w-10 h-1.5 bg-gray-400 rounded-full" />
             </div>
           )}
+          */}
           
           <div className={`hidden md:block py-3 px-4 top-0 z-10 bg-transparent w-full
             ${fullSidebarActiveTab === "fullSidebarOverview"? "absolute left-0": "sticky"}`}
@@ -6121,6 +6228,7 @@ useLayoutEffect(() => {
                 allShops={allShops}
                 exploreButtonFunction={exploreButtonFunction}
                 closeCategoryMode={closeCategoryMode}
+                restoreCategoryView={restoreCategoryView}
               />
               ) : searchOrigin === "home" ? (
               <SearchBox
@@ -6164,13 +6272,14 @@ useLayoutEffect(() => {
                 allShops={allShops}
                 exploreButtonFunction={exploreButtonFunction}
                 closeCategoryMode={closeCategoryMode}
+                restoreCategoryView={restoreCategoryView}
               />
             ) : null}
           </div>
           
           {fullSidebarActiveTab !== "fullSidebarOverview" && (
-            <div className="sticky top-0 z-0 bg-white">
-              <div className="relative top-0 left-0 w-full pt-[10px] pb-[10px] bg-white z-20 flex md:hidden items-center justify-between text-black transition-opacity duration-200">
+            <div className="sticky top-0 z-[100] md:z-0 bg-white">
+              <div className="relative top-[-2px] left-0 w-full pt-[12px] pb-[10px] bg-white z-[100] flex md:hidden items-center justify-between text-black transition-opacity duration-200">
                 <button
                   onClick={() => {
                     setFullSidebarActiveTab("fullSidebarOverview");
@@ -6230,7 +6339,7 @@ useLayoutEffect(() => {
                     onClick={() => {
                       setFullSidebarSelectedPlace(null);
                       closeButtonFunction();
-                       activePlaceMarkerRemover();
+                      activePlaceMarkerRemover();
                     }}
                     className="absolute top-[14px] right-4 w-[34px] h-[34px] flex md:hidden items-center justify-center rounded-full bg-white hover:bg-gray-200 shadow-md text-black text-[18px] font-bold cursor-pointer"
                   >
@@ -6873,7 +6982,7 @@ useLayoutEffect(() => {
 
                         <div>
                           <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]">Highlights</h2>
-                          <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px]">
+                          <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px] mb-[6px] md:mb-0">
                             {highlightFSImages.map((url, idx) => (
                               <Image
                                 key={idx}
@@ -7067,6 +7176,7 @@ useLayoutEffect(() => {
               */}
             </div>
           </div>
+          </MobilePlaceSidebar>
         </div>
       </div>
 
@@ -7075,7 +7185,7 @@ useLayoutEffect(() => {
         id="halfSidebar"
         ref={halfSidebarRef}
         style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px`: "100vh", }}
-        className={`fixed bg-white text-black flex flex-col
+        className={`fixed bg-red-400 md:bg-white text-black hidden md:flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
           transition-[transform,height] duration-300 overflow-hidden
           ${placeSidebar === "half" ? "z-40" : "z-30"}
@@ -7084,590 +7194,597 @@ useLayoutEffect(() => {
         `}
       >
 
-        {placeSidebar === "half" && (
-          <div
-            onMouseDown={handleDragStart}
-            onTouchStart={handleDragStart}
-            className="md:hidden w-full py-3 flex justify-center cursor-grab active:cursor-grabbing"
-          >
-            <div className="w-10 h-1.5 bg-gray-400 rounded-full" />
+        <MobilePlaceSidebar isOpen={placeSidebar === "half"}>
+          
+          {/*
+          {placeSidebar === "half" && (
+            <div
+              onMouseDown={handleDragStart}
+              onTouchStart={handleDragStart}
+              className="md:hidden w-full py-3 flex justify-center cursor-grab active:cursor-grabbing"
+            >
+              <div className="w-10 h-1.5 bg-gray-400 rounded-full" />
+            </div>
+          )}
+          */}
+          
+          <div className="hidden md:block py-[12px] px-[18px]">
+            {searchOrigin === "sidebar" ? (
+              <SidebarSearchBox
+                topSidebarSearchBoxRef={secondSearchBoxRef}
+                topSidebarSuggestionBoxRef={secondSuggestionBoxRef}
+                inputRef={inputRef}
+                sidebarSearchValue={sidebarSearchValue}
+                fetchDetailedPlaces={fetchDetailedPlaces} 
+                setSidebarSearchValue={setSidebarSearchValue}
+                showSidebarSuggestions={showSidebarSuggestions}
+                setShowSidebarSuggestions={setShowSidebarSuggestions}
+                sidebarCombinedList={sidebarCombinedList}
+                sidebarHighlightedIndex={sidebarHighlightedIndex}
+                setSidebarHighlightedIndex={setSidebarHighlightedIndex}
+                placeSidebar={placeSidebar}
+                topSidebar={topSidebar}
+                setTopSidebar={setTopSidebar}
+                setPlaceSidebar={setPlaceSidebar}
+                setShowSidebar={setShowSidebar}
+                setRecentSidebar={setRecentSidebar}
+                handleSidebarSelectSuggestion={handleSidebarSelectSuggestion}
+                setSidebarSuggestions={setSidebarSuggestions}
+                setIsLocationSelected={setIsLocationSelected}
+                setRecentPlaces={setRecentPlaces}
+                setRelatedPlaces={setRelatedPlaces}
+                mapInstanceRef={mapInstanceRef}
+                recentPlaces={recentPlaces}
+                markerRef={markerRef}
+                sidebarMarkerRef={sidebarMarkerRef}
+                clearCategoryMarkers={clearCategoryMarkers}
+                keepHalfSidebarOpen={keepHalfSidebarOpen}
+                setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+                sidebarHeight={sidebarHeight}
+                setSidebarHeight={setSidebarHeight}
+                activePlaceMarkerRemover={activePlaceMarkerRemover}
+                handleShopSuggestion={handleShopSuggestion}
+                searchOrigin={searchOrigin}
+                setSearchOrigin={setSearchOrigin}
+                noMatches={noMatches}
+                setNoMatches={setNoMatches}
+                allShops={allShops}
+                exploreButtonFunction={exploreButtonFunction}
+                closeCategoryMode={closeCategoryMode}
+                restoreCategoryView={restoreCategoryView}
+              />
+              ) : searchOrigin === "home" ? (
+              <SearchBox
+                placeSidebarSearchBoxRef={halfSidebarSearchBoxRef}
+                placeSidebarSuggestionBoxRef={halfSidebarSuggestionBoxRef}
+                inputRef={inputRef}
+                searchValue={searchValue}
+                fetchDetailedPlaces={fetchDetailedPlaces} 
+                setSearchValue={setSearchValue}
+                showSuggestions={showSuggestions}
+                setShowSuggestions={setShowSuggestions}
+                combinedList={combinedList}
+                highlightedIndex={highlightedIndex}
+                setHighlightedIndex={setHighlightedIndex}
+                placeSidebar={placeSidebar}
+                topSidebar={topSidebar}
+                setTopSidebar={setTopSidebar}
+                setPlaceSidebar={setPlaceSidebar}
+                setShowSidebar={setShowSidebar}
+                setRecentSidebar={setRecentSidebar}
+                handleSelectSuggestion={handleSelectSuggestion}
+                setSuggestions={setSuggestions}
+                setIsLocationSelected={setIsLocationSelected}
+                setRecentPlaces={setRecentPlaces}
+                setRelatedPlaces={setRelatedPlaces}
+                mapInstanceRef={mapInstanceRef}
+                recentPlaces={recentPlaces}
+                markerRef={markerRef}
+                sidebarMarkerRef={sidebarMarkerRef}
+                clearCategoryMarkers={clearCategoryMarkers}
+                keepHalfSidebarOpen={keepHalfSidebarOpen}
+                setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+                sidebarHeight={sidebarHeight}
+                setSidebarHeight={setSidebarHeight}
+                activePlaceMarkerRemover={activePlaceMarkerRemover}
+                handleShopSuggestion={handleShopSuggestion}
+                searchOrigin={searchOrigin}
+                setSearchOrigin={setSearchOrigin}
+                noMatches={noMatches}
+                setNoMatches={setNoMatches}
+                allShops={allShops}
+                exploreButtonFunction={exploreButtonFunction}
+                closeCategoryMode={closeCategoryMode}
+                restoreCategoryView={restoreCategoryView}
+              />
+            ) : null}
           </div>
-        )}
-
-        <div className="hidden md:block py-[12px] px-[18px]">
-          {searchOrigin === "sidebar" ? (
-            <SidebarSearchBox
-              topSidebarSearchBoxRef={secondSearchBoxRef}
-              topSidebarSuggestionBoxRef={secondSuggestionBoxRef}
-              inputRef={inputRef}
-              sidebarSearchValue={sidebarSearchValue}
-              fetchDetailedPlaces={fetchDetailedPlaces} 
-              setSidebarSearchValue={setSidebarSearchValue}
-              showSidebarSuggestions={showSidebarSuggestions}
-              setShowSidebarSuggestions={setShowSidebarSuggestions}
-              sidebarCombinedList={sidebarCombinedList}
-              sidebarHighlightedIndex={sidebarHighlightedIndex}
-              setSidebarHighlightedIndex={setSidebarHighlightedIndex}
-              placeSidebar={placeSidebar}
-              topSidebar={topSidebar}
-              setTopSidebar={setTopSidebar}
-              setPlaceSidebar={setPlaceSidebar}
-              setShowSidebar={setShowSidebar}
-              setRecentSidebar={setRecentSidebar}
-              handleSidebarSelectSuggestion={handleSidebarSelectSuggestion}
-              setSidebarSuggestions={setSidebarSuggestions}
-              setIsLocationSelected={setIsLocationSelected}
-              setRecentPlaces={setRecentPlaces}
-              setRelatedPlaces={setRelatedPlaces}
-              mapInstanceRef={mapInstanceRef}
-              recentPlaces={recentPlaces}
-              markerRef={markerRef}
-              sidebarMarkerRef={sidebarMarkerRef}
-              clearCategoryMarkers={clearCategoryMarkers}
-              keepHalfSidebarOpen={keepHalfSidebarOpen}
-              setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
-              sidebarHeight={sidebarHeight}
-              setSidebarHeight={setSidebarHeight}
-              activePlaceMarkerRemover={activePlaceMarkerRemover}
-              handleShopSuggestion={handleShopSuggestion}
-              searchOrigin={searchOrigin}
-              setSearchOrigin={setSearchOrigin}
-              noMatches={noMatches}
-              setNoMatches={setNoMatches}
-              allShops={allShops}
-              exploreButtonFunction={exploreButtonFunction}
-              closeCategoryMode={closeCategoryMode}
-            />
-            ) : searchOrigin === "home" ? (
-            <SearchBox
-              placeSidebarSearchBoxRef={halfSidebarSearchBoxRef}
-              placeSidebarSuggestionBoxRef={halfSidebarSuggestionBoxRef}
-              inputRef={inputRef}
-              searchValue={searchValue}
-              fetchDetailedPlaces={fetchDetailedPlaces} 
-              setSearchValue={setSearchValue}
-              showSuggestions={showSuggestions}
-              setShowSuggestions={setShowSuggestions}
-              combinedList={combinedList}
-              highlightedIndex={highlightedIndex}
-              setHighlightedIndex={setHighlightedIndex}
-              placeSidebar={placeSidebar}
-              topSidebar={topSidebar}
-              setTopSidebar={setTopSidebar}
-              setPlaceSidebar={setPlaceSidebar}
-              setShowSidebar={setShowSidebar}
-              setRecentSidebar={setRecentSidebar}
-              handleSelectSuggestion={handleSelectSuggestion}
-              setSuggestions={setSuggestions}
-              setIsLocationSelected={setIsLocationSelected}
-              setRecentPlaces={setRecentPlaces}
-              setRelatedPlaces={setRelatedPlaces}
-              mapInstanceRef={mapInstanceRef}
-              recentPlaces={recentPlaces}
-              markerRef={markerRef}
-              sidebarMarkerRef={sidebarMarkerRef}
-              clearCategoryMarkers={clearCategoryMarkers}
-              keepHalfSidebarOpen={keepHalfSidebarOpen}
-              setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
-              sidebarHeight={sidebarHeight}
-              setSidebarHeight={setSidebarHeight}
-              activePlaceMarkerRemover={activePlaceMarkerRemover}
-              handleShopSuggestion={handleShopSuggestion}
-              searchOrigin={searchOrigin}
-              setSearchOrigin={setSearchOrigin}
-              noMatches={noMatches}
-              setNoMatches={setNoMatches}
-              allShops={allShops}
-              exploreButtonFunction={exploreButtonFunction}
-              closeCategoryMode={closeCategoryMode}
-            />
-          ) : null}
-        </div>
-        
-        <div ref={halfSidebarRef} className="overflow-y-auto flex-1 py-[2px]">
-          <div className="pt-[2px] md:pt-[4px]">
-            {relatedPlaces.length > 0 ? (
-              <>
-                <div className="flex items-center justify-between px-[16px] md:px-[24px]">
-                  <h1 className="text-[20px] text-black font-sans font-normal tracking-wide">
-                    Results
-                  </h1>
-                   <button
-                    className="md:hidden w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[17px] font-bold"
-                    
-
-                    onClick={() => {
-                      closeButtonFunction();
-                      closeCategoryMode();
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {relatedPlaces.map((place, index) => {
-                  const name = place.name || "Unnamed Place";
-                  const category = place.cuisine || "";
-                  //const category = (place.cuisine || "").split(",")[0].trim();
-                  const address = place.address || "";
-                  const image = place.imageUrls || [];
-                  const photo = place.imageUrls[0] || "";
-                  const priceRange = halfSidebarShopPrices[place.shopId] ? `${halfSidebarShopPrices[place.shopId]}` : "";
-                  const shopRating = halfSidebarShopRatings[place.shopId] ?? 4.5;
-                  const totalRatings = "" ;
-                  const allPhotos = [...place.imageUrls, ...place.menu,  ...(extraShopImages[place.shopId] || [])]
-
-                  return (
-                    <div
-                      key={index}
-                      onClick={async () => {
-                        const shop = allShops.find(s => s.shopId === place.shopId);
-                        if (!shop || !mapInstanceRef.current) return;
-
-                        addToHistory(shop);
-
-                        const position = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
-
-                        const marker = new google.maps.Marker({
-                            position,
-                            map: mapInstanceRef.current,
-                            title: shop.name,
-                        });
-
-                        if (activePlaceMarkerRef.current) {
-                            activePlaceMarkerRef.current.setMap(null);
-                        }
-                        activePlaceMarkerRef.current = marker;
-
-                        const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
-                        const additionalImages = await fetchShopImages(String(shop.shopId));
-                        //const allPhotos = [...(shop.menu || []), ...additionalImages];
-                        
-                        {/*Fetch shop rating*/}
-                        let shopRating: number | undefined = undefined;
-                        try {
-                          const fetchedRating = await fetchShopRating(shop.shopId);
-                          if (fetchedRating !== null) shopRating = fetchedRating;
-                        } catch (err) {
-                          console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
-                        }
-
-                        {/* Fetch shop priceText */}
-                        let shopPriceRange: string | undefined = undefined;
-                        try {
-                          const fetchedPrice = await fetchShopPriceText(shop.shopId);
-                          if (fetchedPrice !== null) shopPriceRange = fetchedPrice;
-                        } catch (err) {
-                          console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
-                        }
-
-                        const newPlace: RecentPlace = {
-                          shopId: shop.shopId, 
-                          title: shop.name,
-                          nativeName: undefined,
-                          subtitle: shop.address,
-                          imageUrl: shop.imageUrls[0],
-                          photos: shop.menu || [],
-                          highlights: additionalImages || [],
-                          lat: Number(shop.lat),
-                          lng: Number(shop.lng),
-                          timestamp: Date.now(),
-                          fullAddress: shop.address,
-                          plusCode: "",
-                          rating: shopRating ?? 4.5,
-                          userRatingsTotal: undefined,
-                          priceText: shopPriceRange ?? "₹200 – 400",
-                          category: shop.cuisine || "Shop",
-                          reviews: [],
-                          applink: shop.applink || "",
-                          about: shop.about,                 
-                          serviceability: shop.serviceability,
-                          openCloseTiming: shop.openCloseTiming,
-                          cuisines: cuisines || [],
-                          itemsByCuisine: itemsByCuisine || {}
-                        };
+          
+          <div ref={halfSidebarRef} className="overflow-y-auto flex-1 py-[2px]">
+            <div className="pt-[2px] md:pt-[4px]">
+              {relatedPlaces.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between px-[16px] md:px-[24px]">
+                    <h1 className="text-[20px] text-black font-sans font-normal tracking-wide">
+                      Results
+                    </h1>
+                    <button
+                      className="md:hidden w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[17px] font-bold"
                       
-                        setRecentPlaces(prev => {
-                          const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
-                          const sliced = updated.slice(0, 20);
-                          localStorage.setItem("recent_places", JSON.stringify(sliced));
-                          return sliced;
-                        });
-                      
-                        setFullSidebarSelectedPlace({
-                          ...newPlace,
-                          isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
-                        });
 
-                        setPlaceSidebar("full");
-                        setSearchValue(shop.name);
-                        setFullSidebarActiveTab("fullSidebarOverview");
-                        setKeepHalfSidebarOpen(true);
-                        centerPlaceOnMap(position);
+                      onClick={() => {
+                        closeButtonFunction();
+                        //closeCategoryMode();
                       }}
-                      className={`flex items-start gap-[22px] pl-[0px] md:pl-[24px] md:pr-[20px] hover:bg-gray-200 cursor-pointer border-b border-gray-300
-                        ${index === 0 ? 'pt-[10px] pb-[14px]' : 'pt-[14px] pb-[14px]'} md:py-[14px]`}
                     >
-                      <div className="hidden md:flex flex-col flex-1 overflow-hidden">
-                        <div className="flex flex-row items-start justify-between gap-[12px]">
-                          <div className="flex flex-col flex-1">
-                            <div className="font-medium font-sans tracking-wide text-[16px] leading-snug">
-                              {name}
-                            </div>
+                      ✕
+                    </button>
+                  </div>
 
-                            <div className="flex items-center text-[14px] text-gray-700 mt-[3px]">
-                              {shopRating && (
-                                <>
-                                  <span className="font-medium">{shopRating}</span>
-                                  <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
-                                  {totalRatings && (
-                                    <span className="ml-[5px] text-gray-700">({totalRatings})</span>
-                                  )}
-                                  {priceRange && (
-                                    <>
-                                    <span className="mx-[4px] hidden md:inline"><b>·</b></span>
-                                    <span className="text-gray-700 hidden md:inline">₹{priceRange}</span>
-                                    </>
-                                  )}
-                                </>
-                              )}
-                            </div>
+                  {relatedPlaces.map((place, index) => {
+                    const name = place.name || "Unnamed Place";
+                    const category = place.cuisine || "";
+                    //const category = (place.cuisine || "").split(",")[0].trim();
+                    const address = place.address || "";
+                    const image = place.imageUrls || [];
+                    const photo = place.imageUrls[0] || "";
+                    const priceRange = halfSidebarShopPrices[place.shopId] ? `${halfSidebarShopPrices[place.shopId]}` : "";
+                    const shopRating = halfSidebarShopRatings[place.shopId] ?? 4.5;
+                    const totalRatings = "" ;
+                    const allPhotos = [...place.imageUrls, ...place.menu,  ...(extraShopImages[place.shopId] || [])]
 
-                            <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
-                              {category} <b>·</b> {address}
-                            </div>
+                    return (
+                      <div
+                        key={index}
+                        onClick={async () => {
+                          const shop = allShops.find(s => s.shopId === place.shopId);
+                          if (!shop || !mapInstanceRef.current) return;
 
-                            <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
-                              {place.openCloseTiming ? (
-                                <>
-                                  {(() => {
-                                    const [openTime, closeTime] = place.openCloseTiming.split("–");
-                                    return (
-                                      <>
-                                        Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
-                                      </>
-                                    );
-                                  })()}
-                                </>
-                              ) : (
-                                <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
-                              )}
-                            </div>
-                          </div>
+                          addToHistory(shop);
 
-                          {photo && (
-                            <Image
-                              src={photo}
-                              alt={name}
-                              width={85}
-                              height={85}
-                              unoptimized
-                              className="hidden md:flex w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
-                            /> 
-                          )}
-                        </div>
+                          const position = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
 
-                        <div className="flex flex-row mt-[14px] items-center justify-between">
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              halfSidebarPlaceSelect(place.shopId)
-                            }} 
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                          >
-                            <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Menu</span>
-                          </div>
+                          const marker = new google.maps.Marker({
+                              position,
+                              map: mapInstanceRef.current,
+                              title: shop.name,
+                          });
 
-                          <div 
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                            aria-label={`Download "${place.name}" app`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (place.applink) {
-                                window.open(place.applink, "_blank");
-                              }
-                              else {
-                                window.open("https://play.google.com/store/games?device=windows", "_blank");
-                              }
-                            }} 
-                          >
-                            <HiDownload style={{ fontSize: '18px' }} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Download</span>
-                          </div>
-                
-                          <div
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                          if (activePlaceMarkerRef.current) {
+                              activePlaceMarkerRef.current.setMap(null);
+                          }
+                          activePlaceMarkerRef.current = marker;
 
-                              //const isNowFavorite = favoritePlaceList.some((p) => p.title === place.name);
+                          const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
+                          const additionalImages = await fetchShopImages(String(shop.shopId));
+                          //const allPhotos = [...(shop.menu || []), ...additionalImages];
+                          
+                          {/*Fetch shop rating*/}
+                          let shopRating: number | undefined = undefined;
+                          try {
+                            const fetchedRating = await fetchShopRating(shop.shopId);
+                            if (fetchedRating !== null) shopRating = fetchedRating;
+                          } catch (err) {
+                            console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
+                          }
 
-                              setFavoritePlaceList((prevFavs) => {
-                                const isNowFavorite = prevFavs.some((p) => p.shopId === place.shopId);
+                          {/* Fetch shop priceText */}
+                          let shopPriceRange: string | undefined = undefined;
+                          try {
+                            const fetchedPrice = await fetchShopPriceText(shop.shopId);
+                            if (fetchedPrice !== null) shopPriceRange = fetchedPrice;
+                          } catch (err) {
+                            console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
+                          }
 
-                                let updatedFavs;
+                          const newPlace: RecentPlace = {
+                            shopId: shop.shopId, 
+                            title: shop.name,
+                            nativeName: undefined,
+                            subtitle: shop.address,
+                            imageUrl: shop.imageUrls[0],
+                            photos: shop.menu || [],
+                            highlights: additionalImages || [],
+                            lat: Number(shop.lat),
+                            lng: Number(shop.lng),
+                            timestamp: Date.now(),
+                            fullAddress: shop.address,
+                            plusCode: "",
+                            rating: shopRating ?? 4.5,
+                            userRatingsTotal: undefined,
+                            priceText: shopPriceRange ?? "₹200 – 400",
+                            category: shop.cuisine || "Shop",
+                            reviews: [],
+                            applink: shop.applink || "",
+                            about: shop.about,                 
+                            serviceability: shop.serviceability,
+                            openCloseTiming: shop.openCloseTiming,
+                            cuisines: cuisines || [],
+                            itemsByCuisine: itemsByCuisine || {}
+                          };
+                        
+                          setRecentPlaces(prev => {
+                            const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
+                            const sliced = updated.slice(0, 20);
+                            localStorage.setItem("recent_places", JSON.stringify(sliced));
+                            return sliced;
+                          });
+                        
+                          setFullSidebarSelectedPlace({
+                            ...newPlace,
+                            isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
+                          });
 
-                                if (isNowFavorite) {
-                                  updatedFavs = prevFavs.filter((p) => p.shopId !== place.shopId);
-                                } else {
-                                  const favPlace: RecentPlace = {
-                                    shopId: place.shopId,
-                                    title: place.name,
-                                    subtitle: place.address,
-                                    imageUrl: place.imageUrls?.[0],
-                                    photos: place.menu || [],
-                                    highlights: extraShopImages?.[place.shopId] || [],
-                                    lat: Number(place.lat),
-                                    lng: Number(place.lng),
-                                    timestamp: Date.now(),
-                                    fullAddress: place.address,
-                                    plusCode: "",
-                                    rating: shopRating,
-                                    userRatingsTotal: place.userRatingsTotal,
-                                    priceText: priceRange,
-                                    category: place.cuisine || "Shop",
-                                    reviews: [],
-                                    applink: place.applink,
-                                    about: place.about,
-                                    serviceability: place.serviceability,
-                                    openCloseTiming: place.openCloseTiming,
-                                    cuisines: place.cuisines || [],
-                                    itemsByCuisine: place.itemsByCuisine || {},
-                                    isFavorite: true
-                                  };
+                          setPlaceSidebar("full");
+                          setSearchValue(shop.name);
+                          setFullSidebarActiveTab("fullSidebarOverview");
+                          setKeepHalfSidebarOpen(true);
+                          centerPlaceOnMap(position);
+                        }}
+                        className={`flex items-start gap-[22px] pl-[0px] md:pl-[24px] md:pr-[20px] hover:bg-gray-200 cursor-pointer border-b border-gray-300
+                          ${index === 0 ? 'pt-[10px] pb-[14px]' : 'pt-[14px] pb-[14px]'} md:py-[14px]`}
+                      >
+                        <div className="hidden md:flex flex-col flex-1 overflow-hidden">
+                          <div className="flex flex-row items-start justify-between gap-[12px]">
+                            <div className="flex flex-col flex-1">
+                              <div className="font-medium font-sans tracking-wide text-[16px] leading-snug">
+                                {name}
+                              </div>
 
-                                  updatedFavs = [favPlace, ...prevFavs];
-                                }
-
-                                localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
-                                return updatedFavs;
-                              });
-                            }}
-                          >
-                            {favoritePlaceList.some((p) => p.title === place.name) ? (
-                              <>
-                                <FavoriteIcon style={{ fontSize: "20px" }} className="text-red-500" />
-                                <span className="text-[12px] tracking-wide font-medium">Remove</span>
-                              </>
-                            ) : (
-                              <>
-                                <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
-                                <span className="text-[12px] tracking-wide font-medium">Favorite</span>
-                              </>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleHSLocationShare(place);
-                            }}
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                          >
-                           <Share2 size={18} className="text-black" />
-                           <span className="text-[12px] tracking-wide font-medium">Share</span>
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/*Mobile View*/}
-                      <div className="md:hidden flex flex-col flex-1 overflow-hidden">
-                        <div className="font-medium font-sans tracking-wide text-[16px] leading-snug px-[16px] mr-[16px] md:mr-[0px]">
-                          {name}
-                        </div>
-
-                        <div className="flex items-center text-[14px] text-gray-700 px-[16px] mt-[3px]">
-                          {shopRating && (
-                            <>
-                              <span className="font-medium">{shopRating}</span>
-                              <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
-                              {totalRatings && (
-                                <span className="ml-[5px] text-gray-700">({totalRatings})</span>
-                              )}
-                              {priceRange && (
-                                <>
-                                <span className="mx-[4px] inline"><b>·</b></span>
-                                <span className="text-gray-700 inline">₹{priceRange}</span>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-
-                        <div className="text-[14px] tracking-wide text-gray-600 px-[16px] mt-[3px]">
-                          {place.openCloseTiming ? (
-                            <>
-                              {(() => {
-                                const [openTime, closeTime] = place.openCloseTiming.split("–");
-                                return (
+                              <div className="flex items-center text-[14px] text-gray-700 mt-[3px]">
+                                {shopRating && (
                                   <>
-                                    Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                    <span className="font-medium">{shopRating}</span>
+                                    <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
+                                    {totalRatings && (
+                                      <span className="ml-[5px] text-gray-700">({totalRatings})</span>
+                                    )}
+                                    {priceRange && (
+                                      <>
+                                      <span className="mx-[4px] hidden md:inline"><b>·</b></span>
+                                      <span className="text-gray-700 hidden md:inline">₹{priceRange}</span>
+                                      </>
+                                    )}
                                   </>
-                                );
-                              })()}
-                            </>
-                          ) : (
-                            <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
-                          )}
-                        </div>
+                                )}
+                              </div>
 
-                        <div className="mt-[8px] flex gap-2 px-[16px] overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar">
-                          {Array.isArray(image) ? (
-                            allPhotos.map((url, i) => (
-                              <Image
-                                key={i}
-                                src={url}
-                                alt={`${name}-${i}`}
-                                width={85}
-                                height={85}
-                                unoptimized
-                                className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
-                              />
-                            ))
-                          ) : (
-                            photo && (
+                              <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
+                                {category} <b>·</b> {address}
+                              </div>
+
+                              <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
+                                {place.openCloseTiming ? (
+                                  <>
+                                    {(() => {
+                                      const [openTime, closeTime] = place.openCloseTiming.split("–");
+                                      return (
+                                        <>
+                                          Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                        </>
+                                      );
+                                    })()}
+                                  </>
+                                ) : (
+                                  <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
+                                )}
+                              </div>
+                            </div>
+
+                            {photo && (
                               <Image
                                 src={photo}
                                 alt={name}
                                 width={85}
                                 height={85}
                                 unoptimized
-                                className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
-                              />
-                            )
-                          )}
-                        </div>
-
-                        <div className="flex flex-row px-[16px] mt-[16px] items-center gap-[12px] overflow-x-auto scroll-smooth no-scrollbar snap-x snap-mandatory touch-pan-x select-none">
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              halfSidebarPlaceSelect(place.shopId)
-                            }} 
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                          >
-                            <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Menu</span>
+                                className="hidden md:flex w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
+                              /> 
+                            )}
                           </div>
 
-                          <div 
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                            aria-label={`Download "${place.name}" app`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (place.applink) {
-                                window.open(place.applink, "_blank");
-                              }
-                              else {
-                                window.open("https://play.google.com/store/games?device=windows", "_blank");
-                              }
-                            }}  
-                          >
-                            <HiDownload style={{ fontSize: '18px' }} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Download</span>
-                          </div>
-                
-                          <div 
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                          <div className="flex flex-row mt-[14px] items-center justify-between">
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                halfSidebarPlaceSelect(place.shopId)
+                              }} 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                            >
+                              <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
+                              <span className="text-[12px] tracking-wide font-medium">Menu</span>
+                            </div>
 
-                              //const isNowFavorite = favoritePlaceList.some((p) => p.title === place.name);
-
-                              setFavoritePlaceList((prevFavs) => {
-                                const isNowFavorite = prevFavs.some((p) => p.shopId === place.shopId);
-
-                                let updatedFavs;
-
-                                if (isNowFavorite) {
-                                  updatedFavs = prevFavs.filter((p) => p.shopId !== place.shopId);
-                                } else {
-                                  const favPlace: RecentPlace = {
-                                    shopId: place.shopId,
-                                    title: place.name,
-                                    subtitle: place.address,
-                                    imageUrl: place.imageUrls?.[0],
-                                    photos: place.menu || [],
-                                    highlights: extraShopImages?.[place.shopId] || [],
-                                    lat: Number(place.lat),
-                                    lng: Number(place.lng),
-                                    timestamp: Date.now(),
-                                    fullAddress: place.address,
-                                    plusCode: "",
-                                    rating: shopRating,
-                                    userRatingsTotal: place.userRatingsTotal,
-                                    priceText: priceRange,
-                                    category: place.cuisine || "Shop",
-                                    reviews: [],
-                                    applink: place.applink,
-                                    about: place.about,
-                                    serviceability: place.serviceability,
-                                    openCloseTiming: place.openCloseTiming,
-                                    cuisines: place.cuisines || [],
-                                    itemsByCuisine: place.itemsByCuisine || {},
-                                    isFavorite: true
-                                  };
-
-                                  updatedFavs = [favPlace, ...prevFavs];
+                            <div 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              aria-label={`Download "${place.name}" app`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (place.applink) {
+                                  window.open(place.applink, "_blank");
                                 }
+                                else {
+                                  window.open("https://play.google.com/store/games?device=windows", "_blank");
+                                }
+                              }} 
+                            >
+                              <HiDownload style={{ fontSize: '18px' }} className="text-black" />
+                              <span className="text-[12px] tracking-wide font-medium">Download</span>
+                            </div>
+                  
+                            <div
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
 
-                                localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
-                                return updatedFavs;
-                              });
-                            }}
-                          >
-                            {favoritePlaceList.some((p) => p.title === place.name) ? (
+                                //const isNowFavorite = favoritePlaceList.some((p) => p.title === place.name);
+
+                                setFavoritePlaceList((prevFavs) => {
+                                  const isNowFavorite = prevFavs.some((p) => p.shopId === place.shopId);
+
+                                  let updatedFavs;
+
+                                  if (isNowFavorite) {
+                                    updatedFavs = prevFavs.filter((p) => p.shopId !== place.shopId);
+                                  } else {
+                                    const favPlace: RecentPlace = {
+                                      shopId: place.shopId,
+                                      title: place.name,
+                                      subtitle: place.address,
+                                      imageUrl: place.imageUrls?.[0],
+                                      photos: place.menu || [],
+                                      highlights: extraShopImages?.[place.shopId] || [],
+                                      lat: Number(place.lat),
+                                      lng: Number(place.lng),
+                                      timestamp: Date.now(),
+                                      fullAddress: place.address,
+                                      plusCode: "",
+                                      rating: shopRating,
+                                      userRatingsTotal: place.userRatingsTotal,
+                                      priceText: priceRange,
+                                      category: place.cuisine || "Shop",
+                                      reviews: [],
+                                      applink: place.applink,
+                                      about: place.about,
+                                      serviceability: place.serviceability,
+                                      openCloseTiming: place.openCloseTiming,
+                                      cuisines: place.cuisines || [],
+                                      itemsByCuisine: place.itemsByCuisine || {},
+                                      isFavorite: true
+                                    };
+
+                                    updatedFavs = [favPlace, ...prevFavs];
+                                  }
+
+                                  localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                                  return updatedFavs;
+                                });
+                              }}
+                            >
+                              {favoritePlaceList.some((p) => p.title === place.name) ? (
+                                <>
+                                  <FavoriteIcon style={{ fontSize: "20px" }} className="text-red-500" />
+                                  <span className="text-[12px] tracking-wide font-medium">Remove</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
+                                  <span className="text-[12px] tracking-wide font-medium">Favorite</span>
+                                </>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleHSLocationShare(place);
+                              }}
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                            >
+                            <Share2 size={18} className="text-black" />
+                            <span className="text-[12px] tracking-wide font-medium">Share</span>
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/*Mobile View*/}
+                        <div className="md:hidden flex flex-col flex-1 overflow-hidden">
+                          <div className="font-medium font-sans tracking-wide text-[16px] leading-snug px-[16px] mr-[16px] md:mr-[0px]">
+                            {name}
+                          </div>
+
+                          <div className="flex items-center text-[14px] text-gray-700 px-[16px] mt-[3px]">
+                            {shopRating && (
                               <>
-                                <FavoriteIcon style={{ fontSize: "20px" }} className="text-red-500" />
-                                <span className="text-[12px] tracking-wide font-medium">Remove</span>
-                              </>
-                            ) : (
-                              <>
-                                <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
-                                <span className="text-[12px] tracking-wide font-medium">Favorite</span>
+                                <span className="font-medium">{shopRating}</span>
+                                <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
+                                {totalRatings && (
+                                  <span className="ml-[5px] text-gray-700">({totalRatings})</span>
+                                )}
+                                {priceRange && (
+                                  <>
+                                  <span className="mx-[4px] inline"><b>·</b></span>
+                                  <span className="text-gray-700 inline">₹{priceRange}</span>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
-                
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleHSLocationShare(place);
-                            }} 
-                            className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
-                          >
-                           <Share2 size={18} className="text-black" />
-                           <span className="text-[12px] tracking-wide font-medium">Share</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>               
-                  );
-                })}
 
-                <div className="py-4 text-center font-sans text-gray-700 text-[14px] tracking-wide">
-                  You have reached the end of the list.
+                          <div className="text-[14px] tracking-wide text-gray-600 px-[16px] mt-[3px]">
+                            {place.openCloseTiming ? (
+                              <>
+                                {(() => {
+                                  const [openTime, closeTime] = place.openCloseTiming.split("–");
+                                  return (
+                                    <>
+                                      Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                    </>
+                                  );
+                                })()}
+                              </>
+                            ) : (
+                              <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
+                            )}
+                          </div>
+
+                          <div className="mt-[8px] flex gap-2 px-[16px] overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar">
+                            {Array.isArray(image) ? (
+                              allPhotos.map((url, i) => (
+                                <Image
+                                  key={i}
+                                  src={url}
+                                  alt={`${name}-${i}`}
+                                  width={85}
+                                  height={85}
+                                  unoptimized
+                                  className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
+                                />
+                              ))
+                            ) : (
+                              photo && (
+                                <Image
+                                  src={photo}
+                                  alt={name}
+                                  width={85}
+                                  height={85}
+                                  unoptimized
+                                  className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
+                                />
+                              )
+                            )}
+                          </div>
+
+                          <div className="flex flex-row px-[16px] mt-[16px] items-center gap-[12px] overflow-x-auto scroll-smooth no-scrollbar snap-x snap-mandatory touch-pan-x select-none">
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                halfSidebarPlaceSelect(place.shopId)
+                              }} 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                            >
+                              <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
+                              <span className="text-[12px] tracking-wide font-medium">Menu</span>
+                            </div>
+
+                            <div 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              aria-label={`Download "${place.name}" app`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (place.applink) {
+                                  window.open(place.applink, "_blank");
+                                }
+                                else {
+                                  window.open("https://play.google.com/store/games?device=windows", "_blank");
+                                }
+                              }}  
+                            >
+                              <HiDownload style={{ fontSize: '18px' }} className="text-black" />
+                              <span className="text-[12px] tracking-wide font-medium">Download</span>
+                            </div>
+                  
+                            <div 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+
+                                //const isNowFavorite = favoritePlaceList.some((p) => p.title === place.name);
+
+                                setFavoritePlaceList((prevFavs) => {
+                                  const isNowFavorite = prevFavs.some((p) => p.shopId === place.shopId);
+
+                                  let updatedFavs;
+
+                                  if (isNowFavorite) {
+                                    updatedFavs = prevFavs.filter((p) => p.shopId !== place.shopId);
+                                  } else {
+                                    const favPlace: RecentPlace = {
+                                      shopId: place.shopId,
+                                      title: place.name,
+                                      subtitle: place.address,
+                                      imageUrl: place.imageUrls?.[0],
+                                      photos: place.menu || [],
+                                      highlights: extraShopImages?.[place.shopId] || [],
+                                      lat: Number(place.lat),
+                                      lng: Number(place.lng),
+                                      timestamp: Date.now(),
+                                      fullAddress: place.address,
+                                      plusCode: "",
+                                      rating: shopRating,
+                                      userRatingsTotal: place.userRatingsTotal,
+                                      priceText: priceRange,
+                                      category: place.cuisine || "Shop",
+                                      reviews: [],
+                                      applink: place.applink,
+                                      about: place.about,
+                                      serviceability: place.serviceability,
+                                      openCloseTiming: place.openCloseTiming,
+                                      cuisines: place.cuisines || [],
+                                      itemsByCuisine: place.itemsByCuisine || {},
+                                      isFavorite: true
+                                    };
+
+                                    updatedFavs = [favPlace, ...prevFavs];
+                                  }
+
+                                  localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+                                  return updatedFavs;
+                                });
+                              }}
+                            >
+                              {favoritePlaceList.some((p) => p.title === place.name) ? (
+                                <>
+                                  <FavoriteIcon style={{ fontSize: "20px" }} className="text-red-500" />
+                                  <span className="text-[12px] tracking-wide font-medium">Remove</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
+                                  <span className="text-[12px] tracking-wide font-medium">Favorite</span>
+                                </>
+                              )}
+                            </div>
+                  
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleHSLocationShare(place);
+                              }} 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                            >
+                            <Share2 size={18} className="text-black" />
+                            <span className="text-[12px] tracking-wide font-medium">Share</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>               
+                    );
+                  })}
+
+                  <div className="py-4 text-center font-sans text-gray-700 text-[14px] tracking-wide">
+                    You have reached the end of the list.
+                  </div>
+                </>
+              ) : (
+                <div className="px-[24px] text-black pt-[6px]">
+                  <p className="font-sans font-medium text-[17px] tracking-wide">
+                    Sorry, can&apos;t find <span className="font-medium">&quot;{searchValue}&quot;</span>
+                  </p>
+                  <p className="font-sans mt-[6px] text-[14.5px] tracking-wide text-gray-600">
+                    Make sure your search is spelled correctly. Try adding a correct restaurant name.
+                  </p>
                 </div>
-              </>
-            ) : (
-              <div className="px-[24px] text-black pt-[6px]">
-                <p className="font-sans font-medium text-[17px] tracking-wide">
-                  Sorry, can&apos;t find <span className="font-medium">&quot;{searchValue}&quot;</span>
-                </p>
-                <p className="font-sans mt-[6px] text-[14.5px] tracking-wide text-gray-600">
-                  Make sure your search is spelled correctly. Try adding a correct restaurant name.
-                </p>
-              </div>
-            )}
-          </div> 
-        </div>
+              )}
+            </div> 
+          </div>
+        </MobilePlaceSidebar>
       </div>
 
       {/* Toggle thumbnail */}
       {!showRecentDetailsSidebar && (
         <div
-         className={`absolute z-20 bottom-[90px] md:bottom-5 left-[20px] md:left-[90px]  w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group transition-[left] duration-300 ease-in-out
+         className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+90px)] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group transition-[left] duration-300 ease-in-out
           ${showSidebar ? "md:left-[500px]" : ""}
           ${placeSidebar === "full" ? "md:left-[500px]" : ""}
           ${placeSidebar === "half" ? "md:left-[500px]" : ""}
@@ -7737,15 +7854,17 @@ useLayoutEffect(() => {
             }
           );
         }}
-        className={`absolute z-10 right-[20px] bottom-[158px] md:bottom-[90px] w-[30px] h-[30px] flex items-center justify-center bg-white rounded-[8px] shadow-md hover:scale-105 transition-transform`}
+        className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+168px)] md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center bg-white rounded-[8px] shadow-md hover:scale-105 transition-transform`}
       >
-        <MyLocationIcon className="text-black cursor-pointer" style={{ width: 19, height: 19 }} />
+        <MyLocationIcon className="text-black cursor-pointer" style={{ width: 22, height: 22 }} />
       </button>
 
       {/* Custom Zoom Controls */}
-      <div className={`absolute z-10 right-[20px] bottom-[92px] md:bottom-[24px] flex flex-col bg-white rounded-[8px] shadow-md overflow-hidden`}>
+      <div 
+        className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+92px)] md:bottom-[24px] flex flex-col bg-white rounded-[8px] shadow-md overflow-hidden`}
+      >
         <button
-          className="w-[30px] h-[30px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
+          className="w-[34px] h-[34px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
           onClick={() => {
             const map = mapInstanceRef.current;
             if (map) {
@@ -7756,23 +7875,23 @@ useLayoutEffect(() => {
             }
           }}
         >
-          <span className="text-[20px] font-bold text-gray-600 hover:text-black hover:scale-110">
+          <span className="text-[22px] font-bold text-black hover:scale-110">
             +
           </span>
         </button>
 
         <div className="px-1">
-          <div className="w-full h-[1px] bg-gray-400" />
+          <div className="w-full h-[1px] bg-gray-700" />
         </div>
         
         <button
-          className="w-[30px] h-[30px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
+          className="w-[34px] h-[34px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
           onClick={() => {
             const map = mapInstanceRef.current;
             if (map) map.setZoom((map.getZoom() ?? 0) - 1);
           }}
         >
-          <span className="text-[20px] font-bold text-gray-600 hover:text-black hover:scale-110">
+          <span className="text-[22px] font-bold text-black hover:scale-110">
             −
           </span>
         </button>
@@ -7810,4 +7929,3 @@ useLayoutEffect(() => {
 };
 
 export default Map;
-

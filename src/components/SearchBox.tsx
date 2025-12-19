@@ -55,6 +55,8 @@ type Props = {
   setSidebarHeight: React.Dispatch<React.SetStateAction<number>>;
 
   closeCategoryMode: () => void;
+
+  restoreCategoryView: () => void;
 };
 
 export default function SearchBox({
@@ -90,6 +92,7 @@ export default function SearchBox({
   exploreButtonFunction,
   setSidebarHeight,
   closeCategoryMode,
+  restoreCategoryView,
 }: Props) {
   return (
     <div className="relative" ref={placeSidebarSearchBoxRef}>
@@ -235,9 +238,11 @@ export default function SearchBox({
                     if (placeSidebar === "full" && keepHalfSidebarOpen) {
                       setPlaceSidebar("half");
                       setKeepHalfSidebarOpen(true);
+                      restoreCategoryView();
                     } else {
                       setPlaceSidebar(null);
                       setKeepHalfSidebarOpen(false);
+                      closeCategoryMode();
                     }
                     if (placeSidebar === "half") 
                     //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768))
@@ -258,7 +263,6 @@ export default function SearchBox({
 
                     activePlaceMarkerRemover();
                     setNoMatches(false);
-                    closeCategoryMode();
                   }}
                 >
                   <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
