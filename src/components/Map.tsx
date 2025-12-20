@@ -6384,7 +6384,7 @@ const Map = () => {
           <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
             {fullSidebarActiveTab === "fullSidebarOverview" && (
               <>
-                <div className="relative w-full h-60 bg-gray-200 overflow-hidden">
+                <div className="relative w-full h-80 bg-gray-200 overflow-hidden">
                   <Image
                     src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
                     alt={fullSidebarSelectedPlace?.title || "Place"}
@@ -6394,7 +6394,7 @@ const Map = () => {
                     width={800}
                     height={240}
                     unoptimized
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-fit"
                   />
 
                   <button
@@ -7986,5 +7986,6 @@ const Map = () => {
     </div>
   );
 };
+
 
 export default Map;
