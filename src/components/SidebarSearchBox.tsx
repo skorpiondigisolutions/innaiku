@@ -56,6 +56,8 @@ type Props = {
 
   closeCategoryMode: () => void;
   restoreCategoryView: () => void;
+  setIsExploreButton: React.Dispatch<React.SetStateAction<boolean>>;
+  resetMapForMobile: () => void;
 };
 
 export default function SidebarSearchBox({
@@ -92,6 +94,8 @@ export default function SidebarSearchBox({
   setSidebarHeight,
   closeCategoryMode,
   restoreCategoryView,
+  setIsExploreButton,
+  resetMapForMobile,
 }: Props) {
   return (
     <div className="relative" ref={topSidebarSearchBoxRef}>
@@ -235,6 +239,7 @@ export default function SidebarSearchBox({
                 setSidebarSuggestions([]);
                 setIsLocationSelected(false);
                 setShowSidebarSuggestions(false);
+                setIsExploreButton(false);
                 setTopSidebar(null);
                 if (placeSidebar === "full" && keepHalfSidebarOpen) {
                   setPlaceSidebar("half");
@@ -244,6 +249,7 @@ export default function SidebarSearchBox({
                   setPlaceSidebar(null);
                   setKeepHalfSidebarOpen(false);
                   closeCategoryMode();
+                  resetMapForMobile();
                 }
                 if (placeSidebar === "half")
                 //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768)) 

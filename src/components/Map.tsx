@@ -30,6 +30,8 @@ import SearchBox from "./SearchBox";
 import SidebarSearchBox from "./SidebarSearchBox"; 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL } from "../config/apiConfig";
+import { analytics } from "../firebase/config";
+import { logEvent } from "firebase/analytics";
 import Image from "next/image";
 import MobilePlaceSidebar from './MobilePlaceSidebar';
 
@@ -405,6 +407,15 @@ const Map = () => {
   const [halfSidebarShopPrices, setHalfSidebarShopPrices] = useState<Record<number, string>>({});
   const initialCenterRef = useRef({ lat: 13.0827, lng: 80.2707 });
   const categoryBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
+  const [isExploreButton, setIsExploreButton] = useState(false);
+  const [exploreButtonKey, setExploreButtonKey] = useState(0);
+
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && mapInstanceRef.current && allShops?.length > 0) {
+      exploreButtonFunction();
+    }
+  }, [allShops, mapInstanceRef]);
   
   const restoreCategoryView = () => {
     if (categoryBoundsRef.current && mapInstanceRef.current && keepHalfSidebarOpen) {
@@ -417,8 +428,10 @@ const Map = () => {
         padding.left = sidebarWidth + 50;
       } else {
         const drawerHeight = window.innerHeight * 0.5;
-        padding.bottom = drawerHeight + 20;
-        padding.top = 120;
+        padding.bottom = drawerHeight + 20; 
+        padding.top = 180; 
+        padding.left = 30;
+        padding.right = 30;
       }
       mapInstanceRef.current.fitBounds(categoryBoundsRef.current, padding);
     }
@@ -426,7 +439,7 @@ const Map = () => {
 
   {/*Reset map to initial view when closed the half sidebar which was opened by clicking explore option*/}
   const resetMapForMobile = () => {
-    if (window.innerWidth < 768 && mapInstanceRef.current) {
+    if ( mapInstanceRef.current) {
       if (initialCenterRef.current) {
         const bounds = new google.maps.LatLngBounds(initialCenterRef.current);
 
@@ -829,6 +842,40 @@ const Map = () => {
   const handleAppDownload = (place: RecentPlace) => {
     const shop = getMatchedShop(place);
 
+    if (analytics) {
+      logEvent(analytics, 'download_button_click', {
+        place_id: place.place_id || place.shopId,
+        place_name: place.title,
+        shop_id: shop?.shopId,
+        shop_name: shop?.name
+      });
+      console.log("Analytics event 'download_button_click' logged successfully", {
+        place_id: place.place_id || place.shopId,
+        place_name: place.title
+      });
+    }
+
+    if (shop?.applink) {
+      window.open(shop.applink, "_blank");
+    } else {
+      window.open("https://play.google.com/store/games?device=windows", "_blank");
+    }
+  };
+
+  const handleShopDownload = (shop: Shop) => {
+    if (analytics) {
+      logEvent(analytics, 'download_button_click', {
+        place_id: shop.shopId,
+        place_name: shop.name,
+        shop_id: shop.shopId,
+        shop_name: shop.name
+      });
+      console.log("Analytics event 'download_button_click' logged successfully", {
+        place_id: shop.shopId,
+        place_name: shop.name
+      });
+    }
+
     if (shop?.applink) {
       window.open(shop.applink, "_blank");
     } else {
@@ -840,7 +887,10 @@ const Map = () => {
     if (!mapInstanceRef.current) return;
     if (!allShops || allShops.length === 0) return;
 
+    closeCategoryMode();
+    setExploreButtonKey(prev => prev + 1);
     setRelatedPlaces(allShops);
+    setIsExploreButton(true);
     setPlaceSidebar("half");
     setKeepHalfSidebarOpen(true);
     setSearchOrigin("home");
@@ -902,9 +952,13 @@ const Map = () => {
         const sidebarWidth = sidebarEl?.offsetWidth || 410;
         padding.left = sidebarWidth + 50;
       } else {
-        const drawerHeight = window.innerHeight * 0.5;
-        padding.bottom = drawerHeight + 20;
-        padding.top = 150;
+        //const actualDrawerHeight = 148; 
+        //padding.bottom = actualDrawerHeight + 40; 
+        const actualDrawerHeight = window.innerHeight * 0.5; 
+        padding.bottom = actualDrawerHeight + 20;
+        padding.top = 180; 
+        padding.left = 30;
+        padding.right = 30;
       }
 
       if (mapInstanceRef.current && !bounds.isEmpty()) {
@@ -1107,6 +1161,7 @@ const Map = () => {
       setPlaceSidebar(null);
       setKeepHalfSidebarOpen(false);
       closeCategoryMode();
+      resetMapForMobile();
     }
     if (placeSidebar === "half") 
     //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768))
@@ -1123,7 +1178,6 @@ const Map = () => {
     }
     if (window.innerWidth < 768) {
       setSidebarHeight(window.innerHeight * 0.5);
-      resetMapForMobile();
     }
 
     activePlaceMarkerRemover();
@@ -3387,7 +3441,8 @@ const Map = () => {
     
   return (
     <div className="relative w-full h-screen">
-      <div className="flex flex-row md:hidden fixed bottom-0 left-0 w-full bg-[#f1f6f7] z-30 shadow-md py-2 text-black pb-[calc(env(safe-area-inset-bottom)+8px)]">
+      {/*Bottom nav*/}
+      <div className="flex flex-row md:hidden fixed bottom-0 left-0 w-full bg-[#f1f6f7] z-60 shadow-md py-2 text-black pb-[calc(env(safe-area-inset-bottom)+8px)]">
         <div className="flex flex-row items-center justify-evenly w-full">
           <div 
             onClick={exploreButtonFunction}
@@ -4603,7 +4658,7 @@ const Map = () => {
                         <HiDownload className="text-black" style={{ fontSize: "22px" }} />
                       </button>
                       <span className="absolute left-[-25px] top-[35px] -translate-y-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover/dl:opacity-100 whitespace-nowrap transition">
-                        Download
+                        Order Now
                       </span>
                     </div>
                   </div>
@@ -4893,18 +4948,15 @@ const Map = () => {
                     aria-label={`Download "${recentSelectedPlace?.title}" app`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (recentSelectedPlace?.applink) {
-                        window.open(recentSelectedPlace.applink, "_blank");
+                      if (recentSelectedPlace) {
+                        handleAppDownload(recentSelectedPlace);
                       }
-                      else {
-                        window.open("https://play.google.com/store/games?device=windows", "_blank");
-                      }
-                    }}  
+                    }} 
                     className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer">
                     <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
                       <HiDownload style={{fontSize:"22px"}} className="text-black" />
                     </div>
-                    Download
+                    Order Now
                   </button>
                   
                   <div className="relative group">
@@ -5545,20 +5597,20 @@ const Map = () => {
       <div className="w-full md:w-auto absolute top-1 left-[0px] md:left-[72px] z-10 flex flex-col md:flex-row items-start md:items-center gap-[18px] md:gap-[28px] lg:gap-[34px] xl:gap-[40px] px-4 py-2 text-black">
         {/* Search bar */}
         <div className="flex items-center gap-[10px] w-full">
-          <div className="flex items-center md:hidden">
+          <div className="flex items-center md:hidden flex-shrink-0">
             <img 
               src="/logo.png"
               alt="Logo"
               className="w-[40px] h-[40px] object-cover rounded-full"
             />
           </div>
-          <div className="relative w-auto md:w-full" ref={searchBoxRef}>
+          <div className="relative flex-1 min-w-0" ref={searchBoxRef}>
             <div 
               className={`relative bg-white shadow-2xl w-full md:w-[375px] ${
                 showSuggestions ? "rounded-t-xl" : "rounded-full"
               }`}
             >
-              <div className="flex items-center pl-6 pr-5 md:pr-4 py-[12px]">
+              <div className="flex items-center pl-5 pr-5 md:pr-4 py-[12px]">
                 <input
                   ref={inputRef}
                   type="text"
@@ -5667,13 +5719,13 @@ const Map = () => {
                 />
 
                 <div 
-                  className="relative group"
+                  className="absolute right-2 md:right-3 w-[40px] h-[40px] flex items-center justify-center cursor-pointer"
                   onClick={() => {
                     setShowSuggestions(true);  
                     inputRef.current?.focus();
                   }}
                 >
-                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+                  <SearchIcon className="text-[#007B8A] text-[22px]" />
 
                   <div 
                     className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
@@ -5890,6 +5942,12 @@ const Map = () => {
                 </div>
               </div>
             )}
+          </div>
+          
+          <div className="hidden items-center flex-shrink-0">
+            <button className="w-[40px] h-[40px] bg-white shadow-md rounded-full flex items-center justify-center">
+              <span className="text-[#007B8A]">★</span>
+            </button>
           </div>
         </div>
 
@@ -6229,6 +6287,8 @@ const Map = () => {
                 exploreButtonFunction={exploreButtonFunction}
                 closeCategoryMode={closeCategoryMode}
                 restoreCategoryView={restoreCategoryView}
+                setIsExploreButton={setIsExploreButton}
+                resetMapForMobile={resetMapForMobile}
               />
               ) : searchOrigin === "home" ? (
               <SearchBox
@@ -6273,6 +6333,8 @@ const Map = () => {
                 exploreButtonFunction={exploreButtonFunction}
                 closeCategoryMode={closeCategoryMode}
                 restoreCategoryView={restoreCategoryView}
+                setIsExploreButton={setIsExploreButton}
+                resetMapForMobile={resetMapForMobile}
               />
             ) : null}
           </div>
@@ -6527,18 +6589,15 @@ const Map = () => {
                       aria-label={`Download "${fullSidebarSelectedPlace?.title}" app`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (fullSidebarSelectedPlace?.applink) {
-                          window.open(fullSidebarSelectedPlace.applink, "_blank");
-                        }
-                        else {
-                          window.open("https://play.google.com/store/games?device=windows", "_blank");
+                        if (fullSidebarSelectedPlace) {
+                          handleAppDownload(fullSidebarSelectedPlace);
                         }
                       }} 
                       className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer">
                       <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
                         <HiDownload style={{fontSize:"22px"}} className="text-black" />
                       </div>
-                      Download
+                      Order Now
                     </button>
                     
                     <div className="relative group">
@@ -7185,7 +7244,7 @@ const Map = () => {
         id="halfSidebar"
         ref={halfSidebarRef}
         style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px`: "100vh", }}
-        className={`fixed bg-red-400 md:bg-white text-black hidden md:flex flex-col
+        className={`fixed bg-transparent md:bg-white text-black hidden md:flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
           transition-[transform,height] duration-300 overflow-hidden
           ${placeSidebar === "half" ? "z-40" : "z-30"}
@@ -7194,7 +7253,9 @@ const Map = () => {
         `}
       >
 
-        <MobilePlaceSidebar isOpen={placeSidebar === "half"}>
+        {/* <MobilePlaceSidebar isOpen={placeSidebar === "half"} initialSnap={isExploreButton ? "148px" : 0.5}> */} 
+          
+        <MobilePlaceSidebar isOpen={placeSidebar === "half"} key={exploreButtonKey}>
           
           {/*
           {placeSidebar === "half" && (
@@ -7252,6 +7313,8 @@ const Map = () => {
                 exploreButtonFunction={exploreButtonFunction}
                 closeCategoryMode={closeCategoryMode}
                 restoreCategoryView={restoreCategoryView}
+                setIsExploreButton={setIsExploreButton}
+                resetMapForMobile={resetMapForMobile}
               />
               ) : searchOrigin === "home" ? (
               <SearchBox
@@ -7296,6 +7359,8 @@ const Map = () => {
                 exploreButtonFunction={exploreButtonFunction}
                 closeCategoryMode={closeCategoryMode}
                 restoreCategoryView={restoreCategoryView}
+                setIsExploreButton={setIsExploreButton}
+                resetMapForMobile={resetMapForMobile}
               />
             ) : null}
           </div>
@@ -7315,6 +7380,7 @@ const Map = () => {
                       onClick={() => {
                         closeButtonFunction();
                         //closeCategoryMode();
+                        setIsExploreButton(false);
                       }}
                     >
                       ✕
@@ -7500,16 +7566,11 @@ const Map = () => {
                               aria-label={`Download "${place.name}" app`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (place.applink) {
-                                  window.open(place.applink, "_blank");
-                                }
-                                else {
-                                  window.open("https://play.google.com/store/games?device=windows", "_blank");
-                                }
+                                handleShopDownload(place);
                               }} 
                             >
                               <HiDownload style={{ fontSize: '18px' }} className="text-black" />
-                              <span className="text-[12px] tracking-wide font-medium">Download</span>
+                              <span className="text-[12px] tracking-wide font-medium">Order Now</span>
                             </div>
                   
                             <div
@@ -7661,31 +7722,26 @@ const Map = () => {
                                 e.stopPropagation();
                                 halfSidebarPlaceSelect(place.shopId)
                               }} 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
                             >
                               <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
                               <span className="text-[12px] tracking-wide font-medium">Menu</span>
                             </div>
 
                             <div 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
                               aria-label={`Download "${place.name}" app`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (place.applink) {
-                                  window.open(place.applink, "_blank");
-                                }
-                                else {
-                                  window.open("https://play.google.com/store/games?device=windows", "_blank");
-                                }
+                                handleShopDownload(place);
                               }}  
                             >
                               <HiDownload style={{ fontSize: '18px' }} className="text-black" />
-                              <span className="text-[12px] tracking-wide font-medium">Download</span>
+                              <span className="text-[12px] tracking-wide font-medium">Order Now</span>
                             </div>
                   
                             <div 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
                               onClick={(e) => {
                                 e.stopPropagation();
 
@@ -7751,7 +7807,7 @@ const Map = () => {
                                 e.stopPropagation();
                                 handleHSLocationShare(place);
                               }} 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
                             >
                             <Share2 size={18} className="text-black" />
                             <span className="text-[12px] tracking-wide font-medium">Share</span>
@@ -7784,7 +7840,7 @@ const Map = () => {
       {/* Toggle thumbnail */}
       {!showRecentDetailsSidebar && (
         <div
-         className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+90px)] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group transition-[left] duration-300 ease-in-out
+         className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+80px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group md:transition-[left] md:duration-300 md:ease-in-out transition-[bottom] duration-0 ease-linear
           ${showSidebar ? "md:left-[500px]" : ""}
           ${placeSidebar === "full" ? "md:left-[500px]" : ""}
           ${placeSidebar === "half" ? "md:left-[500px]" : ""}
@@ -7854,14 +7910,17 @@ const Map = () => {
             }
           );
         }}
-        className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+168px)] md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center bg-white rounded-[8px] shadow-md hover:scale-105 transition-transform`}
+        className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+160px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] 
+                    md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center bg-white rounded-[8px] shadow-md hover:scale-105 md:transition-transform transition-[bottom] duration-0 ease-linear`}
       >
         <MyLocationIcon className="text-black cursor-pointer" style={{ width: 22, height: 22 }} />
       </button>
 
       {/* Custom Zoom Controls */}
       <div 
-        className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+92px)] md:bottom-[24px] flex flex-col bg-white rounded-[8px] shadow-md overflow-hidden`}
+        className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+84px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] 
+                    md:bottom-[24px] flex flex-col bg-white rounded-[8px] shadow-md overflow-hidden transition-[bottom] duration-0 ease-linear`
+                  }
       >
         <button
           className="w-[34px] h-[34px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"

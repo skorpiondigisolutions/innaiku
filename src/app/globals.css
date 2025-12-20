@@ -131,43 +131,30 @@ body {
   }
 }
 
-/* Kill the invisible focus-trap guards that steal map clicks */
-[data-radix-focus-guard], 
-[data-vaul-focus-guard] {
-  display: none !important;
-  pointer-events: none !important;
-}
-
-/* Ensure the portal itself doesn't block the screen */
 [data-radix-portal] {
   pointer-events: none !important;
 }
 
-/* Allow clicks inside the actual content of the drawer */
 [data-vaul-drawer] {
   pointer-events: auto !important;
 }
 
-/* 1. Make the Portal container click-through */
 [data-radix-portal], 
 [data-vaul-portal] {
   pointer-events: none !important;
 }
 
-/* 2. Make the actual Sidebar Content clickable again */
 [data-vaul-drawer],
 [data-vaul-content],
 .fixed.z-\[60\] {
   pointer-events: auto !important;
 }
 
-/* 3. Force the body to never lose pointer events */
 html, body {
   pointer-events: auto !important;
   touch-action: auto !important;
 }
 
-/* 4. Kill the focus guards that steal clicks on top of the screen */
 [data-vaul-focus-guard],
 [data-radix-focus-guard] {
   display: none !important;

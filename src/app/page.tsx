@@ -18,7 +18,7 @@ export default function Home() {
       html.style.setProperty('--vh', `${vh}px`);
 
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const safeGap = isMobile ? 'max(env(safe-area-inset-bottom), 44px)' : '0px';
+      const safeGap = isMobile ? 'max(env(safe-area-inset-bottom), 46px)' : '0px';
       html.style.setProperty('--safe-area-bottom', safeGap);
     };
 
@@ -51,3 +51,45 @@ export default function Home() {
     </main>
   );
 }
+
+
+{/*
+'use client';
+import dynamic from 'next/dynamic';
+
+const Map = dynamic(() => import('@/components/Map'), { ssr: false });
+
+export default function Home() {
+  return (
+    <main className="h-[100dvh] md:h-screen w-full">
+        <Map />
+    </main>
+  );
+}
+
+
+'use client';
+import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+const Map = dynamic(() => import('@/components/Map'), { ssr: false });
+
+export default function Home() {
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
+
+  return (
+    <main className="h-[100dvh] md:h-screen w-full overflow-hidden">
+        <Map />
+    </main>
+  );
+}
+*/}
