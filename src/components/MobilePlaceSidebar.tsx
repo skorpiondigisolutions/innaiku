@@ -51,7 +51,7 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
     if (isOpen) {
       setSnap(initialSnap);
     }
-  }, [isOpen, children, initialSnap]);
+  }, [isOpen, initialSnap]);
 
   useEffect(() => {
     if (isOpen && isMobile) {
@@ -87,7 +87,8 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
       <Drawer.Portal>
         <Drawer.Content 
           ref={contentRef}
-          className="fixed bottom-0 left-0 right-0 z-[50] flex flex-col bg-white text-black rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.12)] h-full outline-none pointer-events-auto pb-[calc(var(--safe-area-bottom,0px)+64px)]"
+          //className="fixed bottom-0 left-0 right-0 z-[50] flex flex-col bg-white text-black rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.12)] h-full outline-none pointer-events-auto pb-[calc(var(--safe-area-bottom,0px)+64px)]"
+          className="fixed bottom-0 left-0 right-0 z-[50] flex flex-col bg-white text-black rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.12)] h-full outline-none pointer-events-auto pb-[calc(var(--safe-area-bottom,0px))]"
           style={{ margin: 0 }}
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
@@ -100,6 +101,7 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
 
           <div className="flex-1 overflow-y-auto custom-scrollbar pointer-events-auto">
             {children}
+            <div className="h-[16px] w-full flex-shrink-0" />
           </div>
           
         </Drawer.Content>
@@ -107,7 +109,6 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
     </Drawer.Root>
   );
 }
-
 
 {/*
 "use client";

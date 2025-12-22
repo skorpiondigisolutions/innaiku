@@ -1,5 +1,10 @@
 
-import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+// import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+// import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
+
+
+// firebase/config.ts
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -13,35 +18,25 @@ const firebaseConfig = {
     measurementId: "G-8BN6DT1V2E"
 };
 
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase
-const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+let analytics: Analytics | null = null;
 
-// Initialize Analytics (only on client side)
-let analytics: Analytics | undefined;
-if (typeof window !== 'undefined') {
-    isSupported().then((supported) => {
-        if (supported) {
-            analytics = getAnalytics(app);
-        }
-    });
-}
+/**
+ * Initialize Firebase Analytics (client-side only)
+ */
+export const initAnalytics = async () => {
+  if (typeof window === "undefined") return;
 
-// Set app_name globally
-if (typeof window !== 'undefined') {
-    // Shim gtag if it doesn't exist yet
-    if (typeof (window as any).gtag !== 'function') {
-        (window as any).dataLayer = (window as any).dataLayer || [];
-        (window as any).gtag = function (...args: any[]) {
-            (window as any).dataLayer.push(args);
-        };
-    }
+  const supported = await isSupported();
+  if (supported && !analytics) {
+    analytics = getAnalytics(app);
+  }
+};
 
-    (window as any).gtag('config', firebaseConfig.measurementId, {
-        app_name: 'innaiku'
-    });
-}
+/**
+ * Get analytics instance safely
+ */
+export const getAnalyticsInstance = () => analytics;
 
-export { app, analytics };
-
-
+export { app };

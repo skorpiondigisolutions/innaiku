@@ -18,7 +18,7 @@ export default function Home() {
       html.style.setProperty('--vh', `${vh}px`);
 
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const safeGap = isMobile ? 'max(env(safe-area-inset-bottom), 46px)' : '0px';
+      const safeGap = isMobile ? 'max(env(safe-area-inset-bottom), 52px)' : '0px';
       html.style.setProperty('--safe-area-bottom', safeGap);
     };
 

@@ -30,10 +30,11 @@ import SearchBox from "./SearchBox";
 import SidebarSearchBox from "./SidebarSearchBox"; 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL } from "../config/apiConfig";
-import { analytics } from "../firebase/config";
+import { trackEvent } from "@/firebase/analytics";
 import { logEvent } from "firebase/analytics";
 import Image from "next/image";
 import MobilePlaceSidebar from './MobilePlaceSidebar';
+import ImageIcon from '@mui/icons-material/Image';
 
 interface Place {
   title: string;
@@ -92,6 +93,7 @@ export type RecentPlace = {
   isFavorite?: boolean;
   reviews?: google.maps.places.PlaceReview[];
   photos?: string[];
+  allPhotos?: string[];
   fullAddress?: string;
   plusCode?: string;
   applink?: string;
@@ -121,7 +123,8 @@ export interface Shop {
   rating?: number;
   userRatingsTotal?: number;
   cuisines?: string[];
-  itemsByCuisine?: Record<string, FoodItem[]>; 
+  itemsByCuisine?: Record<string, FoodItem[]>;
+  allPhotos?: string[]; 
 }
 
 export type CombinedItem =
@@ -754,7 +757,8 @@ const Map = () => {
 
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
-
+    const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+     
     {/*Fetch shop rating*/}
     let shopRating: number | undefined = undefined;
     try {
@@ -780,6 +784,7 @@ const Map = () => {
       subtitle: shop.address,
       imageUrl: shop.imageUrls[0],
       photos: shop.menu || [],
+      allPhotos : allFSPhotos || [],
       highlights: additionalImages || [],
       lat: Number(shop.lat),
       lng: Number(shop.lng),
@@ -842,45 +847,31 @@ const Map = () => {
   const handleAppDownload = (place: RecentPlace) => {
     const shop = getMatchedShop(place);
 
-    if (analytics) {
-      logEvent(analytics, 'download_button_click', {
-        place_id: place.place_id || place.shopId,
-        place_name: place.title,
-        shop_id: shop?.shopId,
-        shop_name: shop?.name
-      });
-      console.log("Analytics event 'download_button_click' logged successfully", {
-        place_id: place.place_id || place.shopId,
-        place_name: place.title
-      });
-    }
+    trackEvent("download_button_click", {
+      shop_id: shop?.shopId,
+      shop_name: shop?.name,
+      source: "map_card",
+    });
 
-    if (shop?.applink) {
-      window.open(shop.applink, "_blank");
-    } else {
-      window.open("https://play.google.com/store/games?device=windows", "_blank");
-    }
+    window.open(
+      shop?.applink ??
+        "https://play.google.com/store/games?device=windows",
+      "_blank"
+    );
   };
 
   const handleShopDownload = (shop: Shop) => {
-    if (analytics) {
-      logEvent(analytics, 'download_button_click', {
-        place_id: shop.shopId,
-        place_name: shop.name,
-        shop_id: shop.shopId,
-        shop_name: shop.name
-      });
-      console.log("Analytics event 'download_button_click' logged successfully", {
-        place_id: shop.shopId,
-        place_name: shop.name
-      });
-    }
+    trackEvent("download_button_click", {
+      shop_id: shop.shopId,
+      shop_name: shop.name,
+      source: "shop_list",
+    });
 
-    if (shop?.applink) {
-      window.open(shop.applink, "_blank");
-    } else {
-      window.open("https://play.google.com/store/games?device=windows", "_blank");
-    }
+    window.open(
+      shop?.applink ??
+        "https://play.google.com/store/games?device=windows",
+      "_blank"
+    );
   };
 
   const exploreButtonFunction = () =>{
@@ -2645,7 +2636,7 @@ const Map = () => {
     
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
-    //const allPhotos = [...(shop.menu || []), ...additionalImages];
+    const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
     
     {/*Fetch shop rating*/}
     let shopRating: number | undefined = undefined;
@@ -2672,6 +2663,7 @@ const Map = () => {
       subtitle: shop.address,
       imageUrl: shop.imageUrls[0],
       photos: shop.menu || [],
+      allPhotos : allFSPhotos || [],
       highlights: additionalImages || [],
       lat: Number(shop.lat),
       lng: Number(shop.lng),
@@ -2755,6 +2747,7 @@ const Map = () => {
   const addToHistory = useCallback(async(shop: Shop) => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
+    const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
 
     {/*Fetch shop rating*/}
     let shopRating: number | undefined = undefined;
@@ -2782,6 +2775,7 @@ const Map = () => {
       imageUrl: shop.imageUrls?.[0],
       photos: shop.menu || [],
       highlights: additionalImages || [],
+      allPhotos : allFSPhotos || [],
       lat: Number(shop.lat),
       lng: Number(shop.lng),
       timestamp: Date.now(),
@@ -3010,8 +3004,8 @@ const Map = () => {
                 console.error("Failed to fetch additional images:", err);
               }
               
-              //const allPhotos = [...(shop.menu || []), ...additionalImages];
-  
+               const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+              
               const newPlace: RecentPlace = {
                 shopId: shop.shopId, 
                 title: shop.name,
@@ -3019,6 +3013,7 @@ const Map = () => {
                 subtitle: shop.address,
                 imageUrl: shop.imageUrls[0],
                 photos: shop.menu || [],
+                allPhotos : allFSPhotos || [],
                 highlights: additionalImages || [],
                 lat: Number(shop.lat),
                 lng: Number(shop.lng),
@@ -6384,7 +6379,11 @@ const Map = () => {
           <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
             {fullSidebarActiveTab === "fullSidebarOverview" && (
               <>
+<<<<<<< HEAD
                 <div className="relative w-full h-80 bg-gray-200 overflow-hidden">
+=======
+                <div className="hidden md:flex relative w-full h-80 bg-gray-200 overflow-hidden">
+>>>>>>> c7a1638 (Add analytics provider and update map/sidebar components)
                   <Image
                     src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
                     alt={fullSidebarSelectedPlace?.title || "Place"}
@@ -6396,6 +6395,70 @@ const Map = () => {
                     unoptimized
                     className="w-full h-full object-fit"
                   />
+                </div>
+
+                <div className="md:hidden relative w-full h-[260px] bg-white overflow-hidden">
+                  <div className="flex w-full h-full overflow-x-auto snap-none scroll-smooth no-scrollbar gap-x-[12px] px-[12px]">
+                    {(() => {
+                      const photos = fullSidebarSelectedPlace?.allPhotos || [];
+                      if (photos.length === 0) {
+                        return <Image src="/fallback.jpg" alt="Place" fill className="object-cover rounded-xl" />;
+                      }
+
+                      return (
+                        <>
+                          <div className="relative flex-shrink-0 w-[90%] h-full rounded-xl overflow-hidden">
+                            <Image
+                              src={photos[0]}
+                              alt="hero"
+                              width={800}
+                              height={240}
+                              unoptimized
+                              className="w-full h-full object-fit"
+                            />
+                          </div>
+
+                          {photos.length > 1 && (
+                            <div className="flex-shrink-0 w-[50%] h-full flex flex-col gap-[12px]">
+                              <div className="relative flex-1 w-full rounded-xl overflow-hidden">
+                                <Image src={photos[1]} alt="img-1" fill unoptimized className="object-fit" />
+                              </div>
+                              {photos[2] && (
+                                <div className="relative flex-1 w-full rounded-xl overflow-hidden">
+                                  <Image src={photos[2]} alt="img-2" fill unoptimized className="object-fit" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {photos.length > 3 && (
+                            <div className="flex-shrink-0 w-[50%] h-full flex flex-col gap-[12px] pr-[0px]">
+                              <div className="relative flex-1 w-full rounded-xl overflow-hidden ">
+                                <Image src={photos[3]} alt="img-3" fill unoptimized className="object-fit" />
+                              </div>
+                              {photos[4] && (
+                                <div 
+                                  className="relative flex-1 w-full cursor-pointer rounded-xl overflow-hidden"
+                                  onClick={() => {
+                                    if (photos.length > 5) setFullSidebarActiveTab("fullSidebarMenu");
+                                  }}
+                                >
+                                  <Image src={photos[4]} alt="img-4" fill unoptimized className="object-fit" />
+                                  
+                                  {photos.length > 5 && (
+                                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white text-center">
+                                      <ImageIcon style={{ fontSize: '24px' }} />
+                                      <span className="text-[12px] font-bold">View More</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
 
                   <button
                     onClick={() => {
@@ -7423,7 +7486,7 @@ const Map = () => {
 
                           const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
                           const additionalImages = await fetchShopImages(String(shop.shopId));
-                          //const allPhotos = [...(shop.menu || []), ...additionalImages];
+                          const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
                           
                           {/*Fetch shop rating*/}
                           let shopRating: number | undefined = undefined;
@@ -7451,6 +7514,7 @@ const Map = () => {
                             imageUrl: shop.imageUrls[0],
                             photos: shop.menu || [],
                             highlights: additionalImages || [],
+                            allPhotos : allFSPhotos || [],
                             lat: Number(shop.lat),
                             lng: Number(shop.lng),
                             timestamp: Date.now(),
@@ -7650,6 +7714,8 @@ const Map = () => {
                         
                         {/*Mobile View*/}
                         <div className="md:hidden flex flex-col flex-1 overflow-hidden">
+
+                          {/*
                           <div className="font-medium font-sans tracking-wide text-[16px] leading-snug px-[16px] mr-[16px] md:mr-[0px]">
                             {name}
                           </div>
@@ -7688,20 +7754,100 @@ const Map = () => {
                               <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
                             )}
                           </div>
+                          */}
+
+                          <div className="flex flex-row items-center justify-between px-[16px] w-full">
+                            {/* Left Side - Shop details */}
+                            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                              <div className="font-medium font-sans tracking-wide text-[16px] leading-snug mr-[16px] md:mr-[0px] break-words line-clamp-2">
+                                {name}
+                              </div>
+
+                              <div className="flex items-center text-[14px] text-gray-700 mt-[3px]">
+                                {shopRating && (
+                                  <>
+                                    <span className="font-medium">{shopRating}</span>
+                                    <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
+                                    {totalRatings && (
+                                      <span className="ml-[5px] text-gray-700">({totalRatings})</span>
+                                    )}
+                                    {priceRange && (
+                                      <>
+                                      <span className="mx-[4px] inline"><b>·</b></span>
+                                      <span className="text-gray-700 inline">₹{priceRange}</span>
+                                      </>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
+                                {place.openCloseTiming ? (
+                                  (() => {
+                                    const [openTime, closeTime] = place.openCloseTiming.split("–");
+                                    return (
+                                      <>
+                                        Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                      </>
+                                    );
+                                  })()
+                                ) : (
+                                  <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right Side - Button*/}
+                            <div 
+                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-green-500 hover:bg-green-600 px-[12px] py-[6px] rounded-full whitespace-nowrap ml-[10px]"
+                              aria-label={`Download "${place.name}" app`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShopDownload(place);
+                              }} 
+                            >
+                              <HiDownload style={{ fontSize: '18px' }} className="text-white" />
+                              <span className="text-[12px] tracking-wide font-medium text-white">Order Now</span>
+                            </div>
+                          </div>
 
                           <div className="mt-[8px] flex gap-2 px-[16px] overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar">
                             {Array.isArray(image) ? (
-                              allPhotos.map((url, i) => (
-                                <Image
-                                  key={i}
-                                  src={url}
-                                  alt={`${name}-${i}`}
-                                  width={85}
-                                  height={85}
-                                  unoptimized
-                                  className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
-                                />
-                              ))
+                              /* Only show up to 6 items if there are many, otherwise show all*/
+                              allPhotos.slice(0, allPhotos.length > 5 ? 6 : 5).map((url, i) => {
+                                const isSixth = i === 5;
+                                const hasMore = allPhotos.length > 6;
+
+                                return (
+                                  <div 
+                                    key={i} 
+                                    className="relative flex-shrink-0 cursor-pointer"
+                                    onClick={(e) => {
+                                      if (isSixth && hasMore) {
+                                        e.stopPropagation();
+                                        halfSidebarPlaceSelect(place.shopId);
+                                      }
+                                    }}
+                                  >
+                                    <Image
+                                      src={url}
+                                      alt={`${name}-${i}`}
+                                      width={85}
+                                      height={85}
+                                      unoptimized
+                                      className="w-[85px] h-[85px] rounded-md object-fit flex-shrink-0"
+                                    />
+                                    
+                                    {/* Show More if it's 6th image and more than 6 */}
+                                    {isSixth && hasMore && (
+                                      <div className="absolute inset-0 bg-black/50 rounded-md flex flex-col items-center justify-center text-white">
+                                        <ImageIcon style={{ fontSize: '20px' }} />
+                                        <span className="text-[12px] font-medium">More</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })
                             ) : (
                               photo && (
                                 <Image
@@ -7710,7 +7856,7 @@ const Map = () => {
                                   width={85}
                                   height={85}
                                   unoptimized
-                                  className="w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
+                                  className="w-[85px] h-[85px] rounded-md object-fit flex-shrink-0"
                                 />
                               )
                             )}
@@ -7728,6 +7874,7 @@ const Map = () => {
                               <span className="text-[12px] tracking-wide font-medium">Menu</span>
                             </div>
 
+                            {/*
                             <div 
                               className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
                               aria-label={`Download "${place.name}" app`}
@@ -7739,7 +7886,8 @@ const Map = () => {
                               <HiDownload style={{ fontSize: '18px' }} className="text-black" />
                               <span className="text-[12px] tracking-wide font-medium">Order Now</span>
                             </div>
-                  
+                            */}
+
                             <div 
                               className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
                               onClick={(e) => {
