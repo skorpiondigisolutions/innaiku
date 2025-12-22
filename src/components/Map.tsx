@@ -6379,11 +6379,7 @@ const Map = () => {
           <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
             {fullSidebarActiveTab === "fullSidebarOverview" && (
               <>
-<<<<<<< HEAD
-                <div className="relative w-full h-80 bg-gray-200 overflow-hidden">
-=======
                 <div className="hidden md:flex relative w-full h-80 bg-gray-200 overflow-hidden">
->>>>>>> c7a1638 (Add analytics provider and update map/sidebar components)
                   <Image
                     src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
                     alt={fullSidebarSelectedPlace?.title || "Place"}
@@ -8134,6 +8130,5 @@ const Map = () => {
     </div>
   );
 };
-
 
 export default Map;
