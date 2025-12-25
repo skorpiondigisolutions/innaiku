@@ -3,7 +3,7 @@ import { getAnalyticsInstance } from "./config";
 
 export const trackEvent = (
   eventName: string,
-  params?: Record<string, any>
+  params?: Record<string, unknown>
 ) => {
   const analytics = getAnalyticsInstance();
   if (!analytics) return;

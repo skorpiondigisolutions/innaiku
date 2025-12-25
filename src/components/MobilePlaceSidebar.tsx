@@ -2,6 +2,7 @@
 
 import { Drawer } from 'vaul';
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from "next-themes";
 
 interface Props {
   isOpen: boolean;
@@ -13,6 +14,7 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
   const [snap, setSnap] = useState<string | number | null>(initialSnap);
   const [isMobile, setIsMobile] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (!isOpen) {
@@ -60,7 +62,7 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
         document.documentElement.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';
       };
-      
+
       unlock();
       const timer = setTimeout(unlock, 100);
       return () => clearTimeout(timer);
@@ -70,11 +72,11 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
   if (!isMobile) return <>{children}</>;
 
   return (
-    <Drawer.Root 
-      open={isOpen} 
-      dismissible={false} 
+    <Drawer.Root
+      open={isOpen}
+      dismissible={false}
       modal={false}
-      snapPoints={['60px','220px', 0.5, 1]}
+      snapPoints={['60px', '220px', 0.5, 1]}
       activeSnapPoint={snap}
       setActiveSnapPoint={setSnap}
       shouldScaleBackground={false}
@@ -85,10 +87,10 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
       }}
     >
       <Drawer.Portal>
-        <Drawer.Content 
+        <Drawer.Content
           ref={contentRef}
           //className="fixed bottom-0 left-0 right-0 z-[50] flex flex-col bg-white text-black rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.12)] h-full outline-none pointer-events-auto pb-[calc(var(--safe-area-bottom,0px)+64px)]"
-          className="fixed bottom-0 left-0 right-0 z-[50] flex flex-col bg-white text-black rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.12)] h-full outline-none pointer-events-auto pb-[calc(var(--safe-area-bottom,0px))]"
+          className={`fixed bottom-0 left-0 right-0 z-[50] flex flex-col ${theme === 'dark' ? 'bg-[#131313] text-white' : 'bg-white text-black'} rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.12)] h-full outline-none pointer-events-auto pb-[calc(var(--safe-area-bottom,0px))]`}
           style={{ margin: 0 }}
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
@@ -103,7 +105,7 @@ export default function MobilePlaceSidebar({ isOpen, children, initialSnap = 0.5
             {children}
             <div className="h-[16px] w-full flex-shrink-0" />
           </div>
-          
+
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

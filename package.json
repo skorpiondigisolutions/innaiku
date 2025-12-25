@@ -15,10 +15,12 @@
     "@mui/icons-material": "^7.2.0",
     "@mui/material": "^7.2.0",
     "@react-google-maps/api": "^2.20.7",
+    "@theme-toggles/react": "^4.1.0",
     "firebase": "^12.7.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.536.0",
-    "next": "^16.0.8",
+    "next": "^16.1.0",
+    "next-themes": "^0.4.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-icons": "^5.5.0",
@@ -36,5 +38,12 @@
     "eslint-config-next": "15.4.3",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@theme-toggles/react": {
+      "react": "$react"
+    }
   }
 }

@@ -10,7 +10,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOnOutlined';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import CheckIcon from '@mui/icons-material/Check';
-import { Share2} from "lucide-react";
+import { Share2 } from "lucide-react";
 import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import EditLocationAltOutlinedIcon from '@mui/icons-material/EditLocationAltOutlined';
@@ -27,7 +27,7 @@ import { ArrowLeft } from "lucide-react";
 import PaymentsIcon from "@mui/icons-material/PaymentsOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchBox from "./SearchBox";
-import SidebarSearchBox from "./SidebarSearchBox"; 
+import SidebarSearchBox from "./SidebarSearchBox";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL } from "../config/apiConfig";
 import { trackEvent } from "@/firebase/analytics";
@@ -35,6 +35,9 @@ import { logEvent } from "firebase/analytics";
 import Image from "next/image";
 import MobilePlaceSidebar from './MobilePlaceSidebar';
 import ImageIcon from '@mui/icons-material/Image';
+import { Classic } from "@theme-toggles/react";
+import "@theme-toggles/react/css/Classic.css";
+import { useTheme } from "next-themes";
 
 interface Place {
   title: string;
@@ -77,7 +80,7 @@ type FoodItem = {
 
 export type RecentPlace = {
   shopId?: number;
-  place_id?: string; 
+  place_id?: string;
   title: string;
   subtitle?: string;
   imageUrl?: string;
@@ -88,7 +91,7 @@ export type RecentPlace = {
   userRatingsTotal?: number;
   priceText?: string;
   category?: string;
-  nativeName?:string
+  nativeName?: string
   ratingBreakdown?: { [stars: number]: number };
   isFavorite?: boolean;
   reviews?: google.maps.places.PlaceReview[];
@@ -102,7 +105,7 @@ export type RecentPlace = {
   openCloseTiming?: string;
   highlights?: string[],
   cuisines?: string[];
-  itemsByCuisine?: Record<string, FoodItem[]>; 
+  itemsByCuisine?: Record<string, FoodItem[]>;
 };
 
 export interface Shop {
@@ -124,21 +127,21 @@ export interface Shop {
   userRatingsTotal?: number;
   cuisines?: string[];
   itemsByCuisine?: Record<string, FoodItem[]>;
-  allPhotos?: string[]; 
+  allPhotos?: string[];
 }
 
 export type CombinedItem =
-    | { type: "recent"; data: RecentPlace }
-    | { type: "suggestion"; data: Shop }
-    | { type: "home" }
-    | { type: "more" };
+  | { type: "recent"; data: RecentPlace }
+  | { type: "suggestion"; data: Shop }
+  | { type: "home" }
+  | { type: "more" };
 
 
 export type SidebarCombinedItem =
-    | { type: "recent"; data: RecentPlace }
-    | { type: "suggestion"; data: Shop }
-    | { type: "home" }
-    | { type: "more" };
+  | { type: "recent"; data: RecentPlace }
+  | { type: "suggestion"; data: Shop }
+  | { type: "home" }
+  | { type: "more" };
 
 interface GroupTag {
   name: string;
@@ -252,7 +255,6 @@ const CATEGORY_MAP: Record<string, string> = {
   geocode: "Geocode",
 };
 
-
 function getReadableCategory(place: google.maps.places.PlaceResult): string {
   if (!place.types || place.types.length === 0) return "Point of Interest";
 
@@ -281,8 +283,125 @@ function getReadableCategory(place: google.maps.places.PlaceResult): string {
   return "Point of Interest";
 }
 
+const LIGHT_MAP_STYLES = [
+  {
+    featureType: "poi.business",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi.attraction",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "transit",
+    stylers: [{ visibility: "off" }],
+  }
+];
+
+const DARK_MAP_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#FFFFFF" }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#263c3f" }]
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#38414e" }]
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#212a37" }]
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#746855" }]
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1f2835" }]
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#2f3948" }]
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#17263c" }]
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#FFFFFF" }]
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#17263c" }]
+  },
+  {
+    featureType: "poi.business",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi.attraction",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "poi",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "transit",
+    stylers: [{ visibility: "off" }],
+  }
+];
+
 const Map = () => {
   const mapRef = useRef(null);
+  const overlayInstancesRef = useRef<any[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const [isSatellite, setIsSatellite] = React.useState(false);
@@ -393,7 +512,7 @@ const Map = () => {
   const [sidebarDragging, setSidebarDragging] = useState(false);
   const [startY, setStartY] = useState(0);
   const [sidebarStartHeight, setSidebarStartHeight] = useState(0);
-  const [sidebarHeight, setSidebarHeight] = useState( window.innerWidth < 768 ? window.innerHeight * 0.5 : window.innerHeight);
+  const [sidebarHeight, setSidebarHeight] = useState(window.innerWidth < 768 ? window.innerHeight * 0.5 : window.innerHeight);
   const [allShops, setAllShops] = useState<Shop[]>([]);
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
   const activePlaceMarkerRef = useRef<google.maps.Marker | null>(null);
@@ -413,13 +532,28 @@ const Map = () => {
   const [isExploreButton, setIsExploreButton] = useState(false);
   const [exploreButtonKey, setExploreButtonKey] = useState(0);
 
+
+
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [isMobileTheme, setIsMobileTheme] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const checkMobile = () => setIsMobileTheme(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
     if (isMobile && mapInstanceRef.current && allShops?.length > 0) {
       exploreButtonFunction();
     }
   }, [allShops, mapInstanceRef]);
-  
+
   const restoreCategoryView = () => {
     if (categoryBoundsRef.current && mapInstanceRef.current && keepHalfSidebarOpen) {
       const isMobileView = window.innerWidth < 768;
@@ -431,8 +565,8 @@ const Map = () => {
         padding.left = sidebarWidth + 50;
       } else {
         const drawerHeight = window.innerHeight * 0.5;
-        padding.bottom = drawerHeight + 20; 
-        padding.top = 180; 
+        padding.bottom = drawerHeight + 20;
+        padding.top = 180;
         padding.left = 30;
         padding.right = 30;
       }
@@ -440,9 +574,9 @@ const Map = () => {
     }
   };
 
-  {/*Reset map to initial view when closed the half sidebar which was opened by clicking explore option*/}
+  {/*Reset map to initial view when closed the half sidebar which was opened by clicking explore option*/ }
   const resetMapForMobile = () => {
-    if ( mapInstanceRef.current) {
+    if (mapInstanceRef.current) {
       if (initialCenterRef.current) {
         const bounds = new google.maps.LatLngBounds(initialCenterRef.current);
 
@@ -458,7 +592,7 @@ const Map = () => {
     }
   };
 
-  {/*API for shop price range*/}
+  {/*API for shop price range*/ }
   const fetchShopPriceText = async (shopId: number): Promise<string | null> => {
     try {
       const res = await fetch(`${API_URL}/getFoodPriceRange?shop_id=${shopId}`);
@@ -472,7 +606,7 @@ const Map = () => {
     }
   };
 
-  {/*useEffect for shop price range*/}
+  {/*useEffect for shop price range*/ }
   useEffect(() => {
     if (!relatedPlaces || relatedPlaces.length === 0) return;
 
@@ -504,7 +638,7 @@ const Map = () => {
     };
   }, [relatedPlaces]);
 
-  {/*API for shop rating*/}
+  {/*API for shop rating*/ }
   const fetchShopRating = async (shopId: number): Promise<number | null> => {
     try {
       const res = await fetch(
@@ -520,7 +654,7 @@ const Map = () => {
     }
   };
 
-  {/*useEffect for shop rating*/}
+  {/*useEffect for shop rating*/ }
   useEffect(() => {
     if (!relatedPlaces || relatedPlaces.length === 0) return;
 
@@ -580,13 +714,13 @@ const Map = () => {
     categoryModeRef.current = false;
     categoryMarkersRef.current.forEach(m => m.setMap(null));
     categoryMarkersRef.current = [];
-    
+
     if (mapInstanceRef.current) {
       mapInstanceRef.current.setZoom(initialZoomRef.current);
     }
   };
-  
-  {/*Shop details will show when category tile is cliked*/}
+
+  {/*Shop details will show when category tile is cliked*/ }
   const runCategorySearch = async (shopIds: number[]) => {
     if (!mapInstanceRef.current) return;
 
@@ -614,6 +748,8 @@ const Map = () => {
           icon: {
             url: "https://cdn-icons-png.flaticon.com/128/4287/4287725.png",
             scaledSize: new google.maps.Size(32, 34),
+            //url: theme === "dark" ? "/location-light.png" : "/location-dark.png",
+            //scaledSize: new google.maps.Size(32, 70),
           },
         });
 
@@ -663,8 +799,8 @@ const Map = () => {
           padding.left = sidebarWidth + 50;
         } else {
           const drawerHeight = window.innerHeight * 0.5;
-          padding.bottom = drawerHeight + 20; 
-          padding.top = 120; 
+          padding.bottom = drawerHeight + 20;
+          padding.top = 120;
         }
 
         if (mapInstanceRef.current && !bounds.isEmpty()) {
@@ -676,7 +812,22 @@ const Map = () => {
     }
   };
 
-  {/*Fetch Category types from API*/}
+  // Update URL icon of runCategorySearch search when theme changes
+  useEffect(() => {
+    if (categoryMarkersRef.current) {
+      categoryMarkersRef.current.forEach((marker) => {
+        marker.setIcon({
+          url: 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png',
+          scaledSize: new google.maps.Size(32, 34),
+          //url: theme === "dark" ? "/location-light.png" : "/location-dark.png",
+          //scaledSize: new google.maps.Size(32, 70),
+        });
+      });
+    }
+  }, [theme]);
+
+
+  {/*Fetch Category types from API*/ }
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -716,8 +867,8 @@ const Map = () => {
 
     fetchCategories();
   }, []);
-  
-  {/*Shop food imaged for Half sidebar*/}
+
+  {/*Shop food imaged for Half sidebar*/ }
   useEffect(() => {
     const loadAllExtraImages = async () => {
       const result: Record<string, string[]> = {};
@@ -735,7 +886,7 @@ const Map = () => {
     }
   }, [relatedPlaces]);
 
-  {/*HalfSidebar Menu button*/}
+  {/*HalfSidebar Menu button*/ }
   const halfSidebarPlaceSelect = async (shopId: string | number) => {
     const shop = allShops.find(s => String(s.shopId) === String(shopId));
     if (!shop || !mapInstanceRef.current) return;
@@ -758,8 +909,8 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
-     
-    {/*Fetch shop rating*/}
+
+    {/*Fetch shop rating*/ }
     let shopRating: number | undefined = undefined;
     try {
       const fetchedRating = await fetchShopRating(shop.shopId);
@@ -768,7 +919,7 @@ const Map = () => {
       console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
     }
 
-    {/* Fetch shop priceText */}
+    {/* Fetch shop priceText */ }
     let shopPriceRange: string | undefined = undefined;
     try {
       const fetchedPrice = await fetchShopPriceText(shop.shopId);
@@ -776,7 +927,7 @@ const Map = () => {
     } catch (err) {
       console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
     }
-    
+
     const newPlace: RecentPlace = {
       shopId: shop.shopId,
       title: shop.name,
@@ -784,7 +935,7 @@ const Map = () => {
       subtitle: shop.address,
       imageUrl: shop.imageUrls[0],
       photos: shop.menu || [],
-      allPhotos : allFSPhotos || [],
+      allPhotos: allFSPhotos || [],
       highlights: additionalImages || [],
       lat: Number(shop.lat),
       lng: Number(shop.lng),
@@ -823,7 +974,7 @@ const Map = () => {
     centerPlaceOnMap(position);
   };
 
-  {/*Recent sidebar Middle part download button*/}
+  {/*Recent sidebar Middle part download button*/ }
   const getMatchedShop = (place: RecentPlace) => {
     return (
       allShops.find(
@@ -855,7 +1006,7 @@ const Map = () => {
 
     window.open(
       shop?.applink ??
-        "https://play.google.com/store/games?device=windows",
+      "https://play.google.com/store/games?device=windows",
       "_blank"
     );
   };
@@ -869,12 +1020,12 @@ const Map = () => {
 
     window.open(
       shop?.applink ??
-        "https://play.google.com/store/games?device=windows",
+      "https://play.google.com/store/games?device=windows",
       "_blank"
     );
   };
 
-  const exploreButtonFunction = () =>{
+  const exploreButtonFunction = () => {
     if (!mapInstanceRef.current) return;
     if (!allShops || allShops.length === 0) return;
 
@@ -894,8 +1045,8 @@ const Map = () => {
         map: mapInstanceRef.current!,
         title: shop.name,
         icon: {
-        url: "",
-        scaledSize: new google.maps.Size(30, 30),
+          url: "",
+          scaledSize: new google.maps.Size(30, 30),
         },
       });
 
@@ -945,9 +1096,9 @@ const Map = () => {
       } else {
         //const actualDrawerHeight = 148; 
         //padding.bottom = actualDrawerHeight + 40; 
-        const actualDrawerHeight = window.innerHeight * 0.5; 
+        const actualDrawerHeight = window.innerHeight * 0.5;
         padding.bottom = actualDrawerHeight + 20;
-        padding.top = 180; 
+        padding.top = 180;
         padding.left = 30;
         padding.right = 30;
       }
@@ -1023,7 +1174,7 @@ const Map = () => {
     setMenuRightArrow(!isAtEnd);
   };
 
-    const handleDSMenuScroll = () => {
+  const handleDSMenuScroll = () => {
     const el = menuDSScrollRef.current;
     if (!el) return;
 
@@ -1044,49 +1195,49 @@ const Map = () => {
 
   useEffect(() => {
     if (!fullSidebarSelectedPlace) return;
-  
+
     const photos = fullSidebarSelectedPlace.photos || [];
     const highlights = fullSidebarSelectedPlace.highlights || [];
     const cuisines = fullSidebarSelectedPlace.cuisines || [];
     const itemsByCuisine = fullSidebarSelectedPlace.itemsByCuisine || {};
-  
+
     setOverviewFSImages([...photos, ...highlights]);
     setMenuFSImages(photos);
     setHighlightFSImages(highlights);
-  
+
     const dynamicCategories = cuisines.map((c) => ({
       name: c,
       photos: photos,
       items: itemsByCuisine[c] || []
     }));
-  
+
     setMenuFSCategories(dynamicCategories);
-  
+
   }, [fullSidebarSelectedPlace]);
 
 
   useEffect(() => {
     if (!recentSelectedPlace) return;
-  
+
     const photos = recentSelectedPlace.photos || [];
     const highlights = recentSelectedPlace.highlights || [];
     const cuisines = recentSelectedPlace.cuisines || [];
     const itemsByCuisine = recentSelectedPlace.itemsByCuisine || {};
-  
+
     setOverviewDSImages([...photos, ...highlights]);
     setMenuDSImages(photos);
     setHighlightDSImages(highlights);
-  
+
     const dynamicDSCategories = cuisines.map((c) => ({
       name: c,
       photos: photos,
       items: itemsByCuisine[c] || []
     }));
-  
+
     setMenuDSCategories(dynamicDSCategories);
-  
+
   }, [recentSelectedPlace]);
-  
+
   const availableTabs = useMemo(() => {
     const tabs: { key: string; label: string }[] = [];
 
@@ -1101,7 +1252,7 @@ const Map = () => {
     return tabs;
   }, [overviewFSImages, menuFSCategories]);
 
-    const availableDSTabs = useMemo(() => {
+  const availableDSTabs = useMemo(() => {
     const tabs: { key: string; label: string }[] = [];
 
     if (overviewDSImages.length > 0) {
@@ -1121,18 +1272,18 @@ const Map = () => {
     }
   }, [availableTabs]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (availableDSTabs.length > 0) {
       setmenuActiveDSTab((prev) => prev || availableDSTabs[0].key);
     }
   }, [availableDSTabs]);
-  
+
   useEffect(() => {
     if (fullSidebarActiveTab !== "fullSidebarMenu") {
       setmenuActiveFSTab(availableTabs[0]?.key || "");
     }
   }, [fullSidebarActiveTab, availableTabs]);
-  
+
   useEffect(() => {
     if (detailsActiveTab !== "menu") {
       setmenuActiveDSTab(availableDSTabs[0]?.key || "");
@@ -1154,7 +1305,7 @@ const Map = () => {
       closeCategoryMode();
       resetMapForMobile();
     }
-    if (placeSidebar === "half") 
+    if (placeSidebar === "half")
     //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768))
     {
       clearCategoryMarkers();
@@ -1231,7 +1382,7 @@ const Map = () => {
 
   useEffect(() => {
     if (stickyScrollRef.current) {
-      stickyScrollRef.current.scrollTo(0, 0); 
+      stickyScrollRef.current.scrollTo(0, 0);
     }
   }, [detailsActiveTab]);
 
@@ -1312,7 +1463,7 @@ const Map = () => {
     let linkToCopy = "";
     if (fullSidebarSelectedPlace.applink) {
       linkToCopy = fullSidebarSelectedPlace.applink;
-    } 
+    }
     else {
       linkToCopy = `https://www.google.com/maps?q=${fullSidebarSelectedPlace.lat},${fullSidebarSelectedPlace.lng}`;
     }
@@ -1328,13 +1479,13 @@ const Map = () => {
     let linkToCopy = "";
     if (recentSelectedPlace.applink) {
       linkToCopy = recentSelectedPlace.applink;
-    } 
+    }
     else {
       linkToCopy = `https://www.google.com/maps?q=${recentSelectedPlace.lat},${recentSelectedPlace.lng}`;
     }
     navigator.clipboard.writeText(linkToCopy).then(() => {
       setLocationCopied(true);
-      setTimeout(() => setLocationCopied(false), 2000); 
+      setTimeout(() => setLocationCopied(false), 2000);
     });
   };
 
@@ -1384,7 +1535,7 @@ const Map = () => {
     setFSAddressCopied(true);
     setTimeout(() => setFSAddressCopied(false), 1000);
   };
-  
+
   const fullSidebarTabs = [
     { id: "fullSidebarOverview", label: "Overview" },
     { id: "fullSidebarMenu", label: "Menu" },
@@ -1403,7 +1554,7 @@ const Map = () => {
 
       mapInstanceRef.current.panTo(position);
 
-      const leftSidebarWidth = 410; 
+      const leftSidebarWidth = 410;
       const mapDiv = mapInstanceRef.current.getDiv();
       const mapWidth = mapDiv.offsetWidth;
       const remainingWidth = mapWidth - leftSidebarWidth;
@@ -1450,7 +1601,8 @@ const Map = () => {
 
     const handleScroll = () => {
       if (container && detailsActiveTab === "overview") {
-        setShowStickyHeader(container.scrollTop > 30);
+        //setShowStickyHeader(container.scrollTop > 30);
+        setShowStickyHeader(container.scrollTop > 400);
       }
     };
 
@@ -1469,7 +1621,7 @@ const Map = () => {
     };
   }, [detailsActiveTab]);
 
-  
+
   function StarRating({ rating }: { rating: number }) {
     return (
       <span className="flex items-center gap-[2px]">
@@ -1506,7 +1658,7 @@ const Map = () => {
     return "hi";
   }
 
-  const handleKeyDown = ( e: React.KeyboardEvent<HTMLInputElement>, isStart: boolean) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isStart: boolean) => {
     const suggestions = isStart ? startSuggestions : destSuggestions;
     const highlightedIndex = isStart ? startHighlightedIndex : destHighlightedIndex;
     const setHighlightedIndex = isStart ? setStartHighlightedIndex : setDestHighlightedIndex;
@@ -1516,7 +1668,7 @@ const Map = () => {
         suggestions[index].place_id,
         isStart
       );
-      setHighlightedIndex(-1); 
+      setHighlightedIndex(-1);
     };
 
     if (suggestions.length === 0) return;
@@ -1527,14 +1679,14 @@ const Map = () => {
         if (prev < suggestions.length - 1) return prev + 1;
         return -1;
       });
-    } 
+    }
     else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlightedIndex((prev) => {
         if (prev > -1) return prev - 1;
         return suggestions.length - 1;
       });
-    } 
+    }
     else if (e.key === "Enter") {
       e.preventDefault();
       if (highlightedIndex >= 0) {
@@ -1542,13 +1694,13 @@ const Map = () => {
       } else {
         selectSuggestion(0);
       }
-    setTimeout(() => {
-      if (isStart) {
-        destinationInputRef.current?.focus();
-      } else {
-        calculateRoute();
-      }
-    }, 0);
+      setTimeout(() => {
+        if (isStart) {
+          destinationInputRef.current?.focus();
+        } else {
+          calculateRoute();
+        }
+      }, 0);
     }
   };
 
@@ -1650,7 +1802,7 @@ const Map = () => {
           setDestinationCoords(latLng);
           setShowDestSuggestions(false);
         }
-        
+
         const title = place.name || "";
         const components = place.address_components || [];
         const stateComp = components.find(c => c.types.includes("administrative_area_level_1"));
@@ -1672,7 +1824,7 @@ const Map = () => {
           localStorage.setItem("recent_places", JSON.stringify(sliced));
           return sliced;
         });
-        
+
       } else {
         if (isStart) {
           setStartCoords(null);
@@ -1698,7 +1850,7 @@ const Map = () => {
     </svg>
   `;
 
-  const svgToDataURL = (svg: string) => 
+  const svgToDataURL = (svg: string) =>
     "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
 
   const handleRecentPlaceClick = (place: RecentPlace) => {
@@ -1772,7 +1924,7 @@ const Map = () => {
         map: mapInstanceRef.current,
         zIndex: 1
       });
-      
+
       const polyline = new google.maps.Polyline({
         path: route.overview_path,
         strokeColor: isActive ? "#0f53ff" : "#B8C9FF",
@@ -1811,7 +1963,7 @@ const Map = () => {
     });
   }, []);
 
-    const calculateRoute = useCallback(() => {
+  const calculateRoute = useCallback(() => {
     if (!startLocation || !destinationLocation || !mapInstanceRef.current) return;
 
     const directionsService = new google.maps.DirectionsService();
@@ -1947,16 +2099,16 @@ const Map = () => {
       behavior: "smooth",
     });
   };
-  
+
   const handleCategoryScroll = () => {
     const container = arrowScrollRef.current;
     if (!container) return;
-  
+
     const { scrollLeft, scrollWidth, clientWidth } = container;
     setShowLeftArrow(scrollLeft > 0);
     setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 1);
   };
-  
+
   useLayoutEffect(() => {
     requestAnimationFrame(() => {
       handleCategoryScroll();
@@ -2056,17 +2208,17 @@ const Map = () => {
       : selectedTags.length === 0
         ? recentPlaces
         : recentPlaces
-            .filter((place: RecentPlace) =>
-              groupTags.some(
-                (tag: GroupTag) =>
-                  selectedTags.includes(tag.name) &&
-                  tag.places.some(
-                    (p: RecentPlace) =>
-                      p.title === place.title && p.subtitle === place.subtitle
-                  )
-              )
+          .filter((place: RecentPlace) =>
+            groupTags.some(
+              (tag: GroupTag) =>
+                selectedTags.includes(tag.name) &&
+                tag.places.some(
+                  (p: RecentPlace) =>
+                    p.title === place.title && p.subtitle === place.subtitle
+                )
             )
-            .sort((a: RecentPlace, b: RecentPlace) => b.timestamp - a.timestamp);
+          )
+          .sort((a: RecentPlace, b: RecentPlace) => b.timestamp - a.timestamp);
 
   useEffect(() => {
     const stored = localStorage.getItem("recent_places");
@@ -2157,7 +2309,7 @@ const Map = () => {
 
         const rating = typeof placeEn.rating === "number" ? placeEn.rating : undefined;
         const userRatingsTotal = typeof placeEn.user_ratings_total === "number" ? placeEn.user_ratings_total : undefined;
-        const priceLevel = typeof placeEn.price_level === "number" ? placeEn.price_level  : undefined;
+        const priceLevel = typeof placeEn.price_level === "number" ? placeEn.price_level : undefined;
         let priceText: string | undefined;
 
         if (placeEn.types?.includes("restaurant")) {
@@ -2191,7 +2343,7 @@ const Map = () => {
             }
           });
         }
-        
+
         const langCode = getLanguageCodeFromAddress(components);
 
         service.getDetails({ placeId, language: langCode }, (placeLocal, statusLocal) => {
@@ -2211,7 +2363,7 @@ const Map = () => {
             nativeName,
             subtitle,
             imageUrl,
-            photos,  
+            photos,
             lat: lat!,
             lng: lng!,
             timestamp,
@@ -2223,7 +2375,7 @@ const Map = () => {
             category,
             reviews: placeEn.reviews || [],
           };
-            
+
           setRecentPlaces((prev) => {
             const updated = [newPlace, ...prev.filter((p) => p.title !== title)];
             const sliced = updated.slice(0, 20);
@@ -2324,7 +2476,7 @@ const Map = () => {
 
         const title = placeEn.name || "";
         const components = placeEn.address_components || [];
-    
+
         let subtitle = "";
         const cityComp = components.find((c) =>
           c.types.includes("locality") || c.types.includes("administrative_area_level_2")
@@ -2344,7 +2496,7 @@ const Map = () => {
 
         const rating = typeof placeEn.rating === "number" ? placeEn.rating : undefined;
         const userRatingsTotal = typeof placeEn.user_ratings_total === "number" ? placeEn.user_ratings_total : undefined;
-        const priceLevel = typeof placeEn.price_level === "number" ? placeEn.price_level  : undefined;
+        const priceLevel = typeof placeEn.price_level === "number" ? placeEn.price_level : undefined;
         let priceText: string | undefined;
 
         if (placeEn.types?.includes("restaurant")) {
@@ -2378,7 +2530,7 @@ const Map = () => {
             }
           });
         }
-        
+
         const langCode = getLanguageCodeFromAddress(components);
 
         service.getDetails({ placeId, language: langCode }, (placeLocal, statusLocal) => {
@@ -2393,14 +2545,14 @@ const Map = () => {
 
           setSidebarSearchValue(title);
 
-          const newPlace = { 
-            title, 
+          const newPlace = {
+            title,
             nativeName,
-            subtitle, 
-            imageUrl, 
+            subtitle,
+            imageUrl,
             photos,
-            lat: lat!, 
-            lng: lng!, 
+            lat: lat!,
+            lng: lng!,
             timestamp,
             fullAddress,
             plusCode,
@@ -2456,21 +2608,21 @@ const Map = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-      !(
-        (searchBoxRef.current &&
-          searchBoxRef.current.contains(event.target as Node)) ||
-        (suggestionBoxRef.current &&
-          suggestionBoxRef.current.contains(event.target as Node)) ||
-        (fullSidebarSearchBoxRef.current &&
-          fullSidebarSearchBoxRef.current.contains(event.target as Node)) ||
-        (fullSidebarSuggestionBoxRef.current &&
-          fullSidebarSuggestionBoxRef.current.contains(event.target as Node)) ||
-        (halfSidebarSearchBoxRef.current &&
-          halfSidebarSearchBoxRef.current.contains(event.target as Node)) ||
-        (halfSidebarSuggestionBoxRef.current &&
-          halfSidebarSuggestionBoxRef.current.contains(event.target as Node))
-      )
-    ) {
+        !(
+          (searchBoxRef.current &&
+            searchBoxRef.current.contains(event.target as Node)) ||
+          (suggestionBoxRef.current &&
+            suggestionBoxRef.current.contains(event.target as Node)) ||
+          (fullSidebarSearchBoxRef.current &&
+            fullSidebarSearchBoxRef.current.contains(event.target as Node)) ||
+          (fullSidebarSuggestionBoxRef.current &&
+            fullSidebarSuggestionBoxRef.current.contains(event.target as Node)) ||
+          (halfSidebarSearchBoxRef.current &&
+            halfSidebarSearchBoxRef.current.contains(event.target as Node)) ||
+          (halfSidebarSuggestionBoxRef.current &&
+            halfSidebarSuggestionBoxRef.current.contains(event.target as Node))
+        )
+      ) {
         setShowSuggestions(false);
       }
     };
@@ -2506,7 +2658,7 @@ const Map = () => {
         setShowSidebarSuggestions(false);
       }
     };
-  
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -2535,15 +2687,15 @@ const Map = () => {
       .then((data: Shop[]) => setAllShops(data))
       .catch(err => console.error(err));
   }, []);
-      
+
   const handleOpenShopSidebar = (shopId: number) => {
     const shop = allShops.find((s: Shop) => s.shopId === shopId);
     if (shop) {
       setActiveShop(shop);
-      setPlaceSidebar("full"); 
+      setPlaceSidebar("full");
     }
   };
-  
+
   const activePlaceMarkerRemover = () => {
     if (activePlaceMarkerRef.current) {
       activePlaceMarkerRef.current.setMap(null);
@@ -2551,8 +2703,8 @@ const Map = () => {
     }
   };
 
-  {/*API for shop's cuisine*/}
-  const fetchShopCuisines = async (shopId: string): Promise<{cuisines: string[]; itemsByCuisine: Record<string, FoodItem[]>;}> => {
+  {/*API for shop's cuisine*/ }
+  const fetchShopCuisines = async (shopId: string): Promise<{ cuisines: string[]; itemsByCuisine: Record<string, FoodItem[]>; }> => {
     try {
       const response = await fetch(
         `${API_URL}/getFoodDetails?shop_id=${shopId}`
@@ -2583,7 +2735,7 @@ const Map = () => {
     }
   };
 
-  {/*API for extra image*/}
+  {/*API for extra image*/ }
   const fetchShopImages = async (shopId: string): Promise<string[]> => {
     try {
       const response = await fetch(
@@ -2598,25 +2750,25 @@ const Map = () => {
     }
     return [];
   };
-  
+
   const handleShopSuggestion = useCallback(async (shop: Shop, onComplete?: () => void) => {
     setSearchOrigin("home");
-  
+
     const location = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
-  
+
     if (markerRef.current) {
       markerRef.current.setMap(null);
     }
-  
+
     markerRef.current = new google.maps.Marker({
       position: location,
       map: mapInstanceRef.current!,
       title: shop.name,
     });
-  
+
     const bounds = new google.maps.LatLngBounds();
     bounds.extend(location);
-  
+
     const isMobileView = window.innerWidth < 768;
     const padding = { top: 50, bottom: 50, left: 50, right: 50 };
 
@@ -2626,19 +2778,19 @@ const Map = () => {
       padding.left = sidebarWidth + 50;
     } else {
       const drawerHeight = window.innerHeight * 0.5;
-      padding.bottom = drawerHeight + 20; 
+      padding.bottom = drawerHeight + 20;
       padding.top = 150;
     }
-  
+
     mapInstanceRef.current?.fitBounds(bounds, padding);
-  
+
     setSearchValue(shop.name);
-    
+
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
-    
-    {/*Fetch shop rating*/}
+
+    {/*Fetch shop rating*/ }
     let shopRating: number | undefined = undefined;
     try {
       const fetchedRating = await fetchShopRating(shop.shopId);
@@ -2647,7 +2799,7 @@ const Map = () => {
       console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
     }
 
-    {/* Fetch shop priceText */}
+    {/* Fetch shop priceText */ }
     let shopPriceRange: string | undefined = undefined;
     try {
       const fetchedPrice = await fetchShopPriceText(shop.shopId);
@@ -2655,66 +2807,66 @@ const Map = () => {
     } catch (err) {
       console.warn(`Failed to fetch priceText for shop ${shop.shopId}`, err);
     }
-    
+
     const newPlace: RecentPlace = {
-      shopId: shop.shopId, 
+      shopId: shop.shopId,
       title: shop.name,
       nativeName: undefined,
       subtitle: shop.address,
       imageUrl: shop.imageUrls[0],
       photos: shop.menu || [],
-      allPhotos : allFSPhotos || [],
+      allPhotos: allFSPhotos || [],
       highlights: additionalImages || [],
       lat: Number(shop.lat),
       lng: Number(shop.lng),
       timestamp: Date.now(),
       fullAddress: shop.address,
       plusCode: "",
-      rating : shopRating ?? 4.5,
+      rating: shopRating ?? 4.5,
       userRatingsTotal: undefined,
       priceText: shopPriceRange ?? "₹200 – 400",
       category: shop.cuisine || "Shop",
       reviews: [],
       applink: shop.applink || "",
       about: shop.about,
-      serviceability: shop.serviceability, 
+      serviceability: shop.serviceability,
       openCloseTiming: shop.openCloseTiming,
       cuisines: cuisines || [],
       itemsByCuisine: itemsByCuisine || {}
     };
-  
+
     setRecentPlaces(prev => {
       const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
       const sliced = updated.slice(0, 20);
       localStorage.setItem("recent_places", JSON.stringify(sliced));
       return sliced;
     });
-  
+
     setFullSidebarSelectedPlace({
       ...newPlace,
       isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
     });
-  
+
     setIsLocationSelected(true);
     setShowSuggestions(false);
     setSuggestions([]);
     setPlaceSidebar("full");
     setFullSidebarActiveTab("fullSidebarOverview");
-  
+
     setTimeout(() => {
       if (fullSidebarContentRef.current) {
         fullSidebarContentRef.current.scrollTop = 0;
       }
     }, 0);
-  
+
     if (onComplete) onComplete();
-  },[favoritePlaceList]);
-  
+  }, [favoritePlaceList]);
+
   function centerPlaceOnMap(position: google.maps.LatLng) {
     const map = mapInstanceRef.current!;
     const bounds = new google.maps.LatLngBounds();
     bounds.extend(position);
-    
+
     {/*
       const sidebarEl = document.getElementById("fullSidebar");
       const sidebarWidth = sidebarEl?.offsetWidth || 0;
@@ -2738,18 +2890,18 @@ const Map = () => {
       padding.left = sidebarWidth + 50;
     } else {
       const drawerHeight = window.innerHeight * 0.5;
-      padding.bottom = drawerHeight + 20; 
+      padding.bottom = drawerHeight + 20;
       padding.top = 150;
     }
     map.fitBounds(bounds, padding);
   }
-      
-  const addToHistory = useCallback(async(shop: Shop) => {
+
+  const addToHistory = useCallback(async (shop: Shop) => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
 
-    {/*Fetch shop rating*/}
+    {/*Fetch shop rating*/ }
     let shopRating: number | undefined = undefined;
     try {
       const fetchedRating = await fetchShopRating(shop.shopId);
@@ -2758,7 +2910,7 @@ const Map = () => {
       console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
     }
 
-    {/* Fetch shop priceText */}
+    {/* Fetch shop priceText */ }
     let shopPriceRange: string | undefined = undefined;
     try {
       const fetchedPrice = await fetchShopPriceText(shop.shopId);
@@ -2768,14 +2920,14 @@ const Map = () => {
     }
 
     const newPlace: RecentPlace = {
-      shopId: shop.shopId,  
+      shopId: shop.shopId,
       title: shop.name,
       nativeName: undefined,
       subtitle: shop.address,
       imageUrl: shop.imageUrls?.[0],
       photos: shop.menu || [],
       highlights: additionalImages || [],
-      allPhotos : allFSPhotos || [],
+      allPhotos: allFSPhotos || [],
       lat: Number(shop.lat),
       lng: Number(shop.lng),
       timestamp: Date.now(),
@@ -2787,21 +2939,21 @@ const Map = () => {
       category: shop.cuisine || "Shop",
       reviews: [],
       applink: shop.applink || "",
-      about: shop.about,                 
+      about: shop.about,
       serviceability: shop.serviceability,
       openCloseTiming: shop.openCloseTiming,
       cuisines: cuisines || [],
       itemsByCuisine: itemsByCuisine || {}
     };
-  
+
     setRecentPlaces(prev => {
       const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
       const sliced = updated.slice(0, 20);
       localStorage.setItem("recent_places", JSON.stringify(sliced));
       return sliced;
     });
-  },[]);
-  
+  }, []);
+
   useEffect(() => {
     const loadGoogleMapsScript = (): Promise<void> => {
       return new Promise<void>((resolve, reject) => {
@@ -2809,7 +2961,7 @@ const Map = () => {
           resolve();
           return;
         }
-  
+
         const existingScript = document.querySelector(
           'script[src^="https://maps.googleapis.com/maps/api/js"]'
         );
@@ -2817,18 +2969,18 @@ const Map = () => {
           existingScript.addEventListener("load", () => resolve());
           return;
         }
-  
+
         const script = document.createElement("script");
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
         script.async = true;
         script.defer = true;
         script.onload = () => resolve();
         script.onerror = (e) => reject(e);
-  
+
         document.head.appendChild(script);
       });
     };
-  
+
     const fetchShops = async (): Promise<Shop[]> => {
       try {
         const response = await fetch(`${API_URL}/getAllShops`);
@@ -2840,7 +2992,7 @@ const Map = () => {
         return [];
       }
     };
-  
+
     loadGoogleMapsScript().then(async () => {
       if (mapRef.current && inputRef.current) {
         const map = new google.maps.Map(mapRef.current, {
@@ -2862,32 +3014,15 @@ const Map = () => {
             },
             strictBounds: true,
           },
-            draggableCursor: "default",
-            draggingCursor: "move",
-  
-            styles: [         
-              {
-                featureType: "poi.business",
-                stylers: [{ visibility: "off" }],
-              },
-              {
-                featureType: "poi.attraction",
-                stylers: [{ visibility: "off" }],
-              },
-              {
-                featureType: "poi",
-                stylers: [{ visibility: "off" }],
-              },
-              {
-                featureType: "transit",
-                stylers: [{ visibility: "off" }],
-              }
-              
-            ],
-          });
-  
+          draggableCursor: "default",
+          draggingCursor: "move",
+
+          styles: theme === 'dark' ? DARK_MAP_STYLES : LIGHT_MAP_STYLES,
+
+        });
+
         mapInstanceRef.current = map;
-        
+
         const shops = await fetchShops();
 
         const shopRatings: Record<number, number> = {};
@@ -2902,7 +3037,7 @@ const Map = () => {
             }
           })
         );
-        
+
         const shopPrices: Record<number, string> = {};
         await Promise.all(
           shops.map(async (shop) => {
@@ -2925,7 +3060,7 @@ const Map = () => {
           private priceRange: string | undefined;
           private marker: google.maps.Marker | null = null;
           private infoWindow: google.maps.InfoWindow | null = null;
-  
+
           constructor(position: google.maps.LatLng, data: Shop, rating?: number, priceRange?: string) {
             super();
             this.position = position;
@@ -2933,7 +3068,7 @@ const Map = () => {
             this.rating = rating;
             this.priceRange = priceRange;
           }
-  
+
           onAdd() {
             this.div = document.createElement("div");
             this.div.style.position = "absolute";
@@ -2945,34 +3080,35 @@ const Map = () => {
             this.div.style.padding = "4px 6px";
             this.div.style.whiteSpace = "nowrap";
             this.div.style.cursor = "pointer";
-            
+
             this.div.innerHTML = `
-              <div style="display:flex; align-items:center; gap:4px;">
-                <img class="label-icon" src="https://cdn-icons-png.flaticon.com/128/4287/4287725.png" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; "/>
+                <img class="label-icon" src="https://cdn-icons-png.flaticon.com/128/4287/4287725.png" {/*src="${theme === 'dark' ? '/location-light.png' : '/location-dark.png'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; "/>
                 <div class="label-text">
-                <div style="font-size:14px; color:black;">${this.data.name}</div>
-                ${this.data.cuisine ? `<div style="font-size:12px; color:black;">${this.data.cuisine}</div>` : ""}
+                <div class="label-name" style="font-size:14px; color:${theme === 'dark' ? 'white' : 'black'}">${this.data.name}</div>
+                ${this.data.cuisine ? `<div class="label-cuisine" style="font-size:12px; color:${theme === 'dark' ? 'white' : 'black'}">${this.data.cuisine}</div>` : ""}
               </div>
               </div>
             `;
-  
+
+            overlayInstancesRef.current.push(this);
+
             this.div.addEventListener("click", async () => {
               const shop = this.data;
               if (!shop) return;
-  
+
               addToHistory(shop);
-  
+
               const marker = new google.maps.Marker({
                 position: this.position,
                 map: this.getMap()!,
                 title: shop.name,
               });
-  
+
               if (activePlaceMarkerRef.current) {
                 activePlaceMarkerRef.current.setMap(null);
               }
               activePlaceMarkerRef.current = marker;
-              
+
               // API for cuisines
               let cuisines: string[] = [];
               const itemsByCuisine: Record<string, FoodItem[]> = {};
@@ -3003,17 +3139,17 @@ const Map = () => {
               } catch (err) {
                 console.error("Failed to fetch additional images:", err);
               }
-              
-               const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
-              
+
+              const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+
               const newPlace: RecentPlace = {
-                shopId: shop.shopId, 
+                shopId: shop.shopId,
                 title: shop.name,
                 nativeName: undefined,
                 subtitle: shop.address,
                 imageUrl: shop.imageUrls[0],
                 photos: shop.menu || [],
-                allPhotos : allFSPhotos || [],
+                allPhotos: allFSPhotos || [],
                 highlights: additionalImages || [],
                 lat: Number(shop.lat),
                 lng: Number(shop.lng),
@@ -3026,32 +3162,32 @@ const Map = () => {
                 category: shop.cuisine || "Shop",
                 reviews: [],
                 applink: shop.applink || "",
-                about: shop.about,                 
+                about: shop.about,
                 serviceability: shop.serviceability,
                 openCloseTiming: shop.openCloseTiming,
                 cuisines: cuisines || [],
                 itemsByCuisine: itemsByCuisine || {}
               };
-            
+
               setRecentPlaces(prev => {
                 const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
                 const sliced = updated.slice(0, 20);
                 localStorage.setItem("recent_places", JSON.stringify(sliced));
                 return sliced;
               });
-            
+
               setFullSidebarSelectedPlace({
                 ...newPlace,
                 isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
               });
-  
+
               setPlaceSidebar("full");
               setSearchOrigin("home");
               setSearchValue(shop.name);
               centerPlaceOnMap(new google.maps.LatLng(parseFloat(shop.lat), parseFloat(shop.lng)));
               setFullSidebarActiveTab("fullSidebarOverview");
             });
-            
+
             // Hover InfoWindow
             const firstImage = (this.data.imageUrls && this.data.imageUrls.length > 0 && this.data.imageUrls[0]) || "https://via.placeholder.com/180x120?text=No+Image";
             //const category = (this.data.cuisine || "").split(",")[0].trim();
@@ -3064,7 +3200,7 @@ const Map = () => {
             tooltip.style.fontSize = "14px";
             tooltip.style.fontFamily = "Arial, sans-serif";
             tooltip.style.whiteSpace = "nowrap";
-            tooltip.style.pointerEvents = "none"; 
+            tooltip.style.pointerEvents = "none";
             tooltip.style.display = "none";
             tooltip.style.color = "black";
             tooltip.innerHTML = `
@@ -3089,7 +3225,7 @@ const Map = () => {
                     <span>${this.rating || "4.5"}</span>
 
                     <span style="display:flex; align-items:center; gap:1px;">
-                      ${[1,2,3,4,5].map(i => `
+                      ${[1, 2, 3, 4, 5].map(i => `
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                             fill="${i <= Math.round(this.rating || 4) ? '#f4b400' : '#ddd'}"
                             viewBox="0 0 24 24">
@@ -3100,26 +3236,26 @@ const Map = () => {
                     </span>
 
                     ${this.data.userRatingsTotal
-                      ? `<span style="color:#777;">(${Number(this.data.userRatingsTotal).toLocaleString()})</span>`
-                      : ""
-                    }
+                ? `<span style="color:#777;">(${Number(this.data.userRatingsTotal).toLocaleString()})</span>`
+                : ""
+              }
                   </div>
 
                   <div style="display:flex; margin-top:1px; align-items:center; gap:6px; font-size:12.5px; color:black;">
-                    ${ this.data.cuisine ? `<span>${this.data.cuisine}</span>`  : "" }
-                    ${ this.priceRange
-                        ? `<span><b>·</b></span>
+                    ${this.data.cuisine ? `<span>${this.data.cuisine}</span>` : ""}
+                    ${this.priceRange
+                ? `<span><b>·</b></span>
                           <span>₹${this.priceRange}</span>`
-                        : `<span><b>·</b></span>
+                : `<span><b>·</b></span>
                           <span>₹200 – 400</span>`
-                    }
+              }
                   </div>
 
                   <div style="font-size:12.5px; margin-top:1px; color:black;">
-                    ${this.data.openCloseTiming 
-                        ? `Open ${this.data.openCloseTiming.split('–')[0]} <b>·</b> <span style="color:red;">Closes ${this.data.openCloseTiming.split('–')[1]}</span>`
-                        : `Open 10am <b>·</b> <span style="color:red;"> Closes 10pm</span>`
-                      }
+                    ${this.data.openCloseTiming
+                ? `Open ${this.data.openCloseTiming.split('–')[0]} <b>·</b> <span style="color:red;">Closes ${this.data.openCloseTiming.split('–')[1]}</span>`
+                : `Open 10am <b>·</b> <span style="color:red;"> Closes 10pm</span>`
+              }
                   </div>
                 </div>
               </div>
@@ -3167,15 +3303,27 @@ const Map = () => {
                 tooltip.style.display = "block";
               }
             });
-  
+
             this.div.addEventListener("mouseout", () => {
               tooltip.style.display = "none";
             });
-  
+
             const panes = this.getPanes();
             panes?.overlayMouseTarget.appendChild(this.div);
           }
-  
+
+          updateTheme(newTheme: string) {
+            if (!this.div) return;
+            const nameEl = this.div.querySelector(".label-name") as HTMLElement;
+            const cuisineEl = this.div.querySelector(".label-cuisine") as HTMLElement;
+            const imgEl = this.div.querySelector(".label-icon") as HTMLImageElement;
+
+            if (nameEl) nameEl.style.color = newTheme === 'dark' ? 'white' : 'black';
+            if (cuisineEl) cuisineEl.style.color = newTheme === 'dark' ? 'white' : 'black';
+            //if (imgEl) imgEl.src = newTheme === 'dark' ? '/location-light.png' : '/location-dark.png';
+            if (imgEl) imgEl.src = newTheme === 'dark' ? 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png' : 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png';
+          }
+
           draw() {
             if (!this.div) return;
 
@@ -3190,35 +3338,35 @@ const Map = () => {
             }
             const projection = this.getProjection();
             const pos = projection.fromLatLngToDivPixel(this.position);
-  
+
             if (pos) {
               const iconEl = this.div.querySelector(".label-icon") as HTMLElement;
               const rect = this.div.getBoundingClientRect();
-  
+
               let iconHeight = rect.height;
               let iconWidth = rect.width;
-  
+
               if (iconEl) {
                 const iconRect = iconEl.getBoundingClientRect();
                 iconHeight = iconRect.height;
                 iconWidth = iconRect.width;
               }
-  
+
               this.div.style.left = pos.x - iconWidth / 1.5 + "px";
               this.div.style.top = pos.y - iconHeight + "px";
             }
-  
+
             const map = this.getMap() as google.maps.Map;
             const zoom = map.getZoom() || 0;
-  
+
             const textEl = this.div.querySelector(".label-text") as HTMLElement;
             const iconEl = this.div.querySelector(".label-icon") as HTMLElement;
-  
-              if (zoom < 12) {
+
+            if (zoom < 12) {
               // Both hidden
               if (textEl) textEl.style.display = "none";
               if (iconEl) iconEl.style.display = "block";
-            }else if (zoom < 14) {
+            } else if (zoom < 14) {
               // only icon
               if (textEl) textEl.style.display = "none";
               if (iconEl) iconEl.style.display = "block";
@@ -3237,35 +3385,49 @@ const Map = () => {
               if (iconEl) iconEl.style.display = "block";
             }
           }
-  
+
           onRemove() {
             if (this.div && this.div.parentNode) {
               this.div.parentNode.removeChild(this.div);
             }
+            overlayInstancesRef.current = overlayInstancesRef.current.filter(i => i !== this);
           }
         }
-  
+
         shops.forEach((shop: Shop) => {
           const position = new google.maps.LatLng(parseFloat(shop.lat), parseFloat(shop.lng));
           const overlay = new RestaurantLabel(position, shop, shopRatings[shop.shopId], shopPrices[shop.shopId]);
           overlay.setMap(mapInstanceRef.current);
         });
-  
+
         map.addListener("click", (e: google.maps.MapMouseEvent) => {
-        const clickedLat = e.latLng?.lat();
-        const clickedLng = e.latLng?.lng();
-        if (clickedLat !== undefined && clickedLng !== undefined) {
-          const shop = allShops.find(
-            (s) => Number(s.lat) === clickedLat && Number(s.lng) === clickedLng
-          );
-          if (shop) {
-            handleShopSuggestion(shop, () => setPlaceSidebar("full"));
+          const clickedLat = e.latLng?.lat();
+          const clickedLng = e.latLng?.lng();
+          if (clickedLat !== undefined && clickedLng !== undefined) {
+            const shop = allShops.find(
+              (s) => Number(s.lat) === clickedLat && Number(s.lng) === clickedLng
+            );
+            if (shop) {
+              handleShopSuggestion(shop, () => setPlaceSidebar("full"));
+            }
           }
-        }
-      });
+        });
       }
     });
   }, [allShops]);
+
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setOptions({
+        styles: theme === 'dark' ? DARK_MAP_STYLES : LIGHT_MAP_STYLES,
+      });
+      overlayInstancesRef.current.forEach(overlay => {
+        if (overlay.updateTheme) {
+          overlay.updateTheme(theme);
+        }
+      });
+    }
+  }, [theme]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -3287,18 +3449,18 @@ const Map = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-    const map = mapInstanceRef.current;
+      const map = mapInstanceRef.current;
       if (map && map.getCenter() && map.getZoom()) {
         const url = getStaticMapUrl(map, "satellite");
         setThumbnailUrl(url);
-        clearInterval(interval); 
+        clearInterval(interval);
       }
-    }, 300); 
+    }, 300);
 
     return () => clearInterval(interval);
   }, []);
 
-  const SidebarItem = ({ icon, text, onClick,}: { icon?: React.ReactNode; text: string; onClick?: () => void; }) => (
+  const SidebarItem = ({ icon, text, onClick, }: { icon?: React.ReactNode; text: string; onClick?: () => void; }) => (
     <div
       className="group flex items-center gap-[20px] cursor-pointer"
       onClick={onClick}
@@ -3307,72 +3469,72 @@ const Map = () => {
       <span className="text-[#202124] group-hover:text-gray-500">{text}</span>
     </div>
   );
-  
+
   const combinedList = useMemo<CombinedItem[]>(() => {
     if (searchValue.trim() !== "") {
       const matchingRecent = recentPlaces.filter((place) =>
         place.title.toLowerCase().startsWith(searchValue.toLowerCase())
       );
-  
+
       const remainingSlots = 5 - matchingRecent.length;
       const trimmedSuggestions = suggestions.slice(0, Math.max(0, remainingSlots));
-  
+
       const mappedRecent: CombinedItem[] = matchingRecent.map((place) => ({
         type: "recent",
         data: place,
       }));
-  
+
       const mappedSuggestions: CombinedItem[] = trimmedSuggestions.map((suggestion) => ({
         type: "suggestion",
         data: suggestion,
       }));
-  
+
       return [...mappedRecent, ...mappedSuggestions];
     }
-  
+
     const list: CombinedItem[] = recentPlaces
       .slice(0, recentPlaces.length >= 5 ? 5 : 4)
       .map((place) => ({ type: "recent", data: place }));
-    
-      if (recentPlaces.length >= 0) {
-        list.push({ type: "more" });
-      }
-  
-      return list;
-    }, [searchValue, suggestions, recentPlaces]);
-   
+
+    if (recentPlaces.length >= 0) {
+      list.push({ type: "more" });
+    }
+
+    return list;
+  }, [searchValue, suggestions, recentPlaces]);
+
   const sidebarCombinedList = useMemo<SidebarCombinedItem[]>(() => {
     if (sidebarSearchValue.trim() !== "") {
       const matchingRecent = recentPlaces.filter((place) =>
         place.title.toLowerCase().startsWith(sidebarSearchValue.toLowerCase())
       );
-  
+
       const remainingSlots = 5 - matchingRecent.length;
       const trimmedSuggestions = sidebarSuggestions.slice(0, Math.max(0, remainingSlots));
-  
+
       const sidebarMappedRecent: SidebarCombinedItem[] = matchingRecent.map((place) => ({
         type: "recent",
         data: place,
       }));
-  
+
       const sidebarMappedSuggestions: SidebarCombinedItem[] = trimmedSuggestions.map((suggestion) => ({
         type: "suggestion",
         data: suggestion,
       }));
-  
+
       return [...sidebarMappedRecent, ...sidebarMappedSuggestions];
     }
-  
+
     const sidebarList: SidebarCombinedItem[] = recentPlaces
       .slice(0, recentPlaces.length >= 5 ? 5 : 4)
       .map((place) => ({ type: "recent", data: place }));
-    
-      if (recentPlaces.length >= 0) {
-        sidebarList.push({ type: "more" });
-      }
-  
-      return sidebarList;
-    }, [sidebarSearchValue, sidebarSuggestions, recentPlaces]);
+
+    if (recentPlaces.length >= 0) {
+      sidebarList.push({ type: "more" });
+    }
+
+    return sidebarList;
+  }, [sidebarSearchValue, sidebarSuggestions, recentPlaces]);
 
   const fetchDetailedPlaces = async (results: google.maps.places.PlaceResult[]) => {
     const detailedResults = await Promise.all(
@@ -3409,7 +3571,7 @@ const Map = () => {
               });
 
               resolve({
-                place_id: details.place_id, 
+                place_id: details.place_id,
                 title: details.name || "Unnamed Place",
                 subtitle,
                 imageUrl,
@@ -3433,77 +3595,80 @@ const Map = () => {
     );
     return detailedResults.filter(r => r !== null);
   };
-    
+
   return (
     <div className="relative w-full h-screen">
       {/*Bottom nav*/}
-      <div className="flex flex-row md:hidden fixed bottom-0 left-0 w-full bg-[#f1f6f7] z-60 shadow-md py-2 text-black pb-[calc(env(safe-area-inset-bottom)+8px)]">
+      <div className={`flex flex-row md:hidden fixed bottom-0 left-0 w-full ${theme === 'dark' ? 'bg-[#192123] text-[#9dedfb]' : 'bg-[#f1f6f7] text-black'} z-60 shadow-md py-2  pb-[calc(env(safe-area-inset-bottom)+8px)]`}>
         <div className="flex flex-row items-center justify-evenly w-full">
-          <div 
+          <div
             onClick={exploreButtonFunction}
             className="flex flex-col items-center gap-[8px] cursor-pointer"
           >
-            <LocationOnIcon style={{ fontSize: '25px' }} className="text-black" />
+            <LocationOnIcon style={{ fontSize: '25px' }} className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-black'}`} />
             <span className="text-[12px] tracking-wide font-medium">Explore</span>
           </div>
 
-          <div 
+          <div
             className="flex flex-col items-center gap-[8px] cursor-pointer"
-             onClick={() => {
+            onClick={() => {
               if (topSidebar !== "saved") {
                 setTopSidebar("saved");
                 setPlaceSidebar(null);
                 clearCategoryMarkers();
+                activePlaceMarkerRemover();
               }
             }}
           >
-            <FavIcon style={{ fontSize: '25px' }} className={topSidebar === "saved" ? "text-red-500" : "text-black"} />
+            <FavIcon style={{ fontSize: '25px' }} className={`${topSidebar === "saved" ? "text-red-500" : theme === 'dark' ? "text-[#9dedfb]" : "text-black"}`} />
             <span className="text-[12px] tracking-wide font-medium">Favorite</span>
           </div>
 
-          <div 
+          <div
             className="flex flex-col items-center gap-[8px] cursor-pointer"
-             onClick={() => {
+            onClick={() => {
               if (recentPlaces.length > 0 && topSidebar !== "recent") {
                 setTopSidebar("recent");
                 setPlaceSidebar(null);
                 clearCategoryMarkers();
+                activePlaceMarkerRemover();
               }
             }}
           >
-            <HistoryIcon style={{ fontSize: '25px' }} className="text-black rotate-45" />
+            <HistoryIcon style={{ fontSize: '25px' }} className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-black'} rotate-45`} />
             <span className="text-[12px] tracking-wide font-medium">Recents</span>
           </div>
         </div>
       </div>
 
 
-      <div className="hidden md:flex flex-col absolute top-0 left-0 w-[70px] h-full bg-[#f1f6f7] z-100 shadow-md items-center justify-between pt-6 pb-5 text-black">
+      <div className={`hidden md:flex flex-col absolute top-0 left-0 w-[70px] h-full ${theme === 'dark' ? 'bg-[#192123] text-[#9dedfb]' : 'bg-[#f1f6f7] text-black'} z-100 shadow-md items-center justify-between pt-6 pb-5`}>
         <div className="flex flex-col items-center">
-          <div 
+          <div
             onClick={exploreButtonFunction}
             className="flex flex-col items-center gap-[6px] cursor-pointer"
           >
-            <LocationOnIcon style={{ fontSize: '25px' }} className="text-black" />
+            <LocationOnIcon style={{ fontSize: '25px' }} className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-black'}`} />
             <span className="text-[12px] tracking-wide font-medium">Explore</span>
           </div>
 
-          <div 
+          <div
             className="flex flex-col items-center gap-[8px] cursor-pointer mt-[30px]"
-             onClick={() => {
+            onClick={() => {
               if (topSidebar !== "saved") {
                 setTopSidebar("saved");
                 setPlaceSidebar(null);
                 clearCategoryMarkers();
                 closeCategoryMode();
+                activePlaceMarkerRemover();
               }
             }}
           >
-            <FavIcon style={{ fontSize: '25px' }}  className={topSidebar === "saved" ? "text-red-500" : "text-black"} />
+            <FavIcon style={{ fontSize: '25px' }} className={`${topSidebar === "saved" ? "text-red-500" : theme === 'dark' ? "text-[#9dedfb]" : "text-black"}`} />
             <span className="text-[12px] tracking-wide font-medium">Favorite</span>
           </div>
 
-          <div 
+          <div
             className="flex flex-col items-center gap-[0px] cursor-pointer mt-[22px]"
             onClick={() => {
               if (recentPlaces.length > 0 && topSidebar !== "recent") {
@@ -3511,24 +3676,24 @@ const Map = () => {
                 setPlaceSidebar(null);
                 clearCategoryMarkers();
                 closeCategoryMode();
+                activePlaceMarkerRemover();
               }
             }}
           >
-            <HistoryIcon 
-              style={{ fontSize: '40px' }} 
+            <HistoryIcon
+              style={{ fontSize: '40px' }}
               className={`rotate-45 p-2 rounded-full transition 
-                ${topSidebar === 'recent' ? 'bg-[#D9F7FF]' : 'bg-transparent'}
-                ${recentPlaces.length === 0 ? 'text-gray-400' : 'text-black'}`}
+                ${recentPlaces.length === 0 ? 'text-gray-400' : theme === 'dark' ? "text-[#9dedfb]" : "text-black"}`}
             />
-            
+
             <span className={`text-[12px] tracking-wide font-medium
-              ${recentPlaces.length === 0 ? 'text-gray-400' : 'text-black'}`}
+              ${recentPlaces.length === 0 ? 'text-gray-400' : theme === 'dark' ? "text-[#9dedfb]" : "text-black"}`}
             >
-             Recents
+              Recents
             </span>
           </div>
         </div>
-        
+
         <div className="flex flex-col items-center gap-[6px] cursor-pointer">
           <Image
             src="/logo.png"
@@ -3539,22 +3704,20 @@ const Map = () => {
             className="w-[50px] h-[50px] shadow-lg rounded-full object-cover"
           />
         </div>
-        
+
       </div>
 
       {/*Menu Sidebar*/}
       <div>
         <div
-          className={`fixed inset-0 bg-black z-[998] transition-opacity duration-300 ease-in-out ${
-            menuSidebar ? "opacity-30 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
+          className={`fixed inset-0 bg-black z-[998] transition-opacity duration-300 ease-in-out ${menuSidebar ? "opacity-30 pointer-events-auto" : "opacity-0 pointer-events-none"
+            }`}
           onClick={() => setMenuSidebar(false)}
         />
 
         <div
           className={`fixed top-0 left-0 w-[320px] h-full bg-white z-[999] shadow-lg py-[10px] overflow-y-auto
-            transition-transform duration-300 ease-in-out transform ${
-              menuSidebar ? "translate-x-0" : "-translate-x-full"
+            transition-transform duration-300 ease-in-out transform ${menuSidebar ? "translate-x-0" : "-translate-x-full"
             }`}
         >
 
@@ -3578,26 +3741,26 @@ const Map = () => {
                 setMenuSidebar(false);
               }}
             />
-            <SidebarItem 
-              icon={<HistoryIcon style={{fontSize:"24px"}} className="rotate-45 text-gray-600 group-hover:text-gray-500" />} 
+            <SidebarItem
+              icon={<HistoryIcon style={{ fontSize: "24px" }} className="rotate-45 text-gray-600 group-hover:text-gray-500" />}
               text="Recents"
-               onClick={() => {
+              onClick={() => {
                 setTopSidebar("recent");
                 setPlaceSidebar(null);
                 setMenuSidebar(false);
-              }} 
+              }}
             />
-            <SidebarItem icon={<EditLocationAltOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Your contributions" />
-            <SidebarItem icon={<ShareLocationOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Location sharing" />
-            <SidebarItem icon={<TimelineOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Your timeline" />
-            <SidebarItem icon={<ShieldOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Your data in Maps" />
+            <SidebarItem icon={<EditLocationAltOutlinedIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />} text="Your contributions" />
+            <SidebarItem icon={<ShareLocationOutlinedIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />} text="Location sharing" />
+            <SidebarItem icon={<TimelineOutlinedIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />} text="Your timeline" />
+            <SidebarItem icon={<ShieldOutlinedIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />} text="Your data in Maps" />
           </div>
 
           <hr className="my-[12px]" />
 
           <div className="space-y-[10px] text-[14.5px] text-[#202124] px-[22px]">
-            <SidebarItem icon={<LinkOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Share or embed map" />
-            <SidebarItem icon={<PrintOutlinedIcon style={{fontSize:"24px"}} className="text-gray-600 group-hover:text-gray-500" />} text="Print" />
+            <SidebarItem icon={<LinkOutlinedIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />} text="Share or embed map" />
+            <SidebarItem icon={<PrintOutlinedIcon style={{ fontSize: "24px" }} className="text-gray-600 group-hover:text-gray-500" />} text="Print" />
             <SidebarItem text="Add your business" />
             <SidebarItem text="Edit the map" />
           </div>
@@ -3619,10 +3782,10 @@ const Map = () => {
           </div>
         </div>
       </div>
-      
+
       {/*Saved Sidebar*/}
       <div
-        className={`fixed bg-white shadow-2xl z-30 transition-transform duration-300 flex flex-col
+        className={`fixed ${theme === 'dark' ? 'bg-[#131313] text-white' : 'bg-white text-black'} shadow-2xl z-30 transition-transform duration-300 flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-full md:translate-y-0
           ${topSidebar === "saved" ? "z-50" : "z-30"}
           ${topSidebar === "saved" ? "translate-y-0" : "translate-y-full"}
@@ -3631,13 +3794,12 @@ const Map = () => {
         {/*Search box for saved*/}
         <div className="pt-3">
           <div className="relative px-[18px]" ref={savedSidebarSearchBoxRef}>
-            <div 
-              className={`relative bg-white border w-full md:w-[375px] ${
-                showSidebarSuggestions ? "border-gray-200 rounded-t-xl" : "border-gray-300 rounded-full"
-              }`}
+            <div
+              className={`relative ${theme === 'dark' ? 'bg-[#393939] border-[#393939]' : 'bg-white border-gray-200'} border w-full md:w-[375px] ${showSidebarSuggestions ? "rounded-t-xl" : "rounded-full"
+                }`}
             >
               <div className={`flex items-center ${favoriteList ? "pl-[12px] pr-[16px] md:pl-[18px] md:pr-[20px]" : "pl-6 pr-5 md:pr-4"} py-[12px]`}>
-                              
+
                 {favoriteList && (
                   <button
                     onClick={() => setFavoriteList(null)}
@@ -3651,8 +3813,8 @@ const Map = () => {
                   ref={inputRef}
                   type="text"
                   spellCheck={false}
-                  autoComplete="off" 
-                  autoCorrect="off" 
+                  autoComplete="off"
+                  autoCorrect="off"
                   autoCapitalize="off"
                   placeholder="Search Google Maps"
                   value={sidebarSearchValue}
@@ -3691,21 +3853,21 @@ const Map = () => {
                             console.warn("Shop not found for recent item:", selectedItem.data.title);
                           }
                         } else if (selectedItem.type === "suggestion") {
-                        const shop = allShops.find(
-                          (s) => s.name === selectedItem.data.name
-                        );
-                        if (shop) {
-                          handleShopSuggestion(shop, () => {
-                            setPlaceSidebar("full");
-                          });
-                        }
+                          const shop = allShops.find(
+                            (s) => s.name === selectedItem.data.name
+                          );
+                          if (shop) {
+                            handleShopSuggestion(shop, () => {
+                              setPlaceSidebar("full");
+                            });
+                          }
                         } else if (selectedItem.type === "home") {
                           alert("Set Home clicked");
                         } else if (selectedItem.type === "more") {
-                          exploreButtonFunction(); 
+                          exploreButtonFunction();
                         }
                         setShowSidebarSuggestions(false);
-                      } 
+                      }
                       else if (sidebarSearchValue.trim()) {
                         const query = sidebarSearchValue.trim().toLowerCase();
 
@@ -3750,19 +3912,19 @@ const Map = () => {
                     setNoMatches(filtered.length === 0);
                   }}
                   onFocus={() => setShowSidebarSuggestions(true)}
-                
-                  className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+
+                  className={`flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}
                 />
-                <div 
+                <div
                   className="relative group"
                   onClick={() => {
-                    setShowSidebarSuggestions(true);  
+                    setShowSidebarSuggestions(true);
                     inputRef.current?.focus();
                   }}
                 >
-                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+                  <SearchIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} text-[22px] cursor-pointer`} />
 
-                  <div 
+                  <div
                     className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
                     rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
                   >
@@ -3781,15 +3943,42 @@ const Map = () => {
                       setIsLocationSelected(false);
                       setShowSidebarSuggestions(false);
                       setTopSidebar(null);
+                      setIsExploreButton(false);
                       closeCategoryMode();
                       clearCategoryMarkers();
+
+                      if (placeSidebar === "full" && keepHalfSidebarOpen) {
+                        setPlaceSidebar("half");
+                        setKeepHalfSidebarOpen(true);
+                        restoreCategoryView();
+                      } else {
+                        setPlaceSidebar(null);
+                        setKeepHalfSidebarOpen(false);
+                        closeCategoryMode();
+                        resetMapForMobile();
+                      }
+                      if (placeSidebar === "half")
+                      //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768))
+                      {
+                        clearCategoryMarkers();
+                      }
+                      if (markerRef.current) {
+                        markerRef.current.setMap(null);
+                        markerRef.current = null;
+                      }
                       if (sidebarMarkerRef.current) {
                         sidebarMarkerRef.current.setMap(null);
                         sidebarMarkerRef.current = null;
                       }
+                      if (window.innerWidth < 768) {
+                        setSidebarHeight(window.innerHeight * 0.5);
+                      }
+
+                      activePlaceMarkerRemover();
+                      setNoMatches(false);
                     }}
                   >
-                    <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
+                    <span className={`text-[18px] font-bold ${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'}`}>✕</span>
                   </div>
                   <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
                     Close
@@ -3799,151 +3988,154 @@ const Map = () => {
             </div>
             {showSidebarSuggestions && (
               <div ref={savedSidebarSuggestionBoxRef} className="absolute top-full left-[18px] w-[calc(100%-36px)] md:w-[375px] z-40">
-                <div className="bg-white shadow-lg rounded-b-xl py-[7px]">
+                <div className={`${theme === 'dark' ? 'bg-[#393939]' : 'bg-white '} shadow-lg rounded-b-xl border-t border-gray-200 py-[7px]`}>
                   {sidebarCombinedList.length > 0 && (
                     <>
-                    <div className="flex flex-col space-y-[0px]">
-                      {sidebarCombinedList.map((item, index) => {
-                        const isHighlighted = sidebarHighlightedIndex === index;
-                        const baseClass = `hover:bg-gray-100 cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
-                          isHighlighted ? "bg-gray-100" : ""
-                        }`;
+                      <div className="flex flex-col space-y-[0px]">
+                        {sidebarCombinedList.map((item, index) => {
+                          const isHighlighted = sidebarHighlightedIndex === index;
+                          const baseClass = `${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between 
+                                             ${isHighlighted ? (theme === 'dark' ? "bg-gray-800" : "bg-gray-100") : ""}`;
 
-                        const isInputEmpty = sidebarSearchValue.trim() === "";
 
-                        if (item.type === "recent") {
-                          const place = item.data as RecentPlace;
-                          return (
-                            <div
-                              key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
-                              className={`px-[14px] md:px-[20px] ${baseClass} group`}
-                              onMouseDown={() => {
-                                setSidebarSearchValue(place.title);
-                                setShowSidebarSuggestions(true);
+                          const isInputEmpty = sidebarSearchValue.trim() === "";
 
-                                const shop = allShops.find((s) => s.name === place.title);
-                                if (shop) {
-                                  handleShopSuggestion(shop);
-                                } else {
-                                  console.warn("Shop not found for recent place:", place.title);
-                                }
-                              }}
-                            >
-                              <div className="flex bg-red-00 items-center justify-between w-full group">
-                                <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
-                                  {isInputEmpty ? (
-                                    <div className="md:w-10 md:h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
-                                      <AccessTimeIcon className="text-black w-6 h-6"  />
-                                    </div>
-                                  ) : (
-                                    <div className="py-[8px] bg-transparent flex items-center justify-center">
-                                      <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
-                                    </div>
-                                  )}
+                          if (item.type === "recent") {
+                            const place = item.data as RecentPlace;
+                            return (
+                              <div
+                                key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                                className={`px-[14px] md:px-[20px] ${baseClass} group`}
+                                onMouseDown={() => {
+                                  setSidebarSearchValue(place.title);
+                                  setShowSidebarSuggestions(true);
 
-                                  {isInputEmpty ? (
-                                    <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
-                                      <span className="font-medium text-[14.5px] text-black truncate">
-                                        {place.title}
-                                      </span>
-                                      {place.subtitle && (
-                                        <span className="text-gray-600 text-[14px] truncate">
-                                          {place.subtitle}
+                                  const shop = allShops.find((s) => s.name === place.title);
+                                  if (shop) {
+                                    handleShopSuggestion(shop);
+                                  } else {
+                                    console.warn("Shop not found for recent place:", place.title);
+                                  }
+                                }}
+                              >
+                                <div className="flex bg-red-00 items-center justify-between w-full group">
+                                  <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
+                                    {isInputEmpty ? (
+                                      <div className={`md:w-10 md:h-10 ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-[#f2f2f2]'} rounded-full flex items-center justify-center`}>
+                                        <AccessTimeIcon className={`${theme === 'dark' ? 'text-white' : 'text-black'} w-6 h-6`} />
+                                      </div>
+                                    ) : (
+                                      <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                        <AccessTimeIcon className={`w-9 h-9 ${theme === 'dark' ? 'text-white' : 'text-black'}`} style={{ fontSize: "21px" }} />
+                                      </div>
+                                    )}
+
+                                    {isInputEmpty ? (
+                                      <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
+                                        <span className={`font-medium text-[14.5px]  ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
+                                          {place.title}
                                         </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[14.5px] text-black font-medium truncate">
-                                      {place.title}
-                                      {place.subtitle && (
-                                        <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
-                                      )}
-                                    </div>
+                                        {place.subtitle && (
+                                          <span className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-600'} text-[14px] truncate`}>
+                                            {place.subtitle}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} font-medium truncate`}>
+                                        {place.title}
+                                        {place.subtitle && (
+                                          <span className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-500'} font-normal pl-[6px]`}>{place.subtitle}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {isInputEmpty && (
+                                    <button
+                                      tabIndex={-1}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setRecentPlaces((prev) => {
+                                          const updated = prev.filter(
+                                            (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                          );
+                                          localStorage.setItem("recent_places", JSON.stringify(updated));
+                                          return updated;
+                                        });
+                                      }}
+                                      className={`opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full ${theme === 'dark' ? 'text-white hover:bg-[#2a2b2f]' : 'text-black hover:bg-gray-200'}`}
+                                    >
+                                      ✕
+                                    </button>
                                   )}
                                 </div>
-
-                                {isInputEmpty && (
-                                  <button
-                                    tabIndex={-1}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setRecentPlaces((prev) => {
-                                        const updated = prev.filter(
-                                          (p) => !(p.lat === place.lat && p.lng === place.lng)
-                                        );
-                                        localStorage.setItem("recent_places", JSON.stringify(updated));
-                                        return updated;
-                                      });
-                                    }}
-                                    className="opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 text-black px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
                               </div>
-                            </div>
-                          );
-                        }
+                            );
+                          }
 
-                        if (item.type === "suggestion") {
-                          const shop = item.data;
-                          return (
-                            <div
-                              key={shop.shopId}
-                              className={baseClass}
-                              onMouseDown={() => handleShopSuggestion(shop)}
-                            >
-                              <div className="flex items-center gap-[10px] overflow-hidden">
-                                <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
-                                  <LocationOnIcon className="text-[#007B8A]" style={{ fontSize: "21px" }} />
+                          if (item.type === "suggestion") {
+                            const shop = item.data;
+                            return (
+                              <div
+                                key={shop.shopId}
+                                className={baseClass}
+                                onMouseDown={() => handleShopSuggestion(shop)}
+                              >
+                                <div className="flex items-center gap-[10px] overflow-hidden">
+                                  <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                    <LocationOnIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'}`} style={{ fontSize: "21px" }} />
+                                  </div>
+                                  <span className={`font-medium tracking-wide text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate w-full`}>
+                                    {shop.name}
+                                  </span>
                                 </div>
-                                <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
-                                  {shop.name}
+                              </div>
+                            );
+                          }
+
+                          if (item.type === "more") {
+                            return (
+                              <div
+                                key="more"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  exploreButtonFunction();
+                                  setShowSidebarSuggestions(false);
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  exploreButtonFunction();
+                                  setShowSidebarSuggestions(false);
+                                }}
+                                className={` px-[12px] py-[12px] flex items-center justify-center cursor-pointer 
+                                  ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} 
+                                  ${sidebarHighlightedIndex === index
+                                    ? (theme === 'dark' ? "bg-gray-800 text-white" : "bg-gray-100 text-[#007B8A]")
+                                    : (theme === 'dark' ? "text-white" : "text-white")
+                                  }`}
+                              >
+                                <span className="text-[14.5px] tracking-wide font-medium">
+                                  See all shops list
                                 </span>
                               </div>
-                            </div>
-                          );
-                        }
-
-                        if (item.type === "more") {
-                          return (
-                            <div
-                              key="more"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                exploreButtonFunction();
-                                setShowSidebarSuggestions(false);
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                exploreButtonFunction();
-                                setShowSidebarSuggestions(false);
-                              }}
-                              className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
-                                sidebarHighlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
-                              }`}
-                            >
-                              <span className="text-[14.5px] tracking-wide font-medium">
-                                See all shops list
-                              </span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
                     </>
                   )}
                   {noMatches && (
-                    <div className="px-[20px] py-[12px] text-center text-black">
-                      <p className="font-medium text-[15px] text-black">
+                    <div className={`px-[20px] py-[12px] text-center ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                      <p className={`font-medium text-[15px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                         Sorry, can&apos;t find that place name.
                       </p>
                     </div>
@@ -3953,21 +4145,21 @@ const Map = () => {
             )}
           </div>
         </div>
-        
+
         {/*Favorite place tab*/}
         <div className="flex flex-col h-full">
           <div className="flex flex-col items-start px-[26px] pt-[18px] pb-[16px] border-b justify-start border-gray-200">
-            <h2 className="text-[20px] font-sans font-normal text-black">Favorites</h2>
-            <div className="flex items-center text-gray-500 text-[14px] tracking-wide mt-[4px]">
-                {/*<LockIcon style={{ fontSize: "14px" }} className="mr-[3px]"/> */}
-                {/*Private <b className="mx-1">·</b> */} {favoritePlaceList.length} places
+            <h2 className={`text-[20px] font-sans font-normal ${theme === 'dark' ? 'text-white' : 'text-black'}`}>Favorites</h2>
+            <div className={`flex items-center ${theme === 'dark' ? 'text-gray-200' : 'text-gray-500'} text-[14px] tracking-wide mt-[4px]`}>
+              {/*<LockIcon style={{ fontSize: "14px" }} className="mr-[3px]"/> */}
+              {/*Private <b className="mx-1">·</b> */} {favoritePlaceList.length} places
             </div>
           </div>
 
           <div className="overflow-y-auto flex-1 px-[14px] py-[14px]">
             {favoritePlaceList.length === 0 ? (
               <div className="px-[12px] py-[22px]">
-                <span className="flex text-[18px] text-black font-sans font-medium tracking-wide text-center justify-center">
+                <span className={`flex text-[18px] ${theme === 'dark' ? 'text-white' : 'text-black'} font-sans font-medium tracking-wide text-center justify-center`}>
                   List is empty
                 </span>
               </div>
@@ -3978,11 +4170,11 @@ const Map = () => {
                   <div
                     key={index}
                     onClick={() => handleRecentPlaceClickResponsive(place)}
-                    className={`w-full mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group ${
-                      recentSelectedPlace?.title === place.title
-                        ? "bg-gray-200"
-                        : "group hover:bg-gray-100"
-                    }`}
+                    className={`w-full mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group 
+                      ${recentSelectedPlace?.title === place.title
+                        ? (theme === 'dark' ? "bg-gray-900" : "bg-gray-200")
+                        : (theme === 'dark' ? "group hover:bg-gray-800" : "group hover:bg-gray-100")
+                      }`}
                   >
                     <div className="flex items-center justify-between py-[10px]">
                       <div className="flex items-start gap-[16px]">
@@ -3996,7 +4188,7 @@ const Map = () => {
                             width={64}
                             height={64}
                             unoptimized
-                            className="w-full h-full rounded-[10px] object-cover"
+                            className={`w-full h-full rounded-[10px] object-fit bg-white`}
                           />
 
                           <button
@@ -4020,7 +4212,7 @@ const Map = () => {
                                 prev && prev.title === place.title ? { ...prev, isFavorite: false } : prev
                               );
                             }}
-                            className={`absolute -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white hover:bg-[#f2f2f2] shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
+                            className={`absolute -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'text-black bg-white hover:bg-[#f2f2f2]'} shadow-[0_2px_8px_rgba(0,0,0,0.3)] font-semibold text-[16px] 
                               transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
                           >
                             ✕
@@ -4028,17 +4220,17 @@ const Map = () => {
                         </div>
 
                         <div className="flex flex-col gap-[8px] max-w-[245px] leading-none">
-                          <span className="font-medium text-[16.5px] text-black truncate">
+                          <span className={`font-medium text-[16.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
                             {place.title}
                           </span>
 
                           {place.rating ? (
                             <>
-                              <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
+                              <span className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-x-[4px]`}>
                                 <span>{place.rating}</span>
                                 <StarRating rating={place.rating} />
                                 {place.userRatingsTotal && (
-                                  <span className="text-gray-500">
+                                  <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
                                     ({place.userRatingsTotal.toLocaleString()})
                                   </span>
                                 )}
@@ -4051,7 +4243,7 @@ const Map = () => {
                               </span>
 
                               {place.category && (
-                                <span className="text-gray-600 text-[14px] truncate">
+                                <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate pb-[2px]`}>
                                   {place.category}
                                 </span>
                               )}
@@ -4059,11 +4251,11 @@ const Map = () => {
                           ) : (
                             place.subtitle && (
                               <>
-                                <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
+                                <span className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-x-[4px]`}>
                                   <span>{4.5}</span>
                                   <StarRating rating={4.5} />
                                   {place.userRatingsTotal && (
-                                    <span className="text-gray-500">
+                                    <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
                                       (548)
                                     </span>
                                   )}
@@ -4076,7 +4268,7 @@ const Map = () => {
                                 </span>
 
                                 {place.category && (
-                                  <span className="text-gray-600 text-[14px] truncate pb-[1px]">
+                                  <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate pb-[2px]`}>
                                     {place.category}
                                   </span>
                                 )}
@@ -4096,7 +4288,7 @@ const Map = () => {
 
       {/*Recents Sidebar*/}
       <div
-        className={`fixed bg-white shadow-2xl z-30 transition-transform duration-300 flex flex-col
+        className={`fixed ${theme === 'dark' ? 'bg-[#131313] text-white' : 'bg-white text-black'} shadow-2xl z-30 transition-transform duration-300 flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-full md:translate-y-0
           ${topSidebar === "recent" ? "z-40" : "z-30"}
           ${topSidebar === "recent" ? "translate-y-0" : "translate-y-full"}
@@ -4106,18 +4298,17 @@ const Map = () => {
         {/*Top Part*/}
         <div className="pt-3 pb-[14px] border-b border-gray-300">
           <div className="relative px-[18px]" ref={recentSidebarSearchBoxRef}>
-            <div 
-              className={`relative bg-white border w-full md:w-[375px] ${
-                showSidebarSuggestions ? "border-gray-200 rounded-t-xl" : "border-gray-300 rounded-full"
-              }`}
+            <div
+              className={`relative ${theme === 'dark' ? 'bg-[#393939] border-[#393939]' : 'bg-white border-gray-200'} border w-full md:w-[375px] ${showSidebarSuggestions ? "rounded-t-xl" : "rounded-full"
+                }`}
             >
               <div className="flex items-center pl-6 pr-5 md:pr-4 py-[12px]">
                 <input
                   ref={inputRef}
                   type="text"
                   spellCheck={false}
-                  autoComplete="off" 
-                  autoCorrect="off" 
+                  autoComplete="off"
+                  autoCorrect="off"
                   autoCapitalize="off"
                   placeholder="Search Google Maps"
                   value={sidebarSearchValue}
@@ -4156,21 +4347,21 @@ const Map = () => {
                             console.warn("Shop not found for recent item:", selectedItem.data.title);
                           }
                         } else if (selectedItem.type === "suggestion") {
-                        const shop = allShops.find(
-                          (s) => s.name === selectedItem.data.name
-                        );
-                        if (shop) {
-                          handleShopSuggestion(shop, () => {
-                            setPlaceSidebar("full");
-                          });
-                        }
+                          const shop = allShops.find(
+                            (s) => s.name === selectedItem.data.name
+                          );
+                          if (shop) {
+                            handleShopSuggestion(shop, () => {
+                              setPlaceSidebar("full");
+                            });
+                          }
                         } else if (selectedItem.type === "home") {
                           alert("Set Home clicked");
                         } else if (selectedItem.type === "more") {
-                          exploreButtonFunction(); 
+                          exploreButtonFunction();
                         }
                         setShowSidebarSuggestions(false);
-                      } 
+                      }
                       else if (sidebarSearchValue.trim()) {
                         const query = sidebarSearchValue.trim().toLowerCase();
 
@@ -4215,19 +4406,19 @@ const Map = () => {
                     setNoMatches(filtered.length === 0);
                   }}
                   onFocus={() => setShowSidebarSuggestions(true)}
-                
-                  className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+
+                  className={`flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}
                 />
-                <div 
+                <div
                   className="relative group"
                   onClick={() => {
-                    setShowSidebarSuggestions(true);  
+                    setShowSidebarSuggestions(true);
                     inputRef.current?.focus();
                   }}
                 >
-                  <SearchIcon className="text-[#007B8A] text-[22px] cursor-pointer" />
+                  <SearchIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} text-[22px] cursor-pointer`} />
 
-                  <div 
+                  <div
                     className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
                     rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
                   >
@@ -4236,7 +4427,7 @@ const Map = () => {
                 </div>
 
                 <div className="mr-[30px]" />
-                
+
                 <div className="relative group">
                   <div
                     className="w-[20px] h-[20px] bg-tranparent rounded-full flex items-center justify-center cursor-pointer"
@@ -4250,13 +4441,38 @@ const Map = () => {
                       setTopSidebar(null);
                       closeCategoryMode();
                       clearCategoryMarkers();
+                      if (placeSidebar === "full" && keepHalfSidebarOpen) {
+                        setPlaceSidebar("half");
+                        setKeepHalfSidebarOpen(true);
+                        restoreCategoryView();
+                      } else {
+                        setPlaceSidebar(null);
+                        setKeepHalfSidebarOpen(false);
+                        closeCategoryMode();
+                        resetMapForMobile();
+                      }
+                      if (placeSidebar === "half")
+                      //if (placeSidebar === "half" || (placeSidebar === "full" && window.innerWidth < 768))
+                      {
+                        clearCategoryMarkers();
+                      }
+                      if (markerRef.current) {
+                        markerRef.current.setMap(null);
+                        markerRef.current = null;
+                      }
                       if (sidebarMarkerRef.current) {
                         sidebarMarkerRef.current.setMap(null);
                         sidebarMarkerRef.current = null;
                       }
+                      if (window.innerWidth < 768) {
+                        setSidebarHeight(window.innerHeight * 0.5);
+                      }
+
+                      activePlaceMarkerRemover();
+                      setNoMatches(false);
                     }}
                   >
-                    <span className="text-[18px] font-bold text-[#007B8A]">✕</span>
+                    <span className={`text-[18px] font-bold ${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'}`}>✕</span>
                   </div>
                   <div className="pointer-events-none absolute bottom-[-42px] left-1/2 -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100">
                     Close
@@ -4266,151 +4482,154 @@ const Map = () => {
             </div>
             {showSidebarSuggestions && (
               <div ref={recentSidebarSuggestionBoxRef} className="absolute top-full left-[18px] w-[calc(100%-36px)] md:w-[375px] z-40">
-                <div className="bg-white shadow-lg rounded-b-xl py-[7px]">
+                <div className={`${theme === 'dark' ? 'bg-[#393939]' : 'bg-white '} shadow-lg rounded-b-xl border-t border-gray-200 py-[7px]`}>
                   {sidebarCombinedList.length > 0 && (
                     <>
-                    <div className="flex flex-col space-y-[0px]">
-                      {sidebarCombinedList.map((item, index) => {
-                        const isHighlighted = sidebarHighlightedIndex === index;
-                        const baseClass = `hover:bg-gray-100 cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
-                          isHighlighted ? "bg-gray-100" : ""
-                        }`;
+                      <div className="flex flex-col space-y-[0px]">
+                        {sidebarCombinedList.map((item, index) => {
+                          const isHighlighted = sidebarHighlightedIndex === index;
+                          const baseClass = `${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between 
+                                             ${isHighlighted ? (theme === 'dark' ? "bg-gray-800" : "bg-gray-100") : ""}`;
 
-                        const isInputEmpty = sidebarSearchValue.trim() === "";
 
-                        if (item.type === "recent") {
-                          const place = item.data as RecentPlace;
-                          return (
-                            <div
-                              key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
-                              className={`px-[14px] md:px-[20px] ${baseClass} group`}
-                              onMouseDown={() => {
-                                setSidebarSearchValue(place.title);
-                                setShowSidebarSuggestions(true);
+                          const isInputEmpty = sidebarSearchValue.trim() === "";
 
-                                const shop = allShops.find((s) => s.name === place.title);
-                                if (shop) {
-                                  handleShopSuggestion(shop);
-                                } else {
-                                  console.warn("Shop not found for recent place:", place.title);
-                                }
-                              }}
-                            >
-                              <div className="flex bg-red-00 items-center justify-between w-full group">
-                                <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
-                                  {isInputEmpty ? (
-                                    <div className="md:w-10 md:h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
-                                      <AccessTimeIcon className="text-black w-6 h-6"  />
-                                    </div>
-                                  ) : (
-                                    <div className="py-[8px] bg-transparent flex items-center justify-center">
-                                      <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
-                                    </div>
-                                  )}
+                          if (item.type === "recent") {
+                            const place = item.data as RecentPlace;
+                            return (
+                              <div
+                                key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                                className={`px-[14px] md:px-[20px] ${baseClass} group`}
+                                onMouseDown={() => {
+                                  setSidebarSearchValue(place.title);
+                                  setShowSidebarSuggestions(true);
 
-                                  {isInputEmpty ? (
-                                    <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
-                                      <span className="font-medium text-[14.5px] text-black truncate">
-                                        {place.title}
-                                      </span>
-                                      {place.subtitle && (
-                                        <span className="text-gray-600 text-[14px] truncate">
-                                          {place.subtitle}
+                                  const shop = allShops.find((s) => s.name === place.title);
+                                  if (shop) {
+                                    handleShopSuggestion(shop);
+                                  } else {
+                                    console.warn("Shop not found for recent place:", place.title);
+                                  }
+                                }}
+                              >
+                                <div className="flex bg-red-00 items-center justify-between w-full group">
+                                  <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
+                                    {isInputEmpty ? (
+                                      <div className={`md:w-10 md:h-10 ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-[#f2f2f2]'} rounded-full flex items-center justify-center`}>
+                                        <AccessTimeIcon className={`${theme === 'dark' ? 'text-white' : 'text-black'} w-6 h-6`} />
+                                      </div>
+                                    ) : (
+                                      <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                        <AccessTimeIcon className={`w-9 h-9 ${theme === 'dark' ? 'text-white' : 'text-black'}`} style={{ fontSize: "21px" }} />
+                                      </div>
+                                    )}
+
+                                    {isInputEmpty ? (
+                                      <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
+                                        <span className={`font-medium text-[14.5px]  ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
+                                          {place.title}
                                         </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[14.5px] text-black font-medium truncate">
-                                      {place.title}
-                                      {place.subtitle && (
-                                        <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
-                                      )}
-                                    </div>
+                                        {place.subtitle && (
+                                          <span className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-600'} text-[14px] truncate`}>
+                                            {place.subtitle}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} font-medium truncate`}>
+                                        {place.title}
+                                        {place.subtitle && (
+                                          <span className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-500'} font-normal pl-[6px]`}>{place.subtitle}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {isInputEmpty && (
+                                    <button
+                                      tabIndex={-1}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setRecentPlaces((prev) => {
+                                          const updated = prev.filter(
+                                            (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                          );
+                                          localStorage.setItem("recent_places", JSON.stringify(updated));
+                                          return updated;
+                                        });
+                                      }}
+                                      className={`opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full ${theme === 'dark' ? 'text-white hover:bg-[#2a2b2f]' : 'text-black hover:bg-gray-200'}`}
+                                    >
+                                      ✕
+                                    </button>
                                   )}
                                 </div>
-
-                                {isInputEmpty && (
-                                  <button
-                                    tabIndex={-1}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setRecentPlaces((prev) => {
-                                        const updated = prev.filter(
-                                          (p) => !(p.lat === place.lat && p.lng === place.lng)
-                                        );
-                                        localStorage.setItem("recent_places", JSON.stringify(updated));
-                                        return updated;
-                                      });
-                                    }}
-                                    className="opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 text-black px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
                               </div>
-                            </div>
-                          );
-                        }
+                            );
+                          }
 
-                        if (item.type === "suggestion") {
-                          const shop = item.data;
-                          return (
-                            <div
-                              key={shop.shopId}
-                              className={baseClass}
-                              onMouseDown={() => handleShopSuggestion(shop)}
-                            >
-                              <div className="flex items-center gap-[10px] overflow-hidden">
-                                <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
-                                  <LocationOnIcon className="text-[#007B8A]" style={{ fontSize: "21px" }} />
+                          if (item.type === "suggestion") {
+                            const shop = item.data;
+                            return (
+                              <div
+                                key={shop.shopId}
+                                className={baseClass}
+                                onMouseDown={() => handleShopSuggestion(shop)}
+                              >
+                                <div className="flex items-center gap-[10px] overflow-hidden">
+                                  <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                    <LocationOnIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'}`} style={{ fontSize: "21px" }} />
+                                  </div>
+                                  <span className={`font-medium tracking-wide text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate w-full`}>
+                                    {shop.name}
+                                  </span>
                                 </div>
-                                <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
-                                  {shop.name}
+                              </div>
+                            );
+                          }
+
+                          if (item.type === "more") {
+                            return (
+                              <div
+                                key="more"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  exploreButtonFunction();
+                                  setShowSidebarSuggestions(false);
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  exploreButtonFunction();
+                                  setShowSidebarSuggestions(false);
+                                }}
+                                className={` px-[12px] py-[12px] flex items-center justify-center cursor-pointer 
+                                  ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} 
+                                  ${sidebarHighlightedIndex === index
+                                    ? (theme === 'dark' ? "bg-gray-800 text-white" : "bg-gray-100 text-[#007B8A]")
+                                    : (theme === 'dark' ? "text-white" : "text-white")
+                                  }`}
+                              >
+                                <span className="text-[14.5px] tracking-wide font-medium">
+                                  See all shops list
                                 </span>
                               </div>
-                            </div>
-                          );
-                        }
-
-                        if (item.type === "more") {
-                          return (
-                            <div
-                              key="more"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                exploreButtonFunction();
-                                setShowSidebarSuggestions(false);
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                exploreButtonFunction();
-                                setShowSidebarSuggestions(false);
-                              }}
-                              className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
-                                sidebarHighlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
-                              }`}
-                            >
-                              <span className="text-[14.5px] tracking-wide font-medium">
-                                See all shops list
-                              </span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
                     </>
                   )}
                   {noMatches && (
-                    <div className="px-[20px] py-[12px] text-center text-black">
-                      <p className="font-medium text-[15px] text-black">
+                    <div className={`px-[20px] py-[12px] text-center ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                      <p className={`font-medium text-[15px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                         Sorry, can&apos;t find that place name.
                       </p>
                     </div>
@@ -4422,18 +4641,17 @@ const Map = () => {
 
           {/*Grouping Part*/}
           <div className="mt-[17px] flex flex-col gap-[14px] relative ml-[26px] mr-[24px]">
-            <span className="text-[19.5px] font-medium text-black">Recents</span>
-            
+            <span className={`text-[19.5px] font-medium ${theme === 'dark' ? 'text-white' : 'text-black'}`}>Recents</span>
+
             {groupTags.length > 0 && (
               <div className="flex gap-2 flex-wrap items-center mb-[8px]">
                 <>
                   <span
                     onClick={() => setSelectedTags([])}
-                    className={`text-[14px] rounded-[10px] tracking-wider py-[6px] gap-[3px] cursor-pointer flex items-center ${
-                      selectedTags.length === 0
-                        ? "pl-[6px] pr-[12px] bg-gray-300 text-black"
-                        : "px-[12px] bg-gray-200 text-black"
-                    }`}
+                    className={`text-[14px] rounded-[10px] tracking-wider py-[6px] gap-[3px] cursor-pointer flex items-center ${selectedTags.length === 0
+                      ? "pl-[6px] pr-[12px] bg-gray-300 text-black"
+                      : "px-[12px] bg-gray-200 text-black"
+                      }`}
                   >
                     {selectedTags.length === 0 && <CheckIcon style={{ fontSize: "16px" }} />} All
                   </span>
@@ -4450,13 +4668,12 @@ const Map = () => {
                               : [...prev, tag.name]
                           )
                         }
-                        className={`text-[14px] rounded-[10px] pl-[10px] pr-[14px] py-[6px] cursor-pointer flex items-center gap-[6px] ${
-                          isSelected
-                            ? "bg-gray-300 text-black"
-                            : "bg-gray-200 text-black"
-                        }`}
+                        className={`text-[14px] rounded-[10px] pl-[10px] pr-[14px] py-[6px] cursor-pointer flex items-center gap-[6px] ${isSelected
+                          ? "bg-gray-300 text-black"
+                          : "bg-gray-200 text-black"
+                          }`}
                       >
-                        {isSelected ? (<CheckIcon style={{ fontSize: "16px" }} />) : (<LocationOnIcon style={{fontSize:"16px"}} />)}
+                        {isSelected ? (<CheckIcon style={{ fontSize: "16px" }} />) : (<LocationOnIcon style={{ fontSize: "16px" }} />)}
                         {tag.name} {tag.count}
                       </span>
                     );
@@ -4470,23 +4687,25 @@ const Map = () => {
         {/* Recent Places */} {/*Middle Part*/}
         <div className="overflow-y-auto flex-1 px-[14px]">
           <div className="px-[12px] pt-[21px] pb-[14px]">
-            <span className="text-[17px] font-medium tracking-wide text-black">
+            <span className={`text-[17px] font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
               Last 3 days ({filteredPlaces.length})
             </span>
           </div>
 
           {filteredPlaces.map((place, index) => {
             //const isSelected = selectedPlaceTitles.includes(place.title);
-            const isFavorite = recentPlaces.find((p) => p.title === place.title)?.isFavorite ??favoritePlaceList.some((p) => p.title === place.title);
+            const isFavorite = recentPlaces.find((p) => p.title === place.title)?.isFavorite ?? favoritePlaceList.some((p) => p.title === place.title);
 
             return (
               <div
                 key={index}
                 /*onClick={() => handleDetailsRecentPlaceClick(place)} */
-                onClick={() => handleRecentPlaceClickResponsive(place)} 
-                className={`w-full bg-white mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group ${
-                  recentSelectedPlace?.title === place.title ? "bg-gray-200" : "group hover:bg-gray-100"
-                }`}
+                onClick={() => handleRecentPlaceClickResponsive(place)}
+                className={`w-full bg-transparent mb-[14px] transition-colors rounded-[16px] px-[12px] duration-200 cursor-pointer group 
+                  ${recentSelectedPlace?.title === place.title
+                    ? (theme === 'dark' ? "bg-[#131313]" : "bg-gray-200")
+                    : (theme === 'dark' ? "group hover:bg-gray-800" : "group hover:bg-gray-100")
+                  }`}
               >
                 <div className="flex items-center justify-between py-[10px]">
                   <div className="flex items-start gap-[14px]">
@@ -4500,9 +4719,9 @@ const Map = () => {
                         width={64}
                         height={64}
                         unoptimized
-                        className="w-full h-full rounded-[10px] object-cover"
+                        className="w-full h-full rounded-[10px] object-fit bg-white"
                       />
-                      
+
                       <button
                         onMouseDown={(e) => {
                           e.stopPropagation();
@@ -4515,7 +4734,7 @@ const Map = () => {
                             prevSelected.filter((title) => title !== place.title)
                           );
                         }}
-                        className={`absolute cursor-pointer -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full bg-white hover:bg-[#f2f2f2] shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
+                        className={`absolute cursor-pointer -top-[22px] -left-[12px] w-[30px] h-[30px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'text-black bg-white hover:bg-[#f2f2f2]'} shadow-[0_2px_8px_rgba(0,0,0,0.3)] text-black font-semibold text-[16px] 
                           transition-opacity duration-200 opacity-0 group-hover:opacity-100`}
                       >
                         ✕
@@ -4523,20 +4742,20 @@ const Map = () => {
                     </div>
 
                     <div className="flex flex-col gap-[8px] responsive-width leading-none">
-                      <span className="font-medium text-[16.5px] text-black truncate">
+                      <span className={`font-medium text-[16.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
                         {place.title}
                       </span>
 
                       {place.rating ? (
                         <>
-                          <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
+                          <span className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-x-[4px]`}>
                             <span>{place.rating}</span>
                             <StarRating rating={place.rating} />
                             {place.userRatingsTotal && (
-                              <span className="text-gray-500">
+                              <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
                                 ({place.userRatingsTotal.toLocaleString()})
                               </span>
-                            )}                            
+                            )}
                             {place.priceText && (
                               <>
                                 <span className="hidden md:inline"><b>·</b></span>
@@ -4546,7 +4765,7 @@ const Map = () => {
                           </span>
 
                           {place.category && (
-                            <span className="text-gray-600 text-[14px] truncate">
+                            <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate pb-[2px]`}>
                               {place.category}
                             </span>
                           )}
@@ -4562,28 +4781,28 @@ const Map = () => {
                           */
 
                           <>
-                          <span className="text-[14px] text-gray-700 flex items-center gap-x-[4px]">
-                            <span>{4.5}</span>
-                            <StarRating rating={4.5} />
-                            {place.userRatingsTotal && (
-                              <span className="text-gray-500">
-                                (548)
+                            <span className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-x-[4px]`}>
+                              <span>{4.5}</span>
+                              <StarRating rating={4.5} />
+                              {place.userRatingsTotal && (
+                                <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
+                                  (548)
+                                </span>
+                              )}
+                              {place.priceText || (
+                                <>
+                                  <span className="hidden md:inline"><b>·</b></span>
+                                  <span className="hidden md:inline">₹200 – 400</span>
+                                </>
+                              )}
+                            </span>
+
+                            {place.category && (
+                              <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate pb-[2px]`}>
+                                {place.category}
                               </span>
                             )}
-                            {place.priceText || (
-                              <>
-                                <span className="hidden md:inline"><b>·</b></span>
-                                <span className="hidden md:inline">₹200 – 400</span>
-                              </>
-                            )}
-                          </span>
-
-                          {place.category && (
-                            <span className="text-gray-600 text-[14px] truncate pb-[1px]">
-                              {place.category}
-                            </span>
-                          )}
-                        </>
+                          </>
                         )
                       )}
                     </div>
@@ -4603,7 +4822,7 @@ const Map = () => {
                             localStorage.setItem("recent_places", JSON.stringify(updated));
                             return updated;
                           });
-                          
+
                           setFavoritePlaceList((prevFavs) => {
                             let updatedFavs;
                             if (!newFavoriteStatus) {
@@ -4614,7 +4833,7 @@ const Map = () => {
                             localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
                             return updatedFavs;
                           });
-                          
+
                           setRecentSelectedPlace((prev) =>
                             prev && prev.title === place.title
                               ? { ...prev, isFavorite: newFavoriteStatus }
@@ -4630,7 +4849,7 @@ const Map = () => {
                         {isFavorite ? (
                           <FavoriteIcon className="text-red-500" style={{ fontSize: "22px" }} />
                         ) : (
-                          <FavoriteBorderIcon className="text-black" style={{ fontSize: "22px" }} />
+                          <FavoriteBorderIcon className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} style={{ fontSize: "22px" }} />
                         )}
                       </button>
 
@@ -4640,7 +4859,7 @@ const Map = () => {
                     </div>
 
                     <div className="relative group/dl">
-                      <button 
+                      <button
                         onMouseDown={(e) => {
                           e.stopPropagation();
                         }}
@@ -4650,7 +4869,7 @@ const Map = () => {
                         }}
                         className="cursor-pointer  rounded-full transition"
                       >
-                        <HiDownload className="text-black" style={{ fontSize: "22px" }} />
+                        <HiDownload className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} style={{ fontSize: "22px" }} />
                       </button>
                       <span className="absolute left-[-25px] top-[35px] -translate-y-1/2 bg-black text-white text-xs rounded-md px-2 py-1 opacity-0 group-hover/dl:opacity-100 whitespace-nowrap transition">
                         Order Now
@@ -4666,14 +4885,13 @@ const Map = () => {
 
       {/* Details Sidebar */}
       <div
-        className={`fixed top-[52%] -translate-y-1/2 left-[0px] md:left-[500px] h-[90%] bg-white shadow-2xl z-30 transition-transform duration-300 w-[360px] rounded-[20px] flex flex-col ${
-          showRecentDetailsSidebar ? "translate-x-0" : "-translate-x-[790px]"
-        }`}
+        className={`fixed top-[52%] -translate-y-1/2 left-[0px] md:left-[500px] h-[90%] ${theme === 'dark' ? 'md:bg-[#131313] text-white' : 'md:bg-white text-black'} shadow-2xl z-30 transition-transform duration-300 w-[360px] rounded-[20px] flex flex-col ${showRecentDetailsSidebar ? "translate-x-0" : "-translate-x-[790px]"
+          }`}
       >
         <div ref={stickyScrollRef} className="overflow-y-auto h-full rounded-[20px] relative">
 
           {detailsActiveTab === "overview" && showStickyHeader && (
-            <div className="sticky top-0 left-0 w-full h-[58px] bg-white rounded-t-[20px] z-20 flex items-center justify-between text-black transition-opacity duration-200  shadow-[0px_1px_2px_rgba(0,0,0,0.4)]">
+            <div className={`sticky top-0 left-0 w-full h-[58px] ${theme === 'dark' ? 'md:bg-[#131313] text-white' : 'md:bg-white text-black'} rounded-t-[20px] z-20 flex items-center justify-between transition-opacity duration-200  shadow-[0px_1px_2px_rgba(0,0,0,0.4)]`}>
               <h2 className="font-medium text-[17.5px] truncate pointer-events-none tracking-wide pl-[18px] max-w-[80%]">
                 {recentSelectedPlace?.title}
               </h2>
@@ -4682,7 +4900,7 @@ const Map = () => {
                   setShowRecentDetailsSidebar(false);
                   setRecentSelectedPlace(null);
                 }}
-                className="absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[18px] font-bold cursor-pointer"
+                className={`absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'text-white hover:bg-[#2a2b2f]' : 'text-black hover:bg-gray-200'} text-[18px] font-bold cursor-pointer`}
               >
                 ✕
               </button>
@@ -4691,7 +4909,7 @@ const Map = () => {
 
           {detailsActiveTab === "overview" && (
             <>
-              <div className="relative w-full h-64 bg-gray-200 rounded-t-[20px] overflow-hidden">
+              <div className="relative w-full h- bg-gray-200 rounded-t-[20px] overflow-hidden">
                 <Image
                   src={recentSelectedPlace?.imageUrl || "/fallback.jpg"}
                   alt={recentSelectedPlace?.title || "Place"}
@@ -4701,7 +4919,7 @@ const Map = () => {
                   width={800}
                   height={400}
                   unoptimized
-                  className="w-full h-full object-cover rounded-t-[20px]"
+                  className="w-full h-full object-fit rounded-t-[20px]"
                 />
 
                 <button
@@ -4716,23 +4934,23 @@ const Map = () => {
               </div>
 
               <div className="pt-[14px] px-[24px] flex flex-col gap-[2px] max-w-[360px]">
-                <span className="font-medium text-[21.5px] text-black truncate">
+                <span className={`font-medium text-[21.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
                   {recentSelectedPlace?.title}
                 </span>
 
                 {recentSelectedPlace?.nativeName && (
-                  <span className="text-[14px] text-gray-600">
+                  <span className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-600'}`}>
                     {recentSelectedPlace?.nativeName}
                   </span>
                 )}
 
                 {recentSelectedPlace?.rating ? (
                   <>
-                    <span className="mt-[2px] text-[13.5px] text-gray-700 flex items-center gap-[4px]">
+                    <span className={`mt-[2px] text-[13.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-[4px]`}>
                       <span>{recentSelectedPlace?.rating}</span>
                       <StarRating rating={recentSelectedPlace?.rating} />
                       {recentSelectedPlace?.userRatingsTotal && (
-                        <span className="text-gray-500">
+                        <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
                           ({recentSelectedPlace?.userRatingsTotal.toLocaleString()})
                         </span>
                       )}
@@ -4745,7 +4963,7 @@ const Map = () => {
                     </span>
 
                     {recentSelectedPlace?.category && (
-                      <span className="mt-[2px] text-gray-600 text-[14px] truncate">
+                      <span className={`mt-[2px] ${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate`}>
                         {recentSelectedPlace?.category}
                       </span>
                     )}
@@ -4757,29 +4975,29 @@ const Map = () => {
                       {recentSelectedPlace.subtitle}
                     </span>
                     */
-                   <>
-                    <span className="mt-[2px] text-[13.5px] text-gray-700 flex items-center gap-[4px]">
-                      <span>{4.5}</span>
-                      <StarRating rating={4.5} />
-                      {recentSelectedPlace?.userRatingsTotal || (
-                        <span className="text-gray-500">
-                          (548)
+                    <>
+                      <span className={`mt-[2px] text-[13.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-[4px]`}>
+                        <span>{4.5}</span>
+                        <StarRating rating={4.5} />
+                        {recentSelectedPlace?.userRatingsTotal || (
+                          <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
+                            (548)
+                          </span>
+                        )}
+                        {recentSelectedPlace?.priceText && (
+                          <>
+                            <span><b>·</b></span>
+                            <span>₹200 – 400</span>
+                          </>
+                        )}
+                      </span>
+
+                      {recentSelectedPlace?.category && (
+                        <span className={`mt-[2px] ${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate`}>
+                          {recentSelectedPlace?.category}
                         </span>
                       )}
-                      {recentSelectedPlace?.priceText && (
-                        <>
-                          <span><b>·</b></span>
-                          <span>₹200 – 400</span>
-                        </>
-                      )}
-                    </span>
-
-                    {recentSelectedPlace?.category && (
-                      <span className="mt-[2px] text-gray-600 text-[14px] truncate">
-                        {recentSelectedPlace?.category}
-                      </span>
-                    )}
-                  </>
+                    </>
                   )
                 )}
               </div>
@@ -4787,13 +5005,13 @@ const Map = () => {
           )}
 
           {detailsActiveTab !== "overview" && (
-            <div className="sticky top-0 z-30 bg-white">
-              <div className="relative top-0 left-0 w-full pt-[18px] pb-[16px] bg-white rounded-t-[20px] z-20 flex items-center justify-between text-black transition-opacity duration-200">
-                 <button
+            <div className={`sticky top-0 z-30 ${theme === 'dark' ? 'md:bg-[#131313]' : 'md:bg-white'}`}>
+              <div className={`relative top-0 left-0 w-full pt-[18px] pb-[16px]  ${theme === 'dark' ? 'md:bg-[#131313] text-white' : 'md:bg-white text-black'} rounded-t-[20px] z-20 flex items-center justify-between text-black transition-opacity duration-200`}>
+                <button
                   onClick={() => {
                     setDetailsActiveTab("overview");
                   }}
-                  className="absolute left-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black cursor-pointer"
+                  className={`absolute left-4 w-[34px] h-[34px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'text-white' : 'text-black hover:bg-gray-200'} cursor-pointer`}
                 >
                   <ArrowLeft size={22} strokeWidth={2} />
                 </button>
@@ -4805,22 +5023,22 @@ const Map = () => {
                     setShowRecentDetailsSidebar(false);
                     setRecentSelectedPlace(null);
                   }}
-                  className="absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[18px] font-bold cursor-pointer"
+                  className={`absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full  ${theme === 'dark' ? 'text-white hover:bg-[#2a2b2f]' : 'text-black hover:bg-gray-200'} text-[18px] font-bold cursor-pointer`}
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="flex justify-around border-b border-gray-400 bg-white">
+              <div className={`flex justify-around border-b ${theme === 'dark' ? 'bg-[#131313] border-gray-200' : 'bg-white border-gray-400'}`}>
                 {detailsTabs.map((tab) => (
                   <button
                     key={tab.id}
-                    className="relative py-[10px] text-[14px] tracking-wide font-medium text-gray-600 hover:text-black cursor-pointer"
+                    className={`relative py-[10px] text-[14px] tracking-wide font-medium${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-600 hover:text-black'} cursor-pointer`}
                     onClick={() => setDetailsActiveTab(tab.id)}
                   >
                     {tab.label}
                     {detailsActiveTab === tab.id && (
-                      <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
+                      <span className={`absolute bottom-0 left-0 w-full h-[2px] ${theme === 'dark' ? 'bg-[#9dedfb]' : 'bg-[#007B8A]'}`} />
                     )}
                   </button>
                 ))}
@@ -4830,16 +5048,16 @@ const Map = () => {
 
           {detailsActiveTab === "overview" && (
             <>
-              <div className="flex justify-around px-[4px] border-b border-gray-400 bg-white">
+              <div className={`flex justify-around px-[4px] border-b ${theme === 'dark' ? 'bg-[#131313] border-gray-200' : 'bg-white border-gray-400'}`}>
                 {detailsTabs.map((tab) => (
                   <button
                     key={tab.id}
-                    className="relative py-[10px] text-[14px] tracking-wide font-medium text-gray-600 hover:text-black mt-[6px] cursor-pointer"
+                    className={`relative py-[10px] text-[14px] tracking-wide font-medium ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-600 hover:text-black'} mt-[6px] cursor-pointer`}
                     onClick={() => setDetailsActiveTab(tab.id)}
                   >
                     {tab.label}
                     {detailsActiveTab === tab.id && (
-                      <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
+                      <span className={`absolute bottom-0 left-0 w-full h-[2px] ${theme === 'dark' ? 'bg-[#9dedfb]' : 'bg-[#007B8A]'}`} />
                     )}
                   </button>
                 ))}
@@ -4847,12 +5065,12 @@ const Map = () => {
             </>
           )}
 
-          <div className={`pb-[14px] text-[14.5px] text-gray-700
-            ${ detailsActiveTab === "menu" ? "pt-[8px]" : "pt-[14px]" }`}
+          <div className={`pb-[14px] text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'}
+            ${detailsActiveTab === "menu" ? "pt-[8px]" : "pt-[14px]"}`}
           >
             {detailsActiveTab === "overview" && (
               <>
-                <div className="flex justify-around px-[12px] pb-[12px] border-b border-gray-300 bg-white">
+                <div className={`flex justify-around px-[12px] pb-[12px] border-b border-gray-300 ${theme === 'dark' ? 'bg-[#131313]' : 'bg-white'}`}>
                   {/*
                   <button 
                     onClick={() => {
@@ -4927,13 +5145,13 @@ const Map = () => {
                         return updatedFavs;
                       });
                     }}
-                    className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
+                    className={`flex flex-col items-center text-[12.5px] tracking-wide ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-700 hover:text-black'} cursor-pointer`}
                   >
-                    <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
+                    <div className={`w-[40px] h-[40px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} mb-[6px]`}>
                       {favoritePlaceList.some((p) => p.title === recentSelectedPlace?.title) ? (
                         <FavoriteIcon style={{ fontSize: "22px" }} className="text-red-500" />
                       ) : (
-                        <FavoriteBorderIcon style={{ fontSize: "22px" }} className="text-black text-medium" />
+                        <FavoriteBorderIcon style={{ fontSize: "22px" }} className={`${theme === 'dark' ? 'text-white' : 'text-black'} text-medium`} />
                       )}
                     </div>
                     {favoritePlaceList.some((p) => p.title === recentSelectedPlace?.title) ? "Remove" : "Favorite"}
@@ -4946,27 +5164,27 @@ const Map = () => {
                       if (recentSelectedPlace) {
                         handleAppDownload(recentSelectedPlace);
                       }
-                    }} 
-                    className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer">
-                    <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
-                      <HiDownload style={{fontSize:"22px"}} className="text-black" />
+                    }}
+                    className={`flex flex-col items-center text-[12.5px] tracking-wide ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-700 hover:text-black'} cursor-pointer`}>
+                    <div className={`w-[40px] h-[40px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} mb-[6px]`}>
+                      <HiDownload style={{ fontSize: "22px" }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                     </div>
                     Order Now
                   </button>
-                  
+
                   <div className="relative group">
-                    <button 
+                    <button
                       onClick={handleLocationShare}
-                      className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
+                      className={`flex flex-col items-center text-[12.5px] tracking-wide ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-700 hover:text-black'} cursor-pointer`}
                     >
-                      <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
-                        <Share2 size={18} className="text-black" />
+                      <div className={`w-[40px] h-[40px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} mb-[6px]`}>
+                        <Share2 size={18} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                       </div>
                       Share
                     </button>
                   </div>
                 </div>
-                
+
                 {/*
                 <div
                   onClick={() => {
@@ -4991,11 +5209,11 @@ const Map = () => {
                 </div>
                 */}
 
-                <div className="pt-[14px] pb-[16px] border-b border-gray-300 bg-white">
-                  <div className="group relative w-full flex items-start pl-[24px] pr-[16px] py-2 hover:bg-gray-100 cursor-pointer">
-                    <LocationOnIcon className="text-[#007B8A] mr-[24px] mt-[2px]" />
+                <div className={`pt-[14px] pb-[16px] border-b border-gray-300 ${theme === 'dark' ? 'bg-[#131313]' : 'bg-white'}`}>
+                  <div className={`group relative w-full flex items-start pl-[24px] pr-[16px] py-2 ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} cursor-pointer`}>
+                    <LocationOnIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} mr-[24px] mt-[2px]`} />
 
-                    <p className="flex-1 text-[14px] text-gray-800 leading-snug tracking-wide">
+                    <p className={`flex-1 text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-800'} leading-snug tracking-wide`}>
                       {recentSelectedPlace?.fullAddress || "Address not available"}
                     </p>
 
@@ -5003,7 +5221,7 @@ const Map = () => {
                       onClick={handleAddressCopy}
                       className="opacity-0 group-hover:opacity-100 transition-opacity ml-[6px] cursor-pointer"
                     >
-                      <ContentCopyIcon style={{fontSize:"18px"}} className="text-gray-600" />
+                      <ContentCopyIcon style={{ fontSize: "18px" }} className={`${theme === 'dark' ? 'text-white' : 'text-gray-600'}`} />
 
                       <span className="absolute left-0 top-[36px] bg-black text-white text-[12px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition tracking-wide">
                         Copy address
@@ -5017,33 +5235,33 @@ const Map = () => {
                     )}
                   </div>
 
-                  <div className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 cursor-pointer">
-                    <AccessTimeIcon  className="text-[#007B8A] mr-[24px] font-bold" />
-                    <p className="flex-1 text-[14px] text-gray-800 tracking-wide">
+                  <div className={`w-full flex items-center px-[24px] py-2 ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} cursor-pointer`}>
+                    <AccessTimeIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} mr-[24px] font-bold`} />
+                    <p className={`flex-1 text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-800'} tracking-wide`}>
                       {recentSelectedPlace?.openCloseTiming ? (
                         <>
                           {(() => {
                             const [openTime, closeTime] = recentSelectedPlace.openCloseTiming.split("–");
                             return (
                               <>
-                                Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                Open {openTime.trim()} <b>·</b> <span className={`${theme === 'dark' ? 'text-red-300' : 'text-red-500'}`}>Closes {closeTime?.trim() || "soon"}</span>
                               </>
                             );
                           })()}
                         </>
                       ) : (
-                        <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
+                        <span>Open 10am <b>·</b> <span className={`${theme === 'dark' ? 'text-red-300' : 'text-red-500'}`}>Closes 10pm</span></span>
                       )}
                     </p>
                   </div>
 
-                  <button className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 rounded-none">
-                    <PaymentsIcon className="text-[#007B8A] mr-[24px]" />
+                  <button className={`w-full flex items-center px-[24px] py-2 ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} rounded-none`}>
+                    <PaymentsIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} mr-[24px]`} />
                     <div className="flex flex-col">
-                      <p className="text-[14px] text-gray-800 tracking-wide"> {recentSelectedPlace?.priceText || "₹200 – 400"} per person</p>
+                      <p className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-800'} tracking-wide`}> {recentSelectedPlace?.priceText || "₹200 – 400"} per person</p>
                     </div>
                   </button>
-                  
+
                   {/* 
                   <div className="group relative w-full flex items-center pl-[24px] pr-[16px] py-2 hover:bg-gray-100 cursor-pointer">
                     <AdjustIcon className="text-[#007B8A] mr-[24px]" />
@@ -5105,7 +5323,7 @@ const Map = () => {
                   */}
                 </div>
 
-               {/* 
+                {/* 
                 <div className="bg-white py-[14px] border-b border-gray-300">
                   <h3 className="text-[16px] font-sans font-medium tracking-wide text-black mb-[14px] px-[24px]">
                     Add missing information
@@ -5133,11 +5351,11 @@ const Map = () => {
                   </div>
                 </div>
                 */}
-                
+
                 <div className="py-[14px] border-b border-gray-300">
                   {(recentSelectedPlace?.photos?.length ?? 0) > 0 && (
                     <div>
-                      <h2 className="font-sans font-medium tracking-wide text-black text-[16px] px-[24px] mb-[10px]">
+                      <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] px-[24px] md:px-[26px] mb-[10px]`}>
                         Menu & highlights
                       </h2>
 
@@ -5150,7 +5368,7 @@ const Map = () => {
                               width={160}
                               height={180}
                               unoptimized
-                              className="w-[160px] h-[180px] object-cover rounded-lg"
+                              className="w-[160px] h-[180px] object-fit rounded-lg bg-white"
                             />
                           </div>
                         ))}
@@ -5159,7 +5377,7 @@ const Map = () => {
                       <div className="mt-[16px] flex justify-center">
                         <button
                           onClick={() => setDetailsActiveTab("menu")}
-                          className="text-[#007B8A] font-sans text-[14px] font-medium tracking-wide hover:text-black"
+                          className={`${theme === 'dark' ? 'text-white md:text-[#9dedfb] md:hover:text-white' : 'text-black md:text-[#007B8A] md:hover:text-black'} font-sans text-[14px] font-medium tracking-wide`}
                         >
                           See more
                         </button>
@@ -5168,9 +5386,9 @@ const Map = () => {
                   )}
                 </div>
 
-                <div className="pt-[14px] pb-[7px]"> 
+                <div className="pt-[14px] pb-[7px]">
                   <div className="px-[24px] pb-[18px] border-b border-gray-300">
-                    <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mb-[10px]">
+                    <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] mb-[10px]`}>
                       Review summary
                     </h2>
                     <div className="flex items-center justify-between mt-[14px]">
@@ -5200,7 +5418,7 @@ const Map = () => {
 
                               return (
                                 <div key={star} className="flex items-center gap-2 text-[14px]">
-                                  <span className="w-4 text-gray-700">{star}</span>
+                                  <span className={`w-4 ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>{star}</span>
                                   <div className="flex-1 h-2 bg-gray-200 rounded">
                                     <div
                                       className="h-2 bg-yellow-400 rounded"
@@ -5215,18 +5433,18 @@ const Map = () => {
                       })()}
 
                       <div className="flex flex-col items-center gap-[6px]">
-                        <span className="text-[42px] leading-none font-medium text-black">
+                        <span className={`text-[42px] leading-none font-medium ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                           {recentSelectedPlace?.rating?.toFixed(1)}
                         </span>
                         <StarRating rating={recentSelectedPlace?.rating || 4.5} />
-                        <span className="text-gray-500 text-[12.5px]">
+                        <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'} text-[12.5px]`}>
                           {/*{recentSelectedPlace?.userRatingsTotal?.toLocaleString()} reviews*/}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-[22px] flex justify-center">
-                      <button className="flex items-center gap-2 px-[14px] py-2 rounded-full bg-[#DFF6FD] text-[#014B54] font-medium text-[14.5px] tracking-wide hover:bg-[#c7eef9]">
+                      <button className={`flex items-center gap-2 px-[14px] py-2 rounded-full ${theme === 'dark' ? 'bg-[#00373e] text-white' : 'bg-[#CCF3F9] hover:bg-gray-100 text-black'} font-medium text-[14.5px] tracking-wide`}>
                         <RateReviewIcon style={{ fontSize: "18px" }} />
                         Write a review
                       </button>
@@ -5234,48 +5452,48 @@ const Map = () => {
                   </div>
                   {recentSelectedPlace?.reviews && recentSelectedPlace.reviews.length > 0 && (
                     <div>
-                      <h2 className="font-sans font-medium tracking-wide text-black text-[16px] px-[24px] mt-[16px]">
+                      <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] px-[24px] mt-[16px]`}>
                         Reviews
                       </h2>
-                      {recentSelectedPlace.reviews.slice(0,2).map((review, index) => (
+                      {recentSelectedPlace.reviews.slice(0, 2).map((review, index) => (
                         <div
                           key={index}
                           className="border-b last:border-b-0 border-gray-300 pt-[16px] pb-[18px] last:pb-0 flex gap-3"
                         >
                           <div className="px-[24px]">
-                              <div className="flex items-center gap-[12px]">
-                                <Image
-                                  src={
-                                    review.profile_photo_url
-                                      ? review.profile_photo_url.replace("http://", "https://")
-                                      : "https://www.gravatar.com/avatar/?d=mp&s=40"
-                                  }
-                                  alt={review.author_name}
-                                  width={36}
-                                  height={36}
-                                  unoptimized
-                                  onError={(e) => {
-                                    e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40";
-                                  }}
-                                  className="w-9 h-9 rounded-full object-cover"
-                                />
-                                <span className="font-medium text-[16px] tracking-wide text-black">
-                                  {review.author_name}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-[12px]">
+                              <Image
+                                src={
+                                  review.profile_photo_url
+                                    ? review.profile_photo_url.replace("http://", "https://")
+                                    : "https://www.gravatar.com/avatar/?d=mp&s=40"
+                                }
+                                alt={review.author_name}
+                                width={36}
+                                height={36}
+                                unoptimized
+                                onError={(e) => {
+                                  e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40";
+                                }}
+                                className="w-9 h-9 rounded-full object-cover"
+                              />
+                              <span className={`font-medium text-[16px] tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                                {review.author_name}
+                              </span>
+                            </div>
 
-                              <div className="flex items-center gap-[10px] mt-[12px]">
-                                <StarRating rating={review.rating ?? 0} />
-                                <span className="text-[14.5px] text-gray-500">
-                                  {review.relative_time_description}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-[10px] mt-[12px]">
+                              <StarRating rating={review.rating ?? 0} />
+                              <span className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
+                                {review.relative_time_description}
+                              </span>
+                            </div>
 
-                              {review.text && (
-                                <p className="text-[14px] text-gray-700 mt-[6px]">
-                                  {review.text}
-                                </p>
-                              )}
+                            {review.text && (
+                              <p className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} mt-[6px]`}>
+                                {review.text}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -5284,7 +5502,7 @@ const Map = () => {
                   <div className="pt-[14px] flex justify-center">
                     <button
                       onClick={() => setDetailsActiveTab("reviews")}
-                      className="text-[#007B8A] font-sans text-[14px] font-medium tracking-wide hover:text-black"
+                      className={`${theme === 'dark' ? 'text-white md:text-[#9dedfb] md:hover:text-white' : 'text-black md:text-[#007B8A] md:hover:text-black'} font-sans text-[14px] font-medium tracking-wide`}
                     >
                       More reviews
                     </button>
@@ -5319,17 +5537,15 @@ const Map = () => {
             {detailsActiveTab === "menu" && (
               <>
                 {availableDSTabs.length > 1 && (
-                  <div className="flex flex-nowrap justify-evenly gap-[12px] md:gap-[14px] px-[20px] md:px-[24px] overflow-x-auto scrollbar-hide pb-[8px] border-b border-gray-400 bg-white">
+                  <div className={`flex flex-nowrap justify-evenly gap-[12px] md:gap-[14px] px-[20px] md:px-[24px] overflow-x-auto scrollbar-hide pb-[8px] border-b ${theme === 'dark' ? 'bg-[#131313] border-gray-200' : 'bg-white border-gray-400'}`}>
                     {availableDSTabs.map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => setmenuActiveDSTab(tab.key)}
                         className={`px-[10px] py-[6px] md:py-2 text-[13px] md:text-[14px] rounded-[10px] transition-all duration-200 cursor-pointer font-sans font-medium tracking-wide whitespace-nowrap
-                          ${
-                            menuActiveDSTab === tab.key
-                              ? "bg-gray-300 text-black hover:bg-gray-300"
-                              : "bg-transparent text-gray-600"
-                          }`}
+                          ${menuActiveDSTab === tab.key ? (theme === 'dark' ? "bg-[#2a2b2f]" : "bg-gray-300") : "bg-transparent"}
+                          ${theme === 'dark' ? (menuActiveDSTab === tab.key ? "text-white" : "text-gray-200") : (menuActiveDSTab === tab.key ? "text-black" : "text-gray-600")}
+                        `}
                       >
                         {tab.label}
                       </button>
@@ -5341,7 +5557,7 @@ const Map = () => {
                   {menuActiveDSTab === "overview" && overviewDSImages.length > 0 && (
                     <>
                       <div className="border-b border-gray-300 pb-[20px]">
-                        <h2 className="font-sans font-medium tracking-wide text-black text-[16px] my-[14px] px-[24px] md:px-[26px]">
+                        <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] my-[14px] px-[24px] md:px-[26px]`}>
                           Menu
                         </h2>
 
@@ -5349,41 +5565,41 @@ const Map = () => {
                           {menuDSImages.length > 2 && (
                             <button
                               onClick={() => {
-                                  if (menuDSScrollRef.current) {
-                                    menuDSScrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
-                                  }
-                                }}
-                              className={`absolute left-[12px] top-1/2 -translate-y-1/2 bg-white rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
-                                lg:opacity-0 lg:group-hover:opacity-100 ${ menuDSLeftArrow ? "block" : "hidden"}`}
+                                if (menuDSScrollRef.current) {
+                                  menuDSScrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
+                                }
+                              }}
+                              className={`absolute left-[12px] top-1/2 -translate-y-1/2 ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black'} rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
+                                  lg:opacity-0 lg:group-hover:opacity-100 ${menuDSLeftArrow ? "block" : "hidden"}`}
                             >
                               <ChevronLeft size={20} />
                             </button>
                           )}
-                            <div
-                              ref={menuDSScrollRef}
-                              onScroll={handleDSMenuScroll}
-                              className="flex overflow-x-auto gap-[12px] md:gap-[10px] scroll-smooth scrollbar-hide pl-[24px]"
-                            >
-                              {menuDSImages.map((url, idx) => (
-                                <Image
-                                  key={idx}
-                                  src={url}
-                                  alt={`Overview photo ${idx + 1}`}
-                                  width={130}
-                                  height={130}
-                                  unoptimized
-                                  className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-cover rounded-lg mr-[0px] last:mr-[24px]"
-                                />
-                              ))}
-                            </div>
+                          <div
+                            ref={menuDSScrollRef}
+                            onScroll={handleDSMenuScroll}
+                            className="flex overflow-x-auto gap-[12px] md:gap-[10px] scroll-smooth scrollbar-hide pl-[24px]"
+                          >
+                            {menuDSImages.map((url, idx) => (
+                              <Image
+                                key={idx}
+                                src={url}
+                                alt={`Overview photo ${idx + 1}`}
+                                width={130}
+                                height={130}
+                                unoptimized
+                                className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-fit bg-white rounded-lg mr-[0px] last:mr-[24px]"
+                              />
+                            ))}
+                          </div>
                           {menuDSImages.length > 2 && (
                             <button
                               onClick={() => {
-                                  if (menuDSScrollRef.current) {
-                                    menuDSScrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
-                                  }
-                                }}
-                              className={`absolute right-[14px] top-1/2 -translate-y-1/2 bg-white rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
+                                if (menuDSScrollRef.current) {
+                                  menuDSScrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
+                                }
+                              }}
+                              className={`absolute right-[14px] top-1/2 -translate-y-1/2 ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black'} rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
                                 lg:opacity-0 lg:group-hover:opacity-100 ${menuDSRightArrow ? "block" : "hidden"}`}
                             >
                               <ChevronRight size={20} />
@@ -5393,7 +5609,7 @@ const Map = () => {
                       </div>
 
                       <div>
-                        <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]">Highlights</h2>
+                        <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]`}>Highlights</h2>
                         <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px]">
                           {highlightDSImages.map((url, idx) => (
                             <Image
@@ -5403,14 +5619,14 @@ const Map = () => {
                               width={600}
                               height={240}
                               unoptimized
-                              className="w-full h-56 md:h-60 object-cover rounded-lg"
+                              className="w-full h-56 md:h-60 object-fit bg-white rounded-lg"
                             />
                           ))}
                         </div>
                       </div>
                     </>
                   )}
-                  
+
                   {menuDSCategories.map((cat) => {
                     const showItems = Array.isArray(cat.items) && cat.items.length > 0;
                     if (!showItems) return null;
@@ -5425,14 +5641,14 @@ const Map = () => {
                           >
                             <div className="px-[24px] md:px-[26px] flex flex-1 justify-between">
                               <div className="w-[75%]">
-                                <h3 className="font-sans font-medium tracking-wide text-[14px] text-black">
+                                <h3 className={`font-sans font-medium tracking-wide text-[14px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                                   {item.name}
                                 </h3>
-                                <p className="text-[13px] font-sans text-gray-600 mt-[2px]">
+                                <p className={`text-[13px] font-sans ${theme === 'dark' ? 'text-white' : 'text-gray-600'} mt-[2px]`}>
                                   {item.description}
                                 </p>
                               </div>
-                              <div className="text-right whitespace-nowrap font-sans font-medium text-black text-[14px]">
+                              <div className={`text-right whitespace-nowrap font-sans font-medium ${theme === 'dark' ? 'text-white' : 'text-black'} text-[14px]`}>
                                 ₹{Number(item.price).toLocaleString("en-IN")}
                               </div>
                             </div>
@@ -5446,7 +5662,7 @@ const Map = () => {
             )}
 
             {detailsActiveTab === "reviews" && recentSelectedPlace && (
-              <div> 
+              <div>
                 <div className="px-[24px] pt-[20px] pb-[20px]">
                   <div className="flex items-center justify-between">
                     {(() => {
@@ -5475,7 +5691,7 @@ const Map = () => {
 
                             return (
                               <div key={star} className="flex items-center gap-2 text-[14px]">
-                                <span className="w-4 text-gray-700">{star}</span>
+                                <span className={`w-4 ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>{star}</span>
                                 <div className="flex-1 h-2 bg-gray-200 rounded">
                                   <div
                                     className="h-2 bg-yellow-400 rounded"
@@ -5490,18 +5706,18 @@ const Map = () => {
                     })()}
 
                     <div className="flex flex-col items-center gap-[6px]">
-                      <span className="text-[42px] leading-none font-medium text-black">
+                      <span className={`text-[42px] leading-none font-medium ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                         {recentSelectedPlace.rating?.toFixed(1)}
                       </span>
                       <StarRating rating={recentSelectedPlace.rating || 4.5} />
-                      <span className="text-gray-500 text-[12.5px]">
+                      <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'} text-[12.5px]`}>
                         {/*{recentSelectedPlace.userRatingsTotal?.toLocaleString()} reviews*/}
                       </span>
                     </div>
                   </div>
 
                   <div className="mt-[22px] flex justify-center">
-                    <button className="flex items-center gap-2 px-[14px] py-2 rounded-full bg-[#DFF6FD] text-[#014B54] font-medium text-[14.5px] tracking-wide hover:bg-[#c7eef9]">
+                    <button className={`flex items-center gap-2 px-[14px] py-2 rounded-full ${theme === 'dark' ? 'bg-[#00373e] text-white' : 'bg-[#CCF3F9] hover:bg-gray-100 text-black'} font-medium text-[14.5px] tracking-wide`}>
                       <RateReviewIcon style={{ fontSize: "18px" }} />
                       Write a review
                     </button>
@@ -5516,43 +5732,43 @@ const Map = () => {
                         className="border-t border-gray-300 pt-5 pb-5 last:pb-4 flex gap-3"
                       >
                         <div className="px-[24px]">
-                            <div className="flex items-center gap-[12px]">
-                              <Image
-                                src={
-                                  review.profile_photo_url
-                                    ? review.profile_photo_url.replace("http://", "https://")
-                                    : "https://www.gravatar.com/avatar/?d=mp&s=40"
-                                }
-                                onError={(e) => (e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40")}
-                                alt={review.author_name}
-                                width={36}
-                                height={36}
-                                unoptimized
-                                className="w-9 h-9 rounded-full object-cover"
-                              />
-                              <span className="font-medium text-[16px] tracking-wide text-black">
-                                {review.author_name}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-[12px]">
+                            <Image
+                              src={
+                                review.profile_photo_url
+                                  ? review.profile_photo_url.replace("http://", "https://")
+                                  : "https://www.gravatar.com/avatar/?d=mp&s=40"
+                              }
+                              onError={(e) => (e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40")}
+                              alt={review.author_name}
+                              width={36}
+                              height={36}
+                              unoptimized
+                              className="w-9 h-9 rounded-full object-cover"
+                            />
+                            <span className={`font-medium text-[16px] tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                              {review.author_name}
+                            </span>
+                          </div>
 
-                            <div className="flex items-center gap-[10px] mt-[12px]">
-                              <StarRating rating={review.rating ?? 0} />
-                              <span className="text-[14.5px] text-gray-500">
-                                {review.relative_time_description}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-[10px] mt-[12px]">
+                            <StarRating rating={review.rating ?? 0} />
+                            <span className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
+                              {review.relative_time_description}
+                            </span>
+                          </div>
 
-                            {review.text && (
-                              <p className="text-[14px] text-gray-700 mt-[6px]">
-                                {review.text}
-                              </p>
-                            )}
+                          {review.text && (
+                            <p className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} mt-[6px]`}>
+                              {review.text}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>  
+              </div>
             )}
 
             {/*
@@ -5589,29 +5805,28 @@ const Map = () => {
         </div>
       </div>
 
-      <div className="w-full md:w-auto absolute top-1 left-[0px] md:left-[72px] z-10 flex flex-col md:flex-row items-start md:items-center gap-[18px] md:gap-[28px] lg:gap-[34px] xl:gap-[40px] px-4 py-2 text-black">
+      <div className="w-full md:w-auto absolute top-1 left-[0px] md:left-[72px] md:right-[10px] z-10 flex flex-col md:flex-row items-start md:items-center gap-[18px] md:gap-[28px] lg:gap-[34px] xl:gap-[40px] px-4 py-2 text-black">
         {/* Search bar */}
-        <div className="flex items-center gap-[10px] w-full">
+        <div className="flex items-center gap-[10px] w-full md:w-auto">
           <div className="flex items-center md:hidden flex-shrink-0">
-            <img 
+            <img
               src="/logo.png"
               alt="Logo"
               className="w-[40px] h-[40px] object-cover rounded-full"
             />
           </div>
           <div className="relative flex-1 min-w-0" ref={searchBoxRef}>
-            <div 
-              className={`relative bg-white shadow-2xl w-full md:w-[375px] ${
-                showSuggestions ? "rounded-t-xl" : "rounded-full"
-              }`}
+            <div
+              className={`relative ${theme === 'dark' ? 'bg-[#393939]' : 'bg-white'} shadow-2xl w-full md:w-[300px] lg:w-[320px] xl:w-[375px] ${showSuggestions ? "rounded-t-xl" : "rounded-full"
+                }`}
             >
               <div className="flex items-center pl-5 pr-5 md:pr-4 py-[12px]">
                 <input
                   ref={inputRef}
                   type="text"
-                  spellCheck={false} 
-                  autoComplete="off" 
-                  autoCorrect="off" 
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
                   autoCapitalize="off"
                   placeholder="Search Google Maps"
                   value={searchValue}
@@ -5650,21 +5865,21 @@ const Map = () => {
                             console.warn("Shop not found for recent item:", selectedItem.data.title);
                           }
                         } else if (selectedItem.type === "suggestion") {
-                        const shop = allShops.find(
-                          (s) => s.name === selectedItem.data.name
-                        );
-                        if (shop) {
-                          handleShopSuggestion(shop, () => {
-                            setPlaceSidebar("full");
-                          });
-                        }
+                          const shop = allShops.find(
+                            (s) => s.name === selectedItem.data.name
+                          );
+                          if (shop) {
+                            handleShopSuggestion(shop, () => {
+                              setPlaceSidebar("full");
+                            });
+                          }
                         } else if (selectedItem.type === "home") {
                           alert("Set Home clicked");
                         } else if (selectedItem.type === "more") {
-                          exploreButtonFunction(); 
+                          exploreButtonFunction();
                         }
                         setShowSuggestions(false);
-                      } 
+                      }
                       else if (searchValue.trim()) {
                         const query = searchValue.trim().toLowerCase();
 
@@ -5709,27 +5924,27 @@ const Map = () => {
                     setNoMatches(filtered.length === 0);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                    
-                  className="flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] text-black"
+
+                  className={`flex-1 outline-none border-none bg-transparent text-[14.5px] pr-[18px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}
                 />
 
-                <div 
+                <div
                   className="absolute right-2 md:right-3 w-[40px] h-[40px] flex items-center justify-center cursor-pointer"
                   onClick={() => {
-                    setShowSuggestions(true);  
+                    setShowSuggestions(true);
                     inputRef.current?.focus();
                   }}
                 >
-                  <SearchIcon className="text-[#007B8A] text-[22px]" />
+                  <SearchIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} text-[22px]`} />
 
-                  <div 
+                  <div
                     className="pointer-events-none absolute bottom-[-40px] left-[20px] -translate-x-1/2 bg-black text-white text-[14px] px-2 py-[2px] 
                     rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-100"
                   >
                     Search
                   </div>
                 </div>
-                
+
                 <div className="mr-[4px]" />
                 {/*
                 <div className="mr-[30px]" />
@@ -5784,152 +5999,155 @@ const Map = () => {
 
             {/* Suggestion Row */}
             {showSuggestions && (
-              <div ref={suggestionBoxRef} className="absolute top-full left-0 w-full md:w-[375px] z-20">
-                <div className="bg-white shadow-lg rounded-b-xl border-t border-gray-200 pt-[8px] pb-[10px]">
+              <div ref={suggestionBoxRef} className="absolute top-full left-0 w-full md:w-[300px] lg:w-[320px] xl:w-[375px] z-20">
+                <div className={`${theme === 'dark' ? 'bg-[#393939]' : 'bg-white '} shadow-lg rounded-b-xl border-t border-gray-200 pt-[8px] pb-[10px]`}>
                   {combinedList.length > 0 && (
                     <>
-                    <div className="flex flex-col space-y-[0px]">
-                      {combinedList.map((item, index) => {
-                        const isHighlighted = highlightedIndex === index;
-                        const baseClass = `hover:bg-gray-100 cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between ${
-                          isHighlighted ? "bg-gray-100" : ""
-                        }`;
+                      <div className="flex flex-col space-y-[0px]">
+                        {combinedList.map((item, index) => {
+                          const isHighlighted = highlightedIndex === index;
+                          const baseClass = `${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} cursor-pointer px-[12px] md:px-[16px] pt-[10px] pb-[12px] flex items-center justify-between 
+                                             ${isHighlighted ? (theme === 'dark' ? "bg-gray-800" : "bg-gray-100") : ""}`;
 
-                        const isInputEmpty = searchValue.trim() === "";
+                          const isInputEmpty = searchValue.trim() === "";
 
-                        if (item.type === "recent") {
-                          const place = item.data as RecentPlace;
-                          return (
-                            <div
-                              key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
-                              className={`px-[14px] md:px-[20px] ${baseClass} group`}
-                              onMouseDown={() => {
-                                setSearchValue(place.title);
-                                setShowSuggestions(true);
+                          if (item.type === "recent") {
+                            const place = item.data as RecentPlace;
+                            return (
+                              <div
+                                key={`recent-${place.lat}-${place.lng}-${place.timestamp}`}
+                                className={`px-[14px] md:px-[20px] ${baseClass} group`}
+                                onMouseDown={() => {
+                                  setSearchValue(place.title);
+                                  setShowSuggestions(true);
 
-                                const shop = allShops.find((s) => s.name === place.title);
-                                if (shop) {
-                                  handleShopSuggestion(shop);
-                                } else {
-                                  console.warn("Shop not found for recent place:", place.title);
-                                }
-                              }}
-                            >
-                              <div className="flex bg-red-00 items-center justify-between w-full group">
-                                <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
-                                  {isInputEmpty ? (
-                                    <div className="md:w-10 md:h-10 bg-[#f2f2f2] rounded-full flex items-center justify-center">
-                                      <AccessTimeIcon className="text-black w-6 h-6"  />
-                                    </div>
-                                  ) : (
-                                    <div className="py-[8px] bg-transparent flex items-center justify-center">
-                                      <AccessTimeIcon className="w-9 h-9 text-black" style={{fontSize:"21px"}} />
-                                    </div>
-                                  )}
+                                  const shop = allShops.find((s) => s.name === place.title);
+                                  if (shop) {
+                                    handleShopSuggestion(shop);
+                                  } else {
+                                    console.warn("Shop not found for recent place:", place.title);
+                                  }
+                                }}
+                              >
+                                <div className="flex bg-red-00 items-center justify-between w-full group">
+                                  <div className={`flex bg-blue- items-center ${isInputEmpty ? "gap-[12px]" : "gap-[13px]"} overflow-hidden`}>
+                                    {isInputEmpty ? (
+                                      <div className={`md:w-10 md:h-10 ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-[#f2f2f2]'} rounded-full flex items-center justify-center`}>
+                                        <AccessTimeIcon className={`${theme === 'dark' ? 'text-white' : 'text-black'} w-6 h-6`} />
+                                      </div>
+                                    ) : (
+                                      <div className="py-[8px] bg-transparent flex items-center justify-center">
+                                        <AccessTimeIcon className={`w-9 h-9 ${theme === 'dark' ? 'text-white' : 'text-black'}`} style={{ fontSize: "21px" }} />
+                                      </div>
+                                    )}
 
-                                  {isInputEmpty ? (
-                                    <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
-                                      <span className="font-medium text-[14.5px] text-black truncate">
-                                        {place.title}
-                                      </span>
-                                      {place.subtitle && (
-                                        <span className="text-gray-600 text-[14px] truncate">
-                                          {place.subtitle}
+                                    {isInputEmpty ? (
+                                      <div className="flex flex-col max-w-[80%] md:max-w-[240px]">
+                                        <span className={`font-medium text-[14.5px]  ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
+                                          {place.title}
                                         </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[14.5px] text-black font-medium truncate">
-                                      {place.title}
-                                      {place.subtitle && (
-                                        <span className="text-gray-500 font-normal pl-[6px]">{place.subtitle}</span>
-                                      )}
-                                    </div>
+                                        {place.subtitle && (
+                                          <span className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-600'} text-[14px] truncate`}>
+                                            {place.subtitle}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} font-medium truncate`}>
+                                        {place.title}
+                                        {place.subtitle && (
+                                          <span className={`${theme === 'dark' ? 'text-gray-200' : 'text-gray-500'} font-normal pl-[6px]`}>{place.subtitle}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {isInputEmpty && (
+                                    <button
+                                      tabIndex={-1}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setRecentPlaces((prev) => {
+                                          const updated = prev.filter(
+                                            (p) => !(p.lat === place.lat && p.lng === place.lng)
+                                          );
+                                          localStorage.setItem("recent_places", JSON.stringify(updated));
+                                          return updated;
+                                        });
+                                      }}
+                                      className={`opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full ${theme === 'dark' ? 'text-white hover:bg-[#2a2b2f]' : 'text-black hover:bg-gray-200'}`}
+                                    >
+                                      ✕
+                                    </button>
                                   )}
                                 </div>
-
-                                {isInputEmpty && (
-                                  <button
-                                    tabIndex={-1}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                    }}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setRecentPlaces((prev) => {
-                                        const updated = prev.filter(
-                                          (p) => !(p.lat === place.lat && p.lng === place.lng)
-                                        );
-                                        localStorage.setItem("recent_places", JSON.stringify(updated));
-                                        return updated;
-                                      });
-                                    }}
-                                    className="opacity-100 xl:opacity-0 xl:group-hover:opacity-100 transition-all duration-150 px-[8px] py-[4px] font-bold text-[14px] cursor-pointer rounded-full hover:bg-gray-200"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
                               </div>
-                            </div>
-                          );
-                        }
+                            );
+                          }
 
-                        if (item.type === "suggestion") {
-                          const shop = item.data;
-                          return (
-                            <div
-                              key={shop.shopId}
-                              className={baseClass}
-                              onMouseDown={() => handleShopSuggestion(shop)}
-                            >
-                              <div className="flex items-center gap-[10px] overflow-hidden">
-                                <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
-                                  <LocationOnIcon className="text-[#007B8A]" style={{ fontSize: "21px" }} />
+                          if (item.type === "suggestion") {
+                            const shop = item.data;
+                            return (
+                              <div
+                                key={shop.shopId}
+                                className={baseClass}
+                                onMouseDown={() => handleShopSuggestion(shop)}
+                              >
+                                <div className="flex items-center gap-[10px] overflow-hidden">
+                                  <div className="w-9 h-9 bg-transparent rounded-full flex items-center justify-center">
+                                    <LocationOnIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'}`} style={{ fontSize: "21px" }} />
+                                  </div>
+                                  <span className={`font-medium tracking-wide text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate w-full`}>
+                                    {shop.name}
+                                  </span>
                                 </div>
-                                <span className="font-medium tracking-wide text-[14.5px] text-black truncate w-full">
-                                  {shop.name}
+                              </div>
+                            );
+                          }
+
+                          if (item.type === "more") {
+                            return (
+                              <div
+                                key="more"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  exploreButtonFunction();
+                                  setShowSuggestions(false);
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  exploreButtonFunction();
+                                  setShowSuggestions(false);
+                                }}
+                                className={`
+                                  px-[12px] py-[12px] flex items-center justify-center cursor-pointer 
+                                  ${theme === 'dark' ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} 
+                                  ${highlightedIndex === index
+                                    ? (theme === 'dark' ? "bg-gray-800 text-white" : "bg-gray-100 text-[#007B8A]")
+                                    : (theme === 'dark' ? "text-white" : "text-white")
+                                  }`}
+                              >
+                                <span className="text-[14.5px] tracking-wide font-medium">
+                                  See all shops list
                                 </span>
                               </div>
-                            </div>
-                          );
-                        }
-
-                        if (item.type === "more") {
-                          return (
-                            <div
-                              key="more"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                exploreButtonFunction();
-                                setShowSuggestions(false);
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                exploreButtonFunction();
-                                setShowSuggestions(false);
-                              }}
-                              className={`hover:bg-gray-100 px-[12px] py-[12px] flex items-center justify-center cursor-pointer ${
-                                highlightedIndex === index ? "bg-gray-100 text-[#007B8A]" : "text-[#007B8A]"
-                              }`}
-                            >
-                              <span className="text-[14.5px] tracking-wide font-medium">
-                                See all shops list
-                              </span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
                     </>
                   )}
                   {noMatches && (
-                    <div className="px-[20px] py-[12px] text-center text-black">
-                      <p className="font-medium text-[15px] text-black">
+                    <div className={`px-[20px] py-[12px] text-center ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                      <p className={`font-medium text-[15px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                         Sorry, can&apos;t find that place name.
                       </p>
                     </div>
@@ -5938,39 +6156,47 @@ const Map = () => {
               </div>
             )}
           </div>
-          
-          <div className="hidden items-center flex-shrink-0">
-            <button className="w-[40px] h-[40px] bg-white shadow-md rounded-full flex items-center justify-center">
-              <span className="text-[#007B8A]">★</span>
-            </button>
+
+          <div className="md:hidden items-center flex-shrink-0">
+            <div className={`w-[40px] h-[40px] ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} shadow-md rounded-full flex items-center justify-center`}>
+              {mounted && isMobileTheme && (
+                <Classic
+                  {...({
+                    duration: 750,
+                    toggled: theme === 'dark',
+                    onToggle: () => setTheme(theme === 'light' ? 'dark' : 'light'),
+                    className: `${theme === 'dark' ? 'text-white' : 'text-black'} text-[24px]`
+                  } as any)}
+                />
+              )}
+            </div>
           </div>
         </div>
 
         {/* Category Filters */}
-        {!showSidebar && !['saved', 'recent'].includes(topSidebar ?? '')  && (
+        {!showSidebar && !['saved', 'recent'].includes(topSidebar ?? '') && (
           <div className="relative category-width">
             <button
-                onClick={() => scrollCategory("left")}
-                className={`absolute left-[-14px] top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-[8px] cursor-pointer hover:bg-gray-100 ${
-                showLeftArrow ? "block" : "hidden"
+              onClick={() => scrollCategory("left")}
+              className={`absolute left-[-14px] top-1/2 -translate-y-1/2 z-10 ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black hover:bg-gray-100'} shadow rounded-full p-[8px] cursor-pointer ${showLeftArrow ? "block" : "hidden"
                 }`}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" /></svg>
             </button>
 
             <div
-                ref={arrowScrollRef}
-                className="overflow-x-auto whitespace-nowrap scrollbar-hide px-1 md:px-6"
-                onScroll={handleCategoryScroll}
+              ref={arrowScrollRef}
+              className="overflow-x-auto whitespace-nowrap scrollbar-hide px-1 md:px-6"
+              onScroll={handleCategoryScroll}
             >
               <div className="flex items-center gap-[8px]">
                 {categories.map((cat) => (
                   <button
                     key={cat.name}
-                    className="flex items-center gap-[5px] bg-white rounded-full px-[10px] py-[6px] shadow-2xl text-[14px] hover:bg-gray-100 whitespace-nowrap tracking-wide font-medium cursor-pointer"
+                    className={`flex items-center gap-[5px] ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black hover:bg-gray-100'} rounded-full px-[10px] py-[6px] shadow-2xl text-[14px] whitespace-nowrap tracking-wide font-medium cursor-pointer`}
                     onClick={() => {
                       categoryModeRef.current = true;
-                      {/*categoryModeRef.current = false;*/}
+                      {/*categoryModeRef.current = false;*/ }
                       setSelectedCategory(cat.name);
                       runCategorySearch(cat.shop_ids);
                     }}
@@ -5983,17 +6209,30 @@ const Map = () => {
             </div>
 
             <button
-                onClick={() => scrollCategory("right")}
-                className={`absolute right-[-12px] top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-[8px] cursor-pointer hover:bg-gray-100 ${
-                showRightArrow ? "block" : "hidden"
-                }`}
+              onClick={() => scrollCategory("right")}
+              className={`absolute right-[-12px] top-1/2 -translate-y-1/2 z-10 ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black hover:bg-gray-100'} shadow rounded-full p-[8px] cursor-pointer ${showRightArrow ? "block" : "hidden"}`}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z" /></svg>
             </button>
           </div>
         )}
+
+        <div className="hidden md:flex items-center flex-shrink-0 ml-auto">
+          <div className={`w-[40px] h-[40px] ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} shadow-md rounded-full flex items-center justify-center`}>
+            {mounted && !isMobileTheme && (
+              <Classic
+                {...({
+                  duration: 750,
+                  toggled: theme === 'dark',
+                  onToggle: () => setTheme(theme === 'light' ? 'dark' : 'light'),
+                  className: `${theme === 'dark' ? 'text-white' : 'text-black'} text-[24px]`
+                } as any)}
+              />
+            )}
+          </div>
+        </div>
       </div>
-      
+
       {/* Direction Sidebar */}
       <div
         ref={directionSidebarRef}
@@ -6033,19 +6272,18 @@ const Map = () => {
                 <input
                   ref={startingPlaceInputRef}
                   type="text"
-                  spellCheck={false} 
-                  autoComplete="off" 
-                  autoCorrect="off" 
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
                   autoCapitalize="off"
                   placeholder="Choose starting point, or click on the map"
                   value={startLocation}
                   onChange={(e) => {
                     setStartLocation(e.target.value);
-                    fetchStartLocationSuggestions(e.target.value); 
+                    fetchStartLocationSuggestions(e.target.value);
                   }}
-                  className={`w-full pl-2 ${
-                    focusedInput === "start" ? "pr-[44px]" : "pr-3"
-                  } py-2 border border-black rounded-[8px] text-[14.5px] focus:outline-none focus:ring-1 focus:ring-[#007D8A]`}
+                  className={`w-full pl-2 ${focusedInput === "start" ? "pr-[44px]" : "pr-3"
+                    } py-2 border border-black rounded-[8px] text-[14.5px] focus:outline-none focus:ring-1 focus:ring-[#007D8A]`}
 
                   onFocus={() => {
                     setFocusedInput("start");
@@ -6068,37 +6306,36 @@ const Map = () => {
                 </div>
 
                 {showStartSuggestions && startSuggestions.length > 0 && (
-                    <div className="absolute top-[105px] left-[-65px] w-[410px] bg-white shadow-lg pt-[8px] pb-[10px] z-20 border-t border-gray-300 overflow-hidden">
-                      {startSuggestions.map((suggestion, i) => (
-                        <div
-                          key={suggestion.place_id}
-                          className={`flex items-center px-[24px] py-2 cursor-pointer ${
-                              startHighlightedIndex === i ? "bg-gray-100" : "hover:bg-gray-100"}`}
-                          onMouseDown={() => handleDirectionSidebarSelectSuggestion(suggestion.place_id, true)}
-                        >
-                          <LocationOnIcon className="text-[#007B8A] mr-[26px]" />
-                          <div className="flex items-center text-[14px] whitespace-nowrap overflow-hidden">
-                            <span className="font-medium text-gray-900">
-                              {suggestion.structured_formatting.main_text}
-                            </span>
-                            &nbsp;
-                            <span className="text-gray-500">
-                              {suggestion.structured_formatting.secondary_text}
-                            </span>
-                          </div>
+                  <div className="absolute top-[105px] left-[-65px] w-[410px] bg-white shadow-lg pt-[8px] pb-[10px] z-20 border-t border-gray-300 overflow-hidden">
+                    {startSuggestions.map((suggestion, i) => (
+                      <div
+                        key={suggestion.place_id}
+                        className={`flex items-center px-[24px] py-2 cursor-pointer ${startHighlightedIndex === i ? "bg-gray-100" : "hover:bg-gray-100"}`}
+                        onMouseDown={() => handleDirectionSidebarSelectSuggestion(suggestion.place_id, true)}
+                      >
+                        <LocationOnIcon className="text-[#007B8A] mr-[26px]" />
+                        <div className="flex items-center text-[14px] whitespace-nowrap overflow-hidden">
+                          <span className="font-medium text-gray-900">
+                            {suggestion.structured_formatting.main_text}
+                          </span>
+                          &nbsp;
+                          <span className="text-gray-500">
+                            {suggestion.structured_formatting.secondary_text}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="relative group">
                 <input
                   ref={destinationInputRef}
                   type="text"
-                  spellCheck={false} 
-                  autoComplete="off" 
-                  autoCorrect="off" 
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoCorrect="off"
                   autoCapitalize="off"
                   placeholder="Choose destination..."
                   value={destinationLocation}
@@ -6106,10 +6343,9 @@ const Map = () => {
                     setDestinationLocation(e.target.value);
                     fetchDestinationSuggestions(e.target.value);
                   }}
-                  className={`w-full pl-2 ${
-                    focusedInput === "destination" ? "pr-[44px]" : "pr-3"}
+                  className={`w-full pl-2 ${focusedInput === "destination" ? "pr-[44px]" : "pr-3"}
                     py-2 border border-black rounded-[8px] text-[14.5px] focus:outline-none focus:ring-1 focus:ring-[#007D8A]`}
-                    onFocus={() => {
+                  onFocus={() => {
                     setFocusedInput("destination");
                     setShowStartSuggestions(false);
                   }}
@@ -6130,23 +6366,22 @@ const Map = () => {
                 </div>
                 {showDestSuggestions && destSuggestions.length > 0 && (
                   <div className="absolute top-[55px] left-[-65px] w-[410px] bg-white shadow-lg pt-[8px] pb-[10px] z-20 border-t border-gray-300 overflow-hidden">
-                    {destSuggestions.map((suggestion,i) => (
+                    {destSuggestions.map((suggestion, i) => (
                       <div
                         key={suggestion.place_id}
-                        className={`flex items-center px-[24px] py-2 cursor-pointer ${
-                              destHighlightedIndex === i ? "bg-gray-100" : "hover:bg-gray-100"}`}
+                        className={`flex items-center px-[24px] py-2 cursor-pointer ${destHighlightedIndex === i ? "bg-gray-100" : "hover:bg-gray-100"}`}
                         onMouseDown={() => handleDirectionSidebarSelectSuggestion(suggestion.place_id, false)}
                       >
                         <LocationOnIcon className="text-[#007B8A] mr-[26px]" />
                         <div className="flex items-center text-[14px] whitespace-nowrap overflow-hidden">
-                            <span className="font-medium text-gray-900">
-                              {suggestion.structured_formatting.main_text}
-                            </span>
-                            &nbsp;
-                            <span className="text-gray-500">
-                              {suggestion.structured_formatting.secondary_text}
-                            </span>
-                          </div>
+                          <span className="font-medium text-gray-900">
+                            {suggestion.structured_formatting.main_text}
+                          </span>
+                          &nbsp;
+                          <span className="text-gray-500">
+                            {suggestion.structured_formatting.secondary_text}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -6154,9 +6389,9 @@ const Map = () => {
               </div>
             </div>
 
-            <div 
+            <div
               className="mt-7 cursor-pointer relative group"
-                onClick={() => {
+              onClick={() => {
                 setStartLocation(destinationLocation);
                 setDestinationLocation(startLocation);
                 setStartCoords(destinationCoords);
@@ -6173,9 +6408,9 @@ const Map = () => {
 
         {/* Recent Places */}
         <div className="overflow-y-auto flex-1 py-2">
-          <div 
+          <div
             className="w-full group hover:bg-[#f2f2f2] cursor-pointer transition-colors duration-200"
-              onClick={handleYourLocationClick}
+            onClick={handleYourLocationClick}
           >
             <div className="flex items-center gap-3 px-[20px] py-[10px]">
               <div className="w-10 h-10 bg-[#CCF3F9] rounded-full flex items-center justify-center">
@@ -6186,7 +6421,7 @@ const Map = () => {
               </div>
             </div>
           </div>
-          
+
           {recentPlaces.map((place, index) => (
             <div
               key={index}
@@ -6213,18 +6448,18 @@ const Map = () => {
       <div
         id="fullSidebar"
         ref={fullSidebarRef}
-        style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px`: "100vh"}}
-        className={`fixed bg-transparent md:bg-white text-black z-30 hidden md:flex flex-col
+        style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px` : "100vh" }}
+        className={`fixed bg-transparent ${theme === 'dark' ? 'md:bg-[#131313] text-white' : 'md:bg-white text-black'} z-30 hidden md:flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
           transition-[transform,height] duration-300 overflow-hidden
           ${placeSidebar === "full" ? "z-40" : "z-30"}
           ${placeSidebar === "full" ? "translate-y-0" : "translate-y-full"}
           ${placeSidebar === "full" ? "md:translate-x-0" : "md:-translate-x-[410px]"}`}
       >
-      
+
         <div className="flex flex-col h-full">
           <MobilePlaceSidebar isOpen={placeSidebar === "full"}>
-          {/*
+            {/*
           {placeSidebar === "full" && (
             <div
               onMouseDown={handleDragStart}
@@ -6235,337 +6470,337 @@ const Map = () => {
             </div>
           )}
           */}
-          
-          <div className={`hidden md:block py-3 px-4 top-0 z-10 bg-transparent w-full
-            ${fullSidebarActiveTab === "fullSidebarOverview"? "absolute left-0": "sticky"}`}
-          >
-            {searchOrigin === "sidebar" ? (
-              <SidebarSearchBox
-                topSidebarSearchBoxRef={firstSearchBoxRef}
-                topSidebarSuggestionBoxRef={firstSuggestionBoxRef}
-                inputRef={inputRef}
-                sidebarSearchValue={sidebarSearchValue}
-                fetchDetailedPlaces={fetchDetailedPlaces} 
-                setSidebarSearchValue={setSidebarSearchValue}
-                showSidebarSuggestions={showSidebarSuggestions}
-                setShowSidebarSuggestions={setShowSidebarSuggestions}
-                sidebarCombinedList={sidebarCombinedList}
-                sidebarHighlightedIndex={sidebarHighlightedIndex}
-                setSidebarHighlightedIndex={setSidebarHighlightedIndex}
-                placeSidebar={placeSidebar}
-                topSidebar={topSidebar}
-                setTopSidebar={setTopSidebar}
-                setPlaceSidebar={setPlaceSidebar}
-                setShowSidebar={setShowSidebar}
-                setRecentSidebar={setRecentSidebar}
-                handleSidebarSelectSuggestion={handleSidebarSelectSuggestion}
-                setSidebarSuggestions={setSidebarSuggestions}
-                setIsLocationSelected={setIsLocationSelected}
-                setRecentPlaces={setRecentPlaces}
-                setRelatedPlaces={setRelatedPlaces}
-                mapInstanceRef={mapInstanceRef}
-                recentPlaces={recentPlaces}
-                markerRef={markerRef}
-                sidebarMarkerRef={sidebarMarkerRef}
-                clearCategoryMarkers={clearCategoryMarkers}
-                keepHalfSidebarOpen={keepHalfSidebarOpen}
-                setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
-                sidebarHeight={sidebarHeight}
-                setSidebarHeight={setSidebarHeight}
-                activePlaceMarkerRemover={activePlaceMarkerRemover}
-                handleShopSuggestion={handleShopSuggestion}
-                searchOrigin={searchOrigin}
-                setSearchOrigin={setSearchOrigin}
-                noMatches={noMatches}
-                setNoMatches={setNoMatches}
-                allShops={allShops}
-                exploreButtonFunction={exploreButtonFunction}
-                closeCategoryMode={closeCategoryMode}
-                restoreCategoryView={restoreCategoryView}
-                setIsExploreButton={setIsExploreButton}
-                resetMapForMobile={resetMapForMobile}
-              />
+
+            <div className={`hidden md:block py-3 px-4 top-0 z-10 bg-transparent w-full
+            ${fullSidebarActiveTab === "fullSidebarOverview" ? "absolute left-0" : "sticky"}`}
+            >
+              {searchOrigin === "sidebar" ? (
+                <SidebarSearchBox
+                  topSidebarSearchBoxRef={firstSearchBoxRef}
+                  topSidebarSuggestionBoxRef={firstSuggestionBoxRef}
+                  inputRef={inputRef}
+                  sidebarSearchValue={sidebarSearchValue}
+                  fetchDetailedPlaces={fetchDetailedPlaces}
+                  setSidebarSearchValue={setSidebarSearchValue}
+                  showSidebarSuggestions={showSidebarSuggestions}
+                  setShowSidebarSuggestions={setShowSidebarSuggestions}
+                  sidebarCombinedList={sidebarCombinedList}
+                  sidebarHighlightedIndex={sidebarHighlightedIndex}
+                  setSidebarHighlightedIndex={setSidebarHighlightedIndex}
+                  placeSidebar={placeSidebar}
+                  topSidebar={topSidebar}
+                  setTopSidebar={setTopSidebar}
+                  setPlaceSidebar={setPlaceSidebar}
+                  setShowSidebar={setShowSidebar}
+                  setRecentSidebar={setRecentSidebar}
+                  handleSidebarSelectSuggestion={handleSidebarSelectSuggestion}
+                  setSidebarSuggestions={setSidebarSuggestions}
+                  setIsLocationSelected={setIsLocationSelected}
+                  setRecentPlaces={setRecentPlaces}
+                  setRelatedPlaces={setRelatedPlaces}
+                  mapInstanceRef={mapInstanceRef}
+                  recentPlaces={recentPlaces}
+                  markerRef={markerRef}
+                  sidebarMarkerRef={sidebarMarkerRef}
+                  clearCategoryMarkers={clearCategoryMarkers}
+                  keepHalfSidebarOpen={keepHalfSidebarOpen}
+                  setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+                  sidebarHeight={sidebarHeight}
+                  setSidebarHeight={setSidebarHeight}
+                  activePlaceMarkerRemover={activePlaceMarkerRemover}
+                  handleShopSuggestion={handleShopSuggestion}
+                  searchOrigin={searchOrigin}
+                  setSearchOrigin={setSearchOrigin}
+                  noMatches={noMatches}
+                  setNoMatches={setNoMatches}
+                  allShops={allShops}
+                  exploreButtonFunction={exploreButtonFunction}
+                  closeCategoryMode={closeCategoryMode}
+                  restoreCategoryView={restoreCategoryView}
+                  setIsExploreButton={setIsExploreButton}
+                  resetMapForMobile={resetMapForMobile}
+                />
               ) : searchOrigin === "home" ? (
-              <SearchBox
-                placeSidebarSearchBoxRef={fullSidebarSearchBoxRef}
-                placeSidebarSuggestionBoxRef={fullSidebarSuggestionBoxRef}
-                inputRef={inputRef}
-                searchValue={searchValue}
-                fetchDetailedPlaces={fetchDetailedPlaces} 
-                setSearchValue={setSearchValue}
-                showSuggestions={showSuggestions}
-                setShowSuggestions={setShowSuggestions}
-                combinedList={combinedList}
-                highlightedIndex={highlightedIndex}
-                setHighlightedIndex={setHighlightedIndex}
-                placeSidebar={placeSidebar}
-                topSidebar={topSidebar}
-                setTopSidebar={setTopSidebar}
-                setPlaceSidebar={setPlaceSidebar}
-                setShowSidebar={setShowSidebar}
-                setRecentSidebar={setRecentSidebar}
-                handleSelectSuggestion={handleSelectSuggestion}
-                setSuggestions={setSuggestions}
-                setIsLocationSelected={setIsLocationSelected}
-                setRecentPlaces={setRecentPlaces}
-                setRelatedPlaces={setRelatedPlaces}
-                mapInstanceRef={mapInstanceRef}
-                recentPlaces={recentPlaces}
-                markerRef={markerRef}
-                sidebarMarkerRef={sidebarMarkerRef}
-                clearCategoryMarkers={clearCategoryMarkers}
-                keepHalfSidebarOpen={keepHalfSidebarOpen}
-                setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
-                sidebarHeight={sidebarHeight}
-                setSidebarHeight={setSidebarHeight}
-                activePlaceMarkerRemover={activePlaceMarkerRemover}
-                handleShopSuggestion={handleShopSuggestion}
-                searchOrigin={searchOrigin}
-                setSearchOrigin={setSearchOrigin}
-                noMatches={noMatches}
-                setNoMatches={setNoMatches}
-                allShops={allShops}
-                exploreButtonFunction={exploreButtonFunction}
-                closeCategoryMode={closeCategoryMode}
-                restoreCategoryView={restoreCategoryView}
-                setIsExploreButton={setIsExploreButton}
-                resetMapForMobile={resetMapForMobile}
-              />
-            ) : null}
-          </div>
-          
-          {fullSidebarActiveTab !== "fullSidebarOverview" && (
-            <div className="sticky top-0 z-[100] md:z-0 bg-white">
-              <div className="relative top-[-2px] left-0 w-full pt-[12px] pb-[10px] bg-white z-[100] flex md:hidden items-center justify-between text-black transition-opacity duration-200">
-                <button
-                  onClick={() => {
-                    setFullSidebarActiveTab("fullSidebarOverview");
-                  }}
-                  className="absolute left-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black cursor-pointer"
-                >
-                  <ArrowLeft size={22} strokeWidth={2} />
-                </button>
-                <h2 className="font-medium text-[17.5px] truncate pointer-events-none tracking-wide mx-auto text-center max-w-[220px]">
-                  {fullSidebarSelectedPlace?.title}
-                </h2>
-                <button
-                  onClick={() => {
-                    setFullSidebarSelectedPlace(null);
-                    closeButtonFunction();
-                  }}
-                  className="absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[18px] font-bold cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="flex justify-around border-b border-gray-400 bg-white">
-                {fullSidebarTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    className="relative py-[10px] text-[14px] tracking-wide font-medium text-gray-600 hover:text-black cursor-pointer"
-                    onClick={() => setFullSidebarActiveTab(tab.id)}
-                  >
-                    {tab.label}
-                    {fullSidebarActiveTab === tab.id && (
-                      <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
-                    )}
-                  </button>
-                ))}
-              </div>
+                <SearchBox
+                  placeSidebarSearchBoxRef={fullSidebarSearchBoxRef}
+                  placeSidebarSuggestionBoxRef={fullSidebarSuggestionBoxRef}
+                  inputRef={inputRef}
+                  searchValue={searchValue}
+                  fetchDetailedPlaces={fetchDetailedPlaces}
+                  setSearchValue={setSearchValue}
+                  showSuggestions={showSuggestions}
+                  setShowSuggestions={setShowSuggestions}
+                  combinedList={combinedList}
+                  highlightedIndex={highlightedIndex}
+                  setHighlightedIndex={setHighlightedIndex}
+                  placeSidebar={placeSidebar}
+                  topSidebar={topSidebar}
+                  setTopSidebar={setTopSidebar}
+                  setPlaceSidebar={setPlaceSidebar}
+                  setShowSidebar={setShowSidebar}
+                  setRecentSidebar={setRecentSidebar}
+                  handleSelectSuggestion={handleSelectSuggestion}
+                  setSuggestions={setSuggestions}
+                  setIsLocationSelected={setIsLocationSelected}
+                  setRecentPlaces={setRecentPlaces}
+                  setRelatedPlaces={setRelatedPlaces}
+                  mapInstanceRef={mapInstanceRef}
+                  recentPlaces={recentPlaces}
+                  markerRef={markerRef}
+                  sidebarMarkerRef={sidebarMarkerRef}
+                  clearCategoryMarkers={clearCategoryMarkers}
+                  keepHalfSidebarOpen={keepHalfSidebarOpen}
+                  setKeepHalfSidebarOpen={setKeepHalfSidebarOpen}
+                  sidebarHeight={sidebarHeight}
+                  setSidebarHeight={setSidebarHeight}
+                  activePlaceMarkerRemover={activePlaceMarkerRemover}
+                  handleShopSuggestion={handleShopSuggestion}
+                  searchOrigin={searchOrigin}
+                  setSearchOrigin={setSearchOrigin}
+                  noMatches={noMatches}
+                  setNoMatches={setNoMatches}
+                  allShops={allShops}
+                  exploreButtonFunction={exploreButtonFunction}
+                  closeCategoryMode={closeCategoryMode}
+                  restoreCategoryView={restoreCategoryView}
+                  setIsExploreButton={setIsExploreButton}
+                  resetMapForMobile={resetMapForMobile}
+                />
+              ) : null}
             </div>
-          )}
-            
-          <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
-            {fullSidebarActiveTab === "fullSidebarOverview" && (
-              <>
-                <div className="hidden md:flex relative w-full h-80 bg-gray-200 overflow-hidden">
-                  <Image
-                    src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
-                    alt={fullSidebarSelectedPlace?.title || "Place"}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/fallback.jpg";
+
+            {fullSidebarActiveTab !== "fullSidebarOverview" && (
+              <div className={`sticky top-0 z-[100] md:z-0 ${theme === 'dark' ? 'bg-[#131313]' : 'bg-white'}`}>
+                <div className={`relative top-[-2px] left-0 w-full pt-[12px] pb-[10px] ${theme === 'dark' ? 'bg-[#131313] text-white' : 'bg-white text-black'} z-[100] flex md:hidden items-center justify-between transition-opacity duration-200`}>
+                  <button
+                    onClick={() => {
+                      setFullSidebarActiveTab("fullSidebarOverview");
                     }}
-                    width={800}
-                    height={240}
-                    unoptimized
-                    className="w-full h-full object-fit"
-                  />
-                </div>
-
-                <div className="md:hidden relative w-full h-[300px] bg-white overflow-hidden">
-                  <div className="flex w-full h-full overflow-x-auto snap-none scroll-smooth no-scrollbar gap-x-[12px] px-[12px]">
-                    {(() => {
-                      const photos = fullSidebarSelectedPlace?.allPhotos || [];
-                      if (photos.length === 0) {
-                        return <Image src="/fallback.jpg" alt="Place" fill className="object-cover rounded-xl" />;
-                      }
-
-                      return (
-                        <>
-                          <div className="relative flex-shrink-0 w-[90%] h-full rounded-xl overflow-hidden">
-                            <Image
-                              src={photos[0]}
-                              alt="hero"
-                              width={800}
-                              height={240}
-                              unoptimized
-                              className="w-full h-full object-fit"
-                            />
-                          </div>
-
-                          {photos.length > 1 && (
-                            <div className="flex-shrink-0 w-[50%] h-full flex flex-col gap-[12px]">
-                              <div className="relative flex-1 w-full rounded-xl overflow-hidden">
-                                <Image src={photos[1]} alt="img-1" fill unoptimized className="object-fit" />
-                              </div>
-                              {photos[2] && (
-                                <div className="relative flex-1 w-full rounded-xl overflow-hidden">
-                                  <Image src={photos[2]} alt="img-2" fill unoptimized className="object-fit" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {photos.length > 3 && (
-                            <div className="flex-shrink-0 w-[50%] h-full flex flex-col gap-[12px] pr-[0px]">
-                              <div className="relative flex-1 w-full rounded-xl overflow-hidden ">
-                                <Image src={photos[3]} alt="img-3" fill unoptimized className="object-fit" />
-                              </div>
-                              {photos[4] && (
-                                <div 
-                                  className="relative flex-1 w-full cursor-pointer rounded-xl overflow-hidden"
-                                  onClick={() => {
-                                    if (photos.length > 5) setFullSidebarActiveTab("fullSidebarMenu");
-                                  }}
-                                >
-                                  <Image src={photos[4]} alt="img-4" fill unoptimized className="object-fit" />
-                                  
-                                  {photos.length > 5 && (
-                                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white text-center">
-                                      <ImageIcon style={{ fontSize: '24px' }} />
-                                      <span className="text-[12px] font-bold">View More</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-
+                    className={`absolute left-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 ${theme === 'dark' ? 'text-white' : 'text-black'} cursor-pointer`}
+                  >
+                    <ArrowLeft size={22} strokeWidth={2} />
+                  </button>
+                  <h2 className="font-medium text-[17.5px] truncate pointer-events-none tracking-wide mx-auto text-center max-w-[220px]">
+                    {fullSidebarSelectedPlace?.title}
+                  </h2>
                   <button
                     onClick={() => {
                       setFullSidebarSelectedPlace(null);
                       closeButtonFunction();
-                      activePlaceMarkerRemover();
                     }}
-                    className="absolute top-[14px] right-4 w-[34px] h-[34px] flex md:hidden items-center justify-center rounded-full bg-white hover:bg-gray-200 shadow-md text-black text-[18px] font-bold cursor-pointer"
+                    className={`absolute right-4 w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 ${theme === 'dark' ? 'text-white' : 'text-black'} text-[18px] font-bold cursor-pointer`}
                   >
                     ✕
                   </button>
                 </div>
 
-                <div className="pt-[14px] px-[24px] md:px-[26px] flex flex-col gap-[2px] max-w-[360px]">
-                  <span className="font-medium text-[21.5px] text-black truncate">
-                    {fullSidebarSelectedPlace?.title}
-                  </span>
-  
-                  {fullSidebarSelectedPlace?.nativeName && (
-                    <span className="text-[14px] text-gray-600">
-                      {fullSidebarSelectedPlace?.nativeName}
-                    </span>
-                  )}
-  
-                  {fullSidebarSelectedPlace?.rating ? (
-                    <>
-                      <span className="mt-[2px] text-[13.5px] text-gray-700 flex items-center gap-[4px]">
-                        <span>{fullSidebarSelectedPlace?.rating}</span>
-                        <StarRating rating={fullSidebarSelectedPlace?.rating} />
-                        {fullSidebarSelectedPlace?.userRatingsTotal && (
-                          <span className="text-gray-500">
-                            ({fullSidebarSelectedPlace?.userRatingsTotal.toLocaleString()})
-                          </span>
-                        )}
-                        {fullSidebarSelectedPlace?.priceText && (
-                          <>
-                            <span><b>·</b></span>
-                            <span>₹{fullSidebarSelectedPlace?.priceText}</span>
-                          </>
-                        )}
-                      </span>
-  
-                      {fullSidebarSelectedPlace?.category && (
-                        <span className="mt-[2px] text-gray-600 text-[14px] truncate">
-                          {fullSidebarSelectedPlace?.category}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    fullSidebarSelectedPlace?.subtitle && (
-                      /*
-                      <span className="text-gray-600 text-[14.5px] truncate pt-[2px]">
-                        {fullSidebarSelectedPlace.subtitle}
-                      </span>
-                      */
-
-                      <>
-                      <span className="mt-[2px] text-[13.5px] text-gray-700 flex items-center gap-[4px]">
-                        <span>{4.5}</span>
-                        <StarRating rating={4.5} />
-                        {fullSidebarSelectedPlace?.userRatingsTotal || (
-                          <span className="text-gray-500">
-                            (548)
-                          </span>
-                        )}
-                        {fullSidebarSelectedPlace?.priceText || (
-                          <>
-                            <span><b>·</b></span>
-                            <span>₹200 – 400</span>
-                          </>
-                        )}
-                      </span>
-  
-                      {fullSidebarSelectedPlace?.category && (
-                        <span className="mt-[2px] text-gray-600 text-[14px] truncate">
-                          {fullSidebarSelectedPlace?.category}
-                        </span>
-                      )}
-                    </>
-                    )
-                  )}
-                </div>
-              </>
-            )}
-
-            {fullSidebarActiveTab === "fullSidebarOverview" && (
-              <>
-                <div className="flex justify-around border-b border-gray-400 bg-white">
+                <div className={`flex justify-around border-b ${theme === 'dark' ? 'bg-[#131313] border-gray-200' : 'bg-white border-gray-400'}`}>
                   {fullSidebarTabs.map((tab) => (
                     <button
                       key={tab.id}
-                      className="relative py-[10px] text-[14.5px] tracking-wide font-medium text-gray-600 hover:text-black mt-[6px] cursor-pointer"
+                      className={`relative py-[10px] text-[14px] tracking-wide font-medium ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-600 hover:text-black'} cursor-pointer`}
                       onClick={() => setFullSidebarActiveTab(tab.id)}
                     >
                       {tab.label}
                       {fullSidebarActiveTab === tab.id && (
-                        <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#007B8A]" />
+                        <span className={`absolute bottom-0 left-0 w-full h-[2px] ${theme === 'dark' ? 'bg-[#9dedfb]' : 'bg-[#007B8A]'}`} />
                       )}
                     </button>
                   ))}
                 </div>
-              </>
+              </div>
             )}
-  
-            <div className={`pb-[10px] md:pb-[14px] text-[14.5px] text-gray-700
-              ${ fullSidebarActiveTab === "fullSidebarMenu" ? "pt-[8px]" : "pt-[14px]" }`}
-            >
+
+            <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
               {fullSidebarActiveTab === "fullSidebarOverview" && (
                 <>
-                  <div className="flex justify-around px-[4px] md:px-[6px] pb-[12px] border-b border-gray-300 bg-white">
-                    {/*
+                  <div className="hidden md:flex relative w-full h-80 bg-gray-200 overflow-hidden">
+                    <Image
+                      src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
+                      alt={fullSidebarSelectedPlace?.title || "Place"}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/fallback.jpg";
+                      }}
+                      width={800}
+                      height={240}
+                      unoptimized
+                      className="w-full h-full object-fit"
+                    />
+                  </div>
+
+                  <div className="md:hidden relative w-full h-[260px] bg-white overflow-hidden">
+                    <div className="flex w-full h-full overflow-x-auto snap-none scroll-smooth no-scrollbar gap-x-[12px] px-[12px]">
+                      {(() => {
+                        const photos = fullSidebarSelectedPlace?.allPhotos || [];
+                        if (photos.length === 0) {
+                          return <Image src="/fallback.jpg" alt="Place" fill className="object-cover rounded-xl" />;
+                        }
+
+                        return (
+                          <>
+                            <div className="relative flex-shrink-0 w-[90%] h-full rounded-xl overflow-hidden">
+                              <Image
+                                src={photos[0]}
+                                alt="hero"
+                                width={800}
+                                height={240}
+                                unoptimized
+                                className="w-full h-full object-fit"
+                              />
+                            </div>
+
+                            {photos.length > 1 && (
+                              <div className="flex-shrink-0 w-[50%] h-full flex flex-col gap-[12px]">
+                                <div className="relative flex-1 w-full rounded-xl overflow-hidden">
+                                  <Image src={photos[1]} alt="img-1" fill unoptimized className="object-fit" />
+                                </div>
+                                {photos[2] && (
+                                  <div className="relative flex-1 w-full rounded-xl overflow-hidden">
+                                    <Image src={photos[2]} alt="img-2" fill unoptimized className="object-fit" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {photos.length > 3 && (
+                              <div className="flex-shrink-0 w-[50%] h-full flex flex-col gap-[12px] pr-[0px]">
+                                <div className="relative flex-1 w-full rounded-xl overflow-hidden ">
+                                  <Image src={photos[3]} alt="img-3" fill unoptimized className="object-fit" />
+                                </div>
+                                {photos[4] && (
+                                  <div
+                                    className="relative flex-1 w-full cursor-pointer rounded-xl overflow-hidden"
+                                    onClick={() => {
+                                      if (photos.length > 5) setFullSidebarActiveTab("fullSidebarMenu");
+                                    }}
+                                  >
+                                    <Image src={photos[4]} alt="img-4" fill unoptimized className="object-fit" />
+
+                                    {photos.length > 5 && (
+                                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white text-center">
+                                        <ImageIcon style={{ fontSize: '24px' }} />
+                                        <span className="text-[12px] font-bold">View More</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setFullSidebarSelectedPlace(null);
+                        closeButtonFunction();
+                        activePlaceMarkerRemover();
+                      }}
+                      className="absolute top-[14px] right-4 w-[34px] h-[34px] flex md:hidden items-center justify-center rounded-full bg-white hover:bg-gray-200 shadow-md text-black text-[18px] font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="pt-[14px] px-[24px] md:px-[26px] flex flex-col gap-[2px] max-w-[360px]">
+                    <span className={`font-medium text-[21.5px] ${theme === 'dark' ? 'text-white' : 'text-black'} truncate`}>
+                      {fullSidebarSelectedPlace?.title}
+                    </span>
+
+                    {fullSidebarSelectedPlace?.nativeName && (
+                      <span className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-600'}`}>
+                        {fullSidebarSelectedPlace?.nativeName}
+                      </span>
+                    )}
+
+                    {fullSidebarSelectedPlace?.rating ? (
+                      <>
+                        <span className={`mt-[2px] text-[13.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-[4px]`}>
+                          <span>{fullSidebarSelectedPlace?.rating}</span>
+                          <StarRating rating={fullSidebarSelectedPlace?.rating} />
+                          {fullSidebarSelectedPlace?.userRatingsTotal && (
+                            <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
+                              ({fullSidebarSelectedPlace?.userRatingsTotal.toLocaleString()})
+                            </span>
+                          )}
+                          {fullSidebarSelectedPlace?.priceText && (
+                            <>
+                              <span><b>·</b></span>
+                              <span>₹{fullSidebarSelectedPlace?.priceText}</span>
+                            </>
+                          )}
+                        </span>
+
+                        {fullSidebarSelectedPlace?.category && (
+                          <span className={`mt-[2px] ${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate`}>
+                            {fullSidebarSelectedPlace?.category}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      fullSidebarSelectedPlace?.subtitle && (
+                        /*
+                        <span className="text-gray-600 text-[14.5px] truncate pt-[2px]">
+                          {fullSidebarSelectedPlace.subtitle}
+                        </span>
+                        */
+
+                        <>
+                          <span className={`mt-[2px] text-[13.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} flex items-center gap-[4px]`}>
+                            <span>{4.5}</span>
+                            <StarRating rating={4.5} />
+                            {fullSidebarSelectedPlace?.userRatingsTotal || (
+                              <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
+                                (548)
+                              </span>
+                            )}
+                            {fullSidebarSelectedPlace?.priceText || (
+                              <>
+                                <span><b>·</b></span>
+                                <span>₹200 – 400</span>
+                              </>
+                            )}
+                          </span>
+
+                          {fullSidebarSelectedPlace?.category && (
+                            <span className={`mt-[2px] ${theme === 'dark' ? 'text-white' : 'text-gray-600'} text-[14px] truncate`}>
+                              {fullSidebarSelectedPlace?.category}
+                            </span>
+                          )}
+                        </>
+                      )
+                    )}
+                  </div>
+                </>
+              )}
+
+              {fullSidebarActiveTab === "fullSidebarOverview" && (
+                <>
+                  <div className={`flex justify-around border-b ${theme === 'dark' ? 'bg-[#131313] border-gray-200' : 'bg-white border-gray-400'}`}>
+                    {fullSidebarTabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        className={`relative py-[10px] text-[14.5px] tracking-wide font-medium  ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-600 hover:text-black'} mt-[6px] cursor-pointer`}
+                        onClick={() => setFullSidebarActiveTab(tab.id)}
+                      >
+                        {tab.label}
+                        {fullSidebarActiveTab === tab.id && (
+                          <span className={`absolute bottom-0 left-0 w-full h-[2px] ${theme === 'dark' ? 'bg-[#9dedfb]' : 'bg-[#007B8A]'}`} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className={`pb-[10px] md:pb-[14px] text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'}
+              ${fullSidebarActiveTab === "fullSidebarMenu" ? "pt-[8px]" : "pt-[14px]"}`}
+              >
+                {fullSidebarActiveTab === "fullSidebarOverview" && (
+                  <>
+                    <div className={`flex justify-around px-[4px] md:px-[6px] pb-[12px] border-b border-gray-300 ${theme === 'dark' ? 'bg-[#131313]' : 'bg-white'}`}>
+                      {/*
                     <button 
                       onClick={() => {
                         setPlaceSidebar(null);
@@ -6595,84 +6830,84 @@ const Map = () => {
                       Directions
                     </button>
                     */}
-                    
-                    <button
-                      onClick={() => {
-                        if (!fullSidebarSelectedPlace) return;
-  
-                        setFavoritePlaceList((prevFavs) => {
-                          let updatedFavs;
-                          let isNowFavorite;
-  
-                          if (fullSidebarSelectedPlace.isFavorite) {
-                            updatedFavs = prevFavs.filter((p) => p.title !==fullSidebarSelectedPlace.title);
-                            isNowFavorite = false;
-                          } else {
-                            const alreadyExists = prevFavs.some((p) => p.title === fullSidebarSelectedPlace.title);
-                            updatedFavs = alreadyExists
-                              ? prevFavs
-                              : [{ ...fullSidebarSelectedPlace, isFavorite: true }, ...prevFavs];
-                            isNowFavorite = true;
-                          }
-  
-                          localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
-  
-                          setRecentPlaces((prev) =>
-                            prev.map((p) =>
-                              p.title === fullSidebarSelectedPlace.title
-                                ? { ...p, isFavorite: isNowFavorite }
-                                : p
-                            )
-                          );
-  
-                          setFullSidebarSelectedPlace((prev) =>
-                            prev ? { ...prev, isFavorite: isNowFavorite } : prev
-                          );
-  
-                          return updatedFavs;
-                        });
-                      }}
-                      className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
-                    >
-                      <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
-                        {fullSidebarSelectedPlace?.isFavorite ? (
-                          <FavoriteIcon style={{ fontSize: "22px" }} className="text-red-500" />
-                        ) : (
-                          <FavoriteBorderIcon style={{ fontSize: "22px" }} className="text-black text-medium" />
-                        )}
-                      </div>
-                      {fullSidebarSelectedPlace?.isFavorite ? "Remove" : "Favorite"}
-                    </button>
-  
-                    <button
-                      aria-label={`Download "${fullSidebarSelectedPlace?.title}" app`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (fullSidebarSelectedPlace) {
-                          handleAppDownload(fullSidebarSelectedPlace);
-                        }
-                      }} 
-                      className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer">
-                      <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
-                        <HiDownload style={{fontSize:"22px"}} className="text-black" />
-                      </div>
-                      Order Now
-                    </button>
-                    
-                    <div className="relative group">
-                      <button 
-                        onClick={handleFSLocationShare}
-                        className="flex flex-col items-center text-[12.5px] tracking-wide text-gray-700 hover:text-black cursor-pointer"
+
+                      <button
+                        onClick={() => {
+                          if (!fullSidebarSelectedPlace) return;
+
+                          setFavoritePlaceList((prevFavs) => {
+                            let updatedFavs;
+                            let isNowFavorite;
+
+                            if (fullSidebarSelectedPlace.isFavorite) {
+                              updatedFavs = prevFavs.filter((p) => p.title !== fullSidebarSelectedPlace.title);
+                              isNowFavorite = false;
+                            } else {
+                              const alreadyExists = prevFavs.some((p) => p.title === fullSidebarSelectedPlace.title);
+                              updatedFavs = alreadyExists
+                                ? prevFavs
+                                : [{ ...fullSidebarSelectedPlace, isFavorite: true }, ...prevFavs];
+                              isNowFavorite = true;
+                            }
+
+                            localStorage.setItem("favorite_places", JSON.stringify(updatedFavs));
+
+                            setRecentPlaces((prev) =>
+                              prev.map((p) =>
+                                p.title === fullSidebarSelectedPlace.title
+                                  ? { ...p, isFavorite: isNowFavorite }
+                                  : p
+                              )
+                            );
+
+                            setFullSidebarSelectedPlace((prev) =>
+                              prev ? { ...prev, isFavorite: isNowFavorite } : prev
+                            );
+
+                            return updatedFavs;
+                          });
+                        }}
+                        className={`flex flex-col items-center text-[12.5px] tracking-wide ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-700 hover:text-black'} cursor-pointer`}
                       >
-                        <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-[#CCF3F9] hover:bg-gray-100 mb-[6px]">
-                          <Share2 size={18} className="text-black" />
+                        <div className={`w-[40px] h-[40px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} mb-[6px]`}>
+                          {fullSidebarSelectedPlace?.isFavorite ? (
+                            <FavoriteIcon style={{ fontSize: "22px" }} className="text-red-500" />
+                          ) : (
+                            <FavoriteBorderIcon style={{ fontSize: "22px" }} className={`${theme === 'dark' ? 'text-white' : 'text-black'} text-medium`} />
+                          )}
                         </div>
-                        Share
+                        {fullSidebarSelectedPlace?.isFavorite ? "Remove" : "Favorite"}
                       </button>
+
+                      <button
+                        aria-label={`Download "${fullSidebarSelectedPlace?.title}" app`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (fullSidebarSelectedPlace) {
+                            handleAppDownload(fullSidebarSelectedPlace);
+                          }
+                        }}
+                        className={`flex flex-col items-center text-[12.5px] tracking-wide ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-700 hover:text-black'} cursor-pointer`}>
+                        <div className={`w-[40px] h-[40px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} mb-[6px]`}>
+                          <HiDownload style={{ fontSize: "22px" }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
+                        </div>
+                        Order Now
+                      </button>
+
+                      <div className="relative group">
+                        <button
+                          onClick={handleFSLocationShare}
+                          className={`flex flex-col items-center text-[12.5px] tracking-wide ${theme === 'dark' ? 'text-[#9dedfb] hover:text-white' : 'text-gray-700 hover:text-black'} cursor-pointer`}
+                        >
+                          <div className={`w-[40px] h-[40px] flex items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} mb-[6px]`}>
+                            <Share2 size={18} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
+                          </div>
+                          Share
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/*
+
+                    {/*
                   <div
                     onClick={() => {
                       setFullSidebarActiveTab("fullSidebarAbout");
@@ -6696,60 +6931,60 @@ const Map = () => {
                   </div>
                   */}
 
-                  <div className="pt-[14px] pb-[22px] border-b border-gray-300 bg-white">
-                    <div className="group relative w-full flex items-start pl-[24px] pr-[20px] py-2 hover:bg-gray-100 cursor-pointer">
-                      <LocationOnIcon className="text-[#007B8A] mr-[24px] mt-[2px]" />
-  
-                      <p className="flex-1 text-[14px] text-gray-800 leading-snug tracking-wide">
-                        {fullSidebarSelectedPlace?.fullAddress || "Address not available"}
-                      </p>
-  
-                      <button
-                        onClick={handleFSAddressCopy}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-[6px] cursor-pointer"
-                      >
-                        <ContentCopyIcon style={{fontSize:"18px"}} className="text-gray-600" />
-  
-                        <span className="absolute left-0 top-[36px] bg-black text-white text-[12px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition tracking-wide">
-                          Copy address
-                        </span>
-                      </button>
-  
-                      {addressFSCopied && (
-                        <span className="absolute right-0 -top-[22px] bg-black text-white text-[12px] px-[6px] py-[4px] tracking-wide rounded">
-                          Copied to clipboard
-                        </span>
-                      )}
-                    </div>
+                    <div className={`pt-[14px] pb-[22px] border-b border-gray-300 ${theme === 'dark' ? 'bg-[#131313]' : 'bg-white'}`}>
+                      <div className={`group relative w-full flex items-start pl-[24px] pr-[20px] py-2 ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} cursor-pointer`}>
+                        <LocationOnIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} mr-[24px] mt-[2px]`} />
 
-                    <div className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 cursor-pointer">
-                      <AccessTimeIcon  className="text-[#007B8A] mr-[24px] font-bold" />
-                      <p className="flex-1 text-[14px] text-gray-800 tracking-wide">
-                        {fullSidebarSelectedPlace?.openCloseTiming ? (
-                          <>
-                            {(() => {
-                              const [openTime, closeTime] = fullSidebarSelectedPlace.openCloseTiming.split("–");
-                              return (
-                                <>
-                                  Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
-                                </>
-                              );
-                            })()}
-                          </>
-                        ) : (
-                          <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
+                        <p className={`flex-1 text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-800'} leading-snug tracking-wide`}>
+                          {fullSidebarSelectedPlace?.fullAddress || "Address not available"}
+                        </p>
+
+                        <button
+                          onClick={handleFSAddressCopy}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-[6px] cursor-pointer"
+                        >
+                          <ContentCopyIcon style={{ fontSize: "18px" }} className={`${theme === 'dark' ? 'text-white' : 'text-gray-600'}`} />
+
+                          <span className="absolute left-0 top-[36px] bg-black text-white text-[12px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition tracking-wide">
+                            Copy address
+                          </span>
+                        </button>
+
+                        {addressFSCopied && (
+                          <span className="absolute right-0 -top-[22px] bg-black text-white text-[12px] px-[6px] py-[4px] tracking-wide rounded">
+                            Copied to clipboard
+                          </span>
                         )}
-                      </p>
-                    </div>
-  
-                    <button className="w-full flex items-center px-[24px] py-2 hover:bg-gray-100 rounded-none">
-                      <PaymentsIcon className="text-[#007B8A] mr-[24px]" />
-                      <div className="flex flex-col">
-                        <p className="text-[14px] text-gray-800 tracking-wide"> {fullSidebarSelectedPlace?.priceText || "₹200 – 400"} per person</p>
                       </div>
-                    </button>
-                    
-                    {/*
+
+                      <div className={`w-full flex items-center px-[24px] py-2 ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} cursor-pointer`}>
+                        <AccessTimeIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} mr-[24px] font-bold`} />
+                        <p className={`flex-1 text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-800'} tracking-wide`}>
+                          {fullSidebarSelectedPlace?.openCloseTiming ? (
+                            <>
+                              {(() => {
+                                const [openTime, closeTime] = fullSidebarSelectedPlace.openCloseTiming.split("–");
+                                return (
+                                  <>
+                                    Open {openTime.trim()} <b>·</b> <span className={`${theme === 'dark' ? 'text-red-300' : 'text-red-500'}`}>Closes {closeTime?.trim() || "soon"}</span>
+                                  </>
+                                );
+                              })()}
+                            </>
+                          ) : (
+                            <span>Open 10am <b>·</b> <span className={`${theme === 'dark' ? 'text-red-300' : 'text-red-500'}`}>Closes 10pm</span></span>
+                          )}
+                        </p>
+                      </div>
+
+                      <button className={`w-full flex items-center px-[24px] py-2 ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-100'} rounded-none`}>
+                        <PaymentsIcon className={`${theme === 'dark' ? 'text-[#9dedfb]' : 'text-[#007B8A]'} mr-[24px]`} />
+                        <div className="flex flex-col">
+                          <p className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-800'} tracking-wide`}> {fullSidebarSelectedPlace?.priceText || "₹200 – 400"} per person</p>
+                        </div>
+                      </button>
+
+                      {/*
                     <div className="group relative w-full flex items-center pl-[24px] pr-[16px] py-2 hover:bg-gray-100 cursor-pointer">
                       <AdjustIcon className="text-[#007B8A] mr-[24px]" />
   
@@ -6809,9 +7044,9 @@ const Map = () => {
                       Suggest an edit
                     </button>
                     */}
-                  </div>
+                    </div>
 
-                  {/*
+                    {/*
                   <div className="bg-white pt-[16px] pb-[14px] border-b border-gray-300">
                     <h3 className="text-[16px] font-sans font-medium tracking-wide text-black mb-[14px] px-[24px] md:px-[26px]">
                       Add missing information
@@ -6839,116 +7074,116 @@ const Map = () => {
                     </div>
                   </div>
                   */}
-                  
-                  <div className="py-[16px] border-b border-gray-300">
-                    {(fullSidebarSelectedPlace?.photos?.length ?? 0) > 0 && (
-                      <div>
-                        <h2 className="font-sans font-medium tracking-wide text-black text-[16px] px-[24px] md:px-[26px] mb-[10px]">
-                          Menu & highlights
-                        </h2>
-  
-                        <div className="flex justify-between gap-[12px] md:justify-none md:gap-[14px] mt-[18px] overflow-x-auto px-[22px] md:px-[24px]">
-                          {fullSidebarSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
-                            <div key={idx} className="relative flex-1 min-w-0 md:flex-none">
-                              <Image
-                                src={url}
-                                alt={`Menu highlight ${idx + 1}`}
-                                width={174}
-                                height={200}
-                                unoptimized
-                                className="w-full md:w-[174px] h-[200px] object-cover rounded-lg"
-                              />
-                            </div>
-                          ))}
+
+                    <div className="py-[16px] border-b border-gray-300">
+                      {(fullSidebarSelectedPlace?.photos?.length ?? 0) > 0 && (
+                        <div>
+                          <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] px-[24px] md:px-[26px] mb-[10px]`}>
+                            Menu & highlights
+                          </h2>
+
+                          <div className="flex justify-between gap-[12px] md:justify-none md:gap-[14px] mt-[18px] overflow-x-auto px-[22px] md:px-[24px]">
+                            {fullSidebarSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
+                              <div key={idx} className="relative flex-1 min-w-0 md:flex-none">
+                                <Image
+                                  src={url}
+                                  alt={`Menu highlight ${idx + 1}`}
+                                  width={174}
+                                  height={200}
+                                  unoptimized
+                                  className="w-full md:w-[174px] h-[200px] object-fit rounded-lg bg-white"
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-[18px] flex justify-center">
+                            <button
+                              onClick={() => setFullSidebarActiveTab("fullSidebarMenu")}
+                              className={`${theme === 'dark' ? 'text-white md:text-[#9dedfb] md:hover:text-white' : 'text-black md:text-[#007B8A] md:hover:text-black'} font-sans text-[14px] font-medium tracking-wide`}
+                            >
+                              See more
+                            </button>
+                          </div>
                         </div>
-  
-                        <div className="mt-[18px] flex justify-center">
-                          <button
-                            onClick={() => setFullSidebarActiveTab("fullSidebarMenu")}
-                            className="text-[#007B8A] font-sans text-[14px] font-medium tracking-wide hover:text-black"
-                          >
-                            See more
+                      )}
+                    </div>
+
+                    <div className="pt-[16px] pb-[8px]">
+                      <div className="px-[24px] md:px-[26px] pb-[22px] border-b border-gray-300">
+                        <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] mb-[10px]`}>
+                          Review summary
+                        </h2>
+                        <div className="flex items-center justify-between mt-[14px]">
+                          {(() => {
+                            const userRatingsTotal = fullSidebarSelectedPlace?.userRatingsTotal ?? 4.5;
+                            const breakdown: Record<number, number> =
+                              fullSidebarSelectedPlace?.ratingBreakdown as Record<number, number> ||
+                              (() => {
+                                if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+                                const base = userRatingsTotal;
+                                const five = base - 0.3;
+                                const four = base - 0.6;
+                                const three = base - 1.5;
+                                const two = base - 1;
+                                const one = 2;
+
+                                return { 5: five, 4: four, 3: three, 2: two, 1: one };
+                              })();
+
+                            return (
+                              <div className="flex flex-col gap-[3px] w-[65%] md:w-[240px]">
+                                {[5, 4, 3, 2, 1].map((star) => {
+                                  const count = breakdown[star] || 0;
+                                  const total = userRatingsTotal || 1;
+                                  const percent = (count / total) * 100;
+
+                                  return (
+                                    <div key={star} className="flex items-center gap-2 text-[14px]">
+                                      <span className={`w-4 ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>{star}</span>
+                                      <div className="flex-1 h-2 bg-gray-200 rounded">
+                                        <div
+                                          className="h-2 bg-yellow-400 rounded"
+                                          style={{ width: `${percent}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+
+                          <div className="flex flex-col items-center gap-[6px]">
+                            <span className={`text-[42px] leading-none font-medium ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                              {fullSidebarSelectedPlace?.rating?.toFixed(1)}
+                            </span>
+                            <StarRating rating={fullSidebarSelectedPlace?.rating || 4.5} />
+                            <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'} text-[12.5px]`}>
+                              {/*{fullSidebarSelectedPlace?.userRatingsTotal?.toLocaleString()} reviews*/}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-[22px] flex justify-center">
+                          <button className={`flex items-center gap-2 px-[14px] py-2 rounded-full ${theme === 'dark' ? 'bg-[#00373e] text-white' : 'bg-[#CCF3F9] hover:bg-gray-100 text-black'} font-medium text-[14.5px] tracking-wide`}>
+                            <RateReviewIcon style={{ fontSize: "18px" }} />
+                            Write a review
                           </button>
                         </div>
                       </div>
-                    )}
-                  </div>
-  
-                  <div className="pt-[16px] pb-[8px]"> 
-                    <div className="px-[24px] md:px-[26px] pb-[22px] border-b border-gray-300">
-                      <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mb-[10px]">
-                        Review summary
-                      </h2>
-                      <div className="flex items-center justify-between mt-[14px]">
-                        {(() => {
-                          const userRatingsTotal = fullSidebarSelectedPlace?.userRatingsTotal ?? 4.5;
-                          const breakdown: Record<number, number> =
-                            fullSidebarSelectedPlace?.ratingBreakdown as Record<number, number> ||
-                            (() => {
-                              if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-
-                              const base = userRatingsTotal;
-                              const five = base - 0.3;
-                              const four = base - 0.6;
-                              const three = base - 1.5;
-                              const two = base - 1;
-                              const one = 2;
-  
-                              return { 5: five, 4: four, 3: three, 2: two, 1: one };
-                            })();
-  
-                          return (
-                            <div className="flex flex-col gap-[3px] w-[65%] md:w-[240px]">
-                              {[5, 4, 3, 2, 1].map((star) => {
-                                const count = breakdown[star] || 0;
-                                const total = userRatingsTotal || 1;
-                                const percent = (count / total) * 100;
-  
-                                return (
-                                  <div key={star} className="flex items-center gap-2 text-[14px]">
-                                    <span className="w-4 text-gray-700">{star}</span>
-                                    <div className="flex-1 h-2 bg-gray-200 rounded">
-                                      <div
-                                        className="h-2 bg-yellow-400 rounded"
-                                        style={{ width: `${percent}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
-  
-                        <div className="flex flex-col items-center gap-[6px]">
-                          <span className="text-[42px] leading-none font-medium text-black">
-                            {fullSidebarSelectedPlace?.rating?.toFixed(1)}
-                          </span>
-                          <StarRating rating={fullSidebarSelectedPlace?.rating || 4.5} />
-                          <span className="text-gray-500 text-[12.5px]">
-                            {/*{fullSidebarSelectedPlace?.userRatingsTotal?.toLocaleString()} reviews*/}
-                          </span>
-                        </div>
-                      </div>
-  
-                      <div className="mt-[22px] flex justify-center">
-                        <button className="flex items-center gap-2 px-[14px] py-2 rounded-full bg-[#DFF6FD] text-[#014B54] font-medium text-[14.5px] tracking-wide hover:bg-[#c7eef9]">
-                          <RateReviewIcon style={{ fontSize: "18px" }} />
-                          Write a review
-                        </button>
-                      </div>
-                    </div>
-                    {fullSidebarSelectedPlace?.reviews && fullSidebarSelectedPlace.reviews.length > 0 && (
-                      <div>
-                        <h2 className="font-sans font-medium tracking-wide text-black text-[16px] px-[24px] md:px-[26px] mt-[16px]">
-                          Reviews
-                        </h2>
-                        {fullSidebarSelectedPlace.reviews.slice(0,2).map((review, index) => (
-                          <div
-                            key={index}
-                            className="border-b last:border-b-0 border-gray-300 pt-[16px] pb-[18px] last:pb-[0px] flex gap-3"
-                          >
-                            <div className="px-[24px] md:px-[26px]">
+                      {fullSidebarSelectedPlace?.reviews && fullSidebarSelectedPlace.reviews.length > 0 && (
+                        <div>
+                          <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] px-[24px] md:px-[26px] mt-[16px]`}>
+                            Reviews
+                          </h2>
+                          {fullSidebarSelectedPlace.reviews.slice(0, 2).map((review, index) => (
+                            <div
+                              key={index}
+                              className="border-b last:border-b-0 border-gray-300 pt-[16px] pb-[18px] last:pb-[0px] flex gap-3"
+                            >
+                              <div className="px-[24px] md:px-[26px]">
                                 <div className="flex items-center gap-[12px]">
                                   <Image
                                     src={
@@ -6965,41 +7200,41 @@ const Map = () => {
                                     }}
                                     className="w-9 h-9 rounded-full object-cover"
                                   />
-                                  <span className="font-medium text-[16px] tracking-wide text-black">
+                                  <span className={`font-medium text-[16px] tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                                     {review.author_name}
                                   </span>
                                 </div>
-  
+
                                 <div className="flex items-center gap-[10px] mt-[12px]">
                                   <StarRating rating={review.rating ?? 0} />
-                                  <span className="text-[14.5px] text-gray-500">
+                                  <span className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
                                     {review.relative_time_description}
                                   </span>
                                 </div>
-  
+
                                 {review.text && (
-                                  <p className="text-[14px] text-gray-700 mt-[6px]">
+                                  <p className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} mt-[6px]`}>
                                     {review.text}
                                   </p>
                                 )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-[14px] flex justify-center">
+                        <button
+                          onClick={() => setFullSidebarActiveTab("fullSidebarReviews")}
+                          className={`${theme === 'dark' ? 'text-white md:text-[#9dedfb] md:hover:text-white' : 'text-black md:text-[#007B8A] md:hover:text-black'} font-sans text-[14px] font-medium tracking-wide`}
+                        >
+                          More reviews
+                        </button>
                       </div>
-                    )}
-                    <div className="mt-[14px] flex justify-center">
-                      <button
-                        onClick={() => setFullSidebarActiveTab("fullSidebarReviews")}
-                        className="text-[#007B8A] font-sans text-[14px] font-medium tracking-wide hover:text-black"
-                      >
-                        More reviews
-                      </button>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
 
-              {/*
+                {/*
               {fullSidebarActiveTab === "fullSidebarMenu" && (
                 <div>
                   <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[6px] px-[24px] md:px-[26px]">Menu</h2>
@@ -7022,49 +7257,47 @@ const Map = () => {
               )}
               */}
 
-              {fullSidebarActiveTab === "fullSidebarMenu" && (
-                <>
-                  {availableTabs.length > 1 && (
-                    <div className="flex flex-nowrap justify-evenly gap-[12px] md:gap-[14px] px-[20px] md:px-[24px] overflow-x-auto scrollbar-hide pb-[8px] border-b border-gray-400 bg-white">
-                      {availableTabs.map((tab) => (
-                        <button
-                          key={tab.key}
-                          onClick={() => setmenuActiveFSTab(tab.key)}
-                          className={`px-[10px] py-[6px] md:py-2 text-[13px] md:text-[14px] rounded-[10px] transition-all duration-200 cursor-pointer font-sans font-medium tracking-wide whitespace-nowrap
-                            ${
-                              menuActiveFSTab === tab.key
-                                ? "bg-gray-300 text-black hover:bg-gray-300"
-                                : "bg-transparent text-gray-600"
-                            }`}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                {fullSidebarActiveTab === "fullSidebarMenu" && (
+                  <>
+                    {availableTabs.length > 1 && (
+                      <div className={`flex flex-nowrap justify-evenly gap-[12px] md:gap-[14px] px-[20px] md:px-[24px] overflow-x-auto scrollbar-hide pb-[8px] border-b ${theme === 'dark' ? 'bg-[#131313] border-gray-200' : 'bg-white border-gray-400'}`}>
+                        {availableTabs.map((tab) => (
+                          <button
+                            key={tab.key}
+                            onClick={() => setmenuActiveFSTab(tab.key)}
+                            className={`px-[10px] py-[6px] md:py-2 text-[13px] md:text-[14px] rounded-[10px] transition-all duration-200 cursor-pointer font-sans font-medium tracking-wide whitespace-nowrap
+                                ${menuActiveFSTab === tab.key ? (theme === 'dark' ? "bg-[#2a2b2f]" : "bg-gray-300") : "bg-transparent"}
+                                ${theme === 'dark' ? (menuActiveFSTab === tab.key ? "text-white" : "text-gray-200") : (menuActiveFSTab === tab.key ? "text-black" : "text-gray-600")}
+                              `}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
-                  <div className="px-0">
-                    {menuActiveFSTab === "overview" && overviewFSImages.length > 0 && (
-                      <>
-                        <div className="border-b border-gray-300 pb-[20px]">
-                          <h2 className="font-sans font-medium tracking-wide text-black text-[16px] my-[14px] px-[24px] md:px-[26px]">
-                            Menu
-                          </h2>
+                    <div className="px-0">
+                      {menuActiveFSTab === "overview" && overviewFSImages.length > 0 && (
+                        <>
+                          <div className="border-b border-gray-300 pb-[20px]">
+                            <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] my-[14px] px-[24px] md:px-[26px]`}>
+                              Menu
+                            </h2>
 
-                          <div className="relative w-full px-[0px] md:px-[2px] group">
-                            {menuFSImages.length > 2 && (
-                              <button
-                                onClick={() => {
-                                  if (menuScrollRef.current) {
-                                    menuScrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
-                                  }
-                                }}
-                                className={`absolute left-[12px] top-1/2 -translate-y-1/2 bg-white rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
-                                  lg:opacity-0 lg:group-hover:opacity-100 ${ menuLeftArrow ? "block" : "hidden"}`}
-                              >
-                                <ChevronLeft size={20} />
-                              </button>
-                            )}
+                            <div className="relative w-full px-[0px] md:px-[2px] group">
+                              {menuFSImages.length > 2 && (
+                                <button
+                                  onClick={() => {
+                                    if (menuScrollRef.current) {
+                                      menuScrollRef.current.scrollBy({ left: -300, behavior: "smooth" });
+                                    }
+                                  }}
+                                  className={`absolute left-[12px] top-1/2 -translate-y-1/2 ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black'} rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
+                                  lg:opacity-0 lg:group-hover:opacity-100 ${menuLeftArrow ? "block" : "hidden"}`}
+                                >
+                                  <ChevronLeft size={20} />
+                                </button>
+                              )}
                               <div
                                 ref={menuScrollRef}
                                 onScroll={handleMenuScroll}
@@ -7078,151 +7311,151 @@ const Map = () => {
                                     width={130}
                                     height={130}
                                     unoptimized
-                                    className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-cover rounded-lg mr-[0px] last:mr-[24px]"
+                                    className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-fit bg-white rounded-lg mr-[0px] last:mr-[24px]"
                                   />
                                 ))}
                               </div>
-                            {menuFSImages.length > 2 && (
-                              <button
-                                onClick={() => {
-                                  if (menuScrollRef.current) {
-                                    menuScrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
-                                  }
-                                }}
-                                className={`absolute right-[14px] top-1/2 -translate-y-1/2 bg-white rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
+                              {menuFSImages.length > 2 && (
+                                <button
+                                  onClick={() => {
+                                    if (menuScrollRef.current) {
+                                      menuScrollRef.current.scrollBy({ left: 300, behavior: "smooth" });
+                                    }
+                                  }}
+                                  className={`absolute right-[14px] top-1/2 -translate-y-1/2 ${theme === 'dark' ? 'bg-[#2a2b2f] text-white' : 'bg-white text-black'} rounded-full shadow-md p-2 transition-all duration-200 cursor-pointer
                                   lg:opacity-0 lg:group-hover:opacity-100 ${menuRightArrow ? "block" : "hidden"}`}
-                              >
-                                <ChevronRight size={20} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <h2 className="font-sans font-medium tracking-wide text-black text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]">Highlights</h2>
-                          <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px] mb-[6px] md:mb-0">
-                            {highlightFSImages.map((url, idx) => (
-                              <Image
-                                key={idx}
-                                src={url}
-                                alt={`Overview photo ${idx + 1}`}
-                                width={600}
-                                height={240}
-                                unoptimized
-                                className="w-full h-56 md:h-60 object-cover rounded-lg"
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    
-                    {menuFSCategories.map((cat) => {
-                      const showItems = Array.isArray(cat.items) && cat.items.length > 0;
-                      if (!showItems) return null;
-                      if (menuActiveFSTab !== cat.name) return null;
-
-                      return (
-                        <div key={cat.name} className="space-y-4">
-                          {cat.items.map((item: MenuItem, idx: number) => (
-                            <div
-                              key={idx}
-                              className="border-b last:border-none border-gray-300 py-[12px] mb-0"
-                            >
-                              <div className="px-[24px] md:px-[26px] flex flex-1 justify-between">
-                                <div className="w-[75%]">
-                                  <h3 className="font-sans font-medium tracking-wide text-[14px] text-black">
-                                    {item.name}
-                                  </h3>
-                                  <p className="text-[13px] font-sans text-gray-600 mt-[2px]">
-                                    {item.description}
-                                  </p>
-                                </div>
-                                <div className="text-right whitespace-nowrap font-sans font-medium text-black text-[14px]">
-                                  ₹{Number(item.price).toLocaleString("en-IN")}
-
-                                </div>
-                              </div>
+                                >
+                                  <ChevronRight size={20} />
+                                </button>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-  
-              {fullSidebarActiveTab === "fullSidebarReviews" && fullSidebarSelectedPlace && (
-                <div> 
-                  <div className="px-[24px] md:px-[26px] pt-[20px] pb-[20px]">
-                    <div className="flex items-center justify-between">
-                      {(() => {
-                        const userRatingsTotal = fullSidebarSelectedPlace.userRatingsTotal ?? 4.5;
-                        const breakdown: Record<number, number> =
-                          fullSidebarSelectedPlace.ratingBreakdown as Record<number, number> ||
-                          (() => {
-                            if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  
-                            const base = userRatingsTotal;
-                            const five = base - 0.3;
-                            const four = base - 0.6;
-                            const three = base - 1.5;
-                            const two = base - 1;
-                            const one = 2;  
-  
-                            return { 5: five, 4: four, 3: three, 2: two, 1: one };
-                          })();
-  
+                          </div>
+
+                          <div>
+                            <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] mt-[18px] mb-[16px] px-[24px] md:px-[26px]`}>Highlights</h2>
+                            <div className="grid grid-cols-2 gap-3 px-[24px] md:px-[26px] mb-[6px] md:mb-0">
+                              {highlightFSImages.map((url, idx) => (
+                                <Image
+                                  key={idx}
+                                  src={url}
+                                  alt={`Overview photo ${idx + 1}`}
+                                  width={600}
+                                  height={240}
+                                  unoptimized
+                                  className="w-full h-56 md:h-60 object-fit rounded-lg bg-white"
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {menuFSCategories.map((cat) => {
+                        const showItems = Array.isArray(cat.items) && cat.items.length > 0;
+                        if (!showItems) return null;
+                        if (menuActiveFSTab !== cat.name) return null;
+
                         return (
-                          <div className="flex flex-col gap-[3px] w-[65%] md:w-[250px]">
-                            {[5, 4, 3, 2, 1].map((star) => {
-                              const count = breakdown[star] || 0;
-                              const total = userRatingsTotal || 1;
-                              const percent = (count / total) * 100;
-  
-                              return (
-                                <div key={star} className="flex items-center gap-2 text-[14px]">
-                                  <span className="w-4 text-gray-700">{star}</span>
-                                  <div className="flex-1 h-2 bg-gray-200 rounded">
-                                    <div
-                                      className="h-2 bg-yellow-400 rounded"
-                                      style={{ width: `${percent}%` }}
-                                    ></div>
+                          <div key={cat.name} className="space-y-4">
+                            {cat.items.map((item: MenuItem, idx: number) => (
+                              <div
+                                key={idx}
+                                className="border-b last:border-none border-gray-300 py-[12px] mb-0"
+                              >
+                                <div className="px-[24px] md:px-[26px] flex flex-1 justify-between">
+                                  <div className="w-[75%]">
+                                    <h3 className={`font-sans font-medium tracking-wide text-[14px] ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                                      {item.name}
+                                    </h3>
+                                    <p className={`text-[13px] font-sans ${theme === 'dark' ? 'text-white' : 'text-gray-600'} mt-[2px]`}>
+                                      {item.description}
+                                    </p>
+                                  </div>
+                                  <div className={`text-right whitespace-nowrap font-sans font-medium ${theme === 'dark' ? 'text-white' : 'text-black'} text-[14px]`}>
+                                    ₹{Number(item.price).toLocaleString("en-IN")}
+
                                   </div>
                                 </div>
-                              );
-                            })}
+                              </div>
+                            ))}
                           </div>
                         );
-                      })()}
-  
-                      <div className="flex flex-col items-center gap-[6px]">
-                        <span className="text-[42px] leading-none font-medium text-black">
-                          {fullSidebarSelectedPlace.rating?.toFixed(1)}
-                        </span>
-                        <StarRating rating={fullSidebarSelectedPlace.rating || 4.5} />
-                        <span className="text-gray-500 text-[12.5px]">
-                          {/* {fullSidebarSelectedPlace.userRatingsTotal?.toLocaleString()} reviews */}
-                        </span>
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {fullSidebarActiveTab === "fullSidebarReviews" && fullSidebarSelectedPlace && (
+                  <div>
+                    <div className="px-[24px] md:px-[26px] pt-[20px] pb-[20px]">
+                      <div className="flex items-center justify-between">
+                        {(() => {
+                          const userRatingsTotal = fullSidebarSelectedPlace.userRatingsTotal ?? 4.5;
+                          const breakdown: Record<number, number> =
+                            fullSidebarSelectedPlace.ratingBreakdown as Record<number, number> ||
+                            (() => {
+                              if (!userRatingsTotal) return { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+                              const base = userRatingsTotal;
+                              const five = base - 0.3;
+                              const four = base - 0.6;
+                              const three = base - 1.5;
+                              const two = base - 1;
+                              const one = 2;
+
+                              return { 5: five, 4: four, 3: three, 2: two, 1: one };
+                            })();
+
+                          return (
+                            <div className="flex flex-col gap-[3px] w-[65%] md:w-[250px]">
+                              {[5, 4, 3, 2, 1].map((star) => {
+                                const count = breakdown[star] || 0;
+                                const total = userRatingsTotal || 1;
+                                const percent = (count / total) * 100;
+
+                                return (
+                                  <div key={star} className="flex items-center gap-2 text-[14px]">
+                                    <span className={`w-4 ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>{star}</span>
+                                    <div className="flex-1 h-2 bg-gray-200 rounded">
+                                      <div
+                                        className="h-2 bg-yellow-400 rounded"
+                                        style={{ width: `${percent}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+
+                        <div className="flex flex-col items-center gap-[6px]">
+                          <span className={`text-[42px] leading-none font-medium ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
+                            {fullSidebarSelectedPlace.rating?.toFixed(1)}
+                          </span>
+                          <StarRating rating={fullSidebarSelectedPlace.rating || 4.5} />
+                          <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-500'} text-[12.5px]`}>
+                            {/* {fullSidebarSelectedPlace.userRatingsTotal?.toLocaleString()} reviews */}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-[22px] flex justify-center">
+                        <button className={`flex items-center gap-2 px-[14px] py-2 rounded-full ${theme === 'dark' ? 'bg-[#00373e] text-white' : 'bg-[#CCF3F9] hover:bg-gray-100 text-black'} font-medium text-[14.5px] tracking-wide`}>
+                          <RateReviewIcon style={{ fontSize: "18px" }} />
+                          Write a review
+                        </button>
                       </div>
                     </div>
-  
-                    <div className="mt-[22px] flex justify-center">
-                      <button className="flex items-center gap-2 px-[14px] py-2 rounded-full bg-[#DFF6FD] text-[#014B54] font-medium text-[14.5px] tracking-wide hover:bg-[#c7eef9]">
-                        <RateReviewIcon style={{ fontSize: "18px" }} />
-                        Write a review
-                      </button>
-                    </div>
-                  </div>
-  
-                  {fullSidebarSelectedPlace.reviews && fullSidebarSelectedPlace.reviews.length > 0 && (
-                    <div>
-                      {fullSidebarSelectedPlace.reviews.map((review, index) => (
-                        <div
-                          key={index}
-                          className="border-t border-gray-300 pt-5 pb-5 last:pb-4 flex gap-3"
-                        >
-                          <div className="px-[24px] md:px-[26px]">
+
+                    {fullSidebarSelectedPlace.reviews && fullSidebarSelectedPlace.reviews.length > 0 && (
+                      <div>
+                        {fullSidebarSelectedPlace.reviews.map((review, index) => (
+                          <div
+                            key={index}
+                            className="border-t border-gray-300 pt-5 pb-5 last:pb-4 flex gap-3"
+                          >
+                            <div className="px-[24px] md:px-[26px]">
                               <div className="flex items-center gap-[12px]">
                                 <Image
                                   src={
@@ -7233,36 +7466,36 @@ const Map = () => {
                                   onError={(e) => (e.currentTarget.src = "https://www.gravatar.com/avatar/?d=mp&s=40")}
                                   alt={review.author_name}
                                   width={36}
-                                  height={36}  
+                                  height={36}
                                   unoptimized
                                   className="w-9 h-9 rounded-full object-cover"
                                 />
-                                <span className="font-medium text-[16px] tracking-wide text-black">
+                                <span className={`font-medium text-[16px] tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
                                   {review.author_name}
                                 </span>
                               </div>
-  
+
                               <div className="flex items-center gap-[10px] mt-[12px]">
                                 <StarRating rating={review.rating ?? 0} />
-                                <span className="text-[14.5px] text-gray-500">
+                                <span className={`text-[14.5px] ${theme === 'dark' ? 'text-white' : 'text-gray-500'}`}>
                                   {review.relative_time_description}
                                 </span>
                               </div>
-  
+
                               {review.text && (
-                                <p className="text-[14px] text-gray-700 mt-[6px]">
+                                <p className={`text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} mt-[6px]`}>
                                   {review.text}
                                 </p>
                               )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>  
-              )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/*
+                {/*
               {fullSidebarActiveTab === "fullSidebarAbout" && (
                 <div>
                   {Object.entries(fullSidebarAboutData).map(([category, items], idx, arr) => (
@@ -7292,8 +7525,8 @@ const Map = () => {
                 </div>
               )}
               */}
+              </div>
             </div>
-          </div>
           </MobilePlaceSidebar>
         </div>
       </div>
@@ -7302,8 +7535,8 @@ const Map = () => {
       <div
         id="halfSidebar"
         ref={halfSidebarRef}
-        style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px`: "100vh", }}
-        className={`fixed bg-transparent md:bg-white text-black hidden md:flex flex-col
+        style={{ height: window.innerWidth < 768 ? `${sidebarHeight}px` : "100vh", }}
+        className={`fixed bg-transparent ${theme === 'dark' ? 'md:bg-[#131313] text-white' : 'md:bg-white text-black'} flex flex-col
           bottom-0 left-0 md:top-0 md:left-[70px] w-full md:w-[410px] h-[50%] md:h-full md:translate-y-0
           transition-[transform,height] duration-300 overflow-hidden
           ${placeSidebar === "half" ? "z-40" : "z-30"}
@@ -7312,10 +7545,10 @@ const Map = () => {
         `}
       >
 
-        {/* <MobilePlaceSidebar isOpen={placeSidebar === "half"} initialSnap={isExploreButton ? "148px" : 0.5}> */} 
-          
+        {/* <MobilePlaceSidebar isOpen={placeSidebar === "half"} initialSnap={isExploreButton ? "148px" : 0.5}> */}
+
         <MobilePlaceSidebar isOpen={placeSidebar === "half"} key={exploreButtonKey}>
-          
+
           {/*
           {placeSidebar === "half" && (
             <div
@@ -7327,7 +7560,7 @@ const Map = () => {
             </div>
           )}
           */}
-          
+
           <div className="hidden md:block py-[12px] px-[18px]">
             {searchOrigin === "sidebar" ? (
               <SidebarSearchBox
@@ -7335,7 +7568,7 @@ const Map = () => {
                 topSidebarSuggestionBoxRef={secondSuggestionBoxRef}
                 inputRef={inputRef}
                 sidebarSearchValue={sidebarSearchValue}
-                fetchDetailedPlaces={fetchDetailedPlaces} 
+                fetchDetailedPlaces={fetchDetailedPlaces}
                 setSidebarSearchValue={setSidebarSearchValue}
                 showSidebarSuggestions={showSidebarSuggestions}
                 setShowSidebarSuggestions={setShowSidebarSuggestions}
@@ -7375,13 +7608,13 @@ const Map = () => {
                 setIsExploreButton={setIsExploreButton}
                 resetMapForMobile={resetMapForMobile}
               />
-              ) : searchOrigin === "home" ? (
+            ) : searchOrigin === "home" ? (
               <SearchBox
                 placeSidebarSearchBoxRef={halfSidebarSearchBoxRef}
                 placeSidebarSuggestionBoxRef={halfSidebarSuggestionBoxRef}
                 inputRef={inputRef}
                 searchValue={searchValue}
-                fetchDetailedPlaces={fetchDetailedPlaces} 
+                fetchDetailedPlaces={fetchDetailedPlaces}
                 setSearchValue={setSearchValue}
                 showSuggestions={showSuggestions}
                 setShowSuggestions={setShowSuggestions}
@@ -7423,19 +7656,17 @@ const Map = () => {
               />
             ) : null}
           </div>
-          
+
           <div ref={halfSidebarRef} className="overflow-y-auto flex-1 py-[2px]">
             <div className="pt-[2px] md:pt-[4px]">
               {relatedPlaces.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between px-[16px] md:px-[24px]">
-                    <h1 className="text-[20px] text-black font-sans font-normal tracking-wide">
+                    <h1 className={`text-[20px] ${theme === 'dark' ? 'text-white' : 'text-black'} font-sans font-normal tracking-wide`}>
                       Results
                     </h1>
                     <button
-                      className="md:hidden w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 text-black text-[17px] font-bold"
-                      
-
+                      className={`md:hidden w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-gray-200 ${theme === 'dark' ? 'text-white' : 'text-black'} text-[17px] font-bold`}
                       onClick={() => {
                         closeButtonFunction();
                         //closeCategoryMode();
@@ -7455,8 +7686,8 @@ const Map = () => {
                     const photo = place.imageUrls[0] || "";
                     const priceRange = halfSidebarShopPrices[place.shopId] ? `${halfSidebarShopPrices[place.shopId]}` : "";
                     const shopRating = halfSidebarShopRatings[place.shopId] ?? 4.5;
-                    const totalRatings = "" ;
-                    const allPhotos = [...place.imageUrls, ...place.menu,  ...(extraShopImages[place.shopId] || [])]
+                    const totalRatings = "";
+                    const allPhotos = [...place.imageUrls, ...place.menu, ...(extraShopImages[place.shopId] || [])]
 
                     return (
                       <div
@@ -7470,21 +7701,21 @@ const Map = () => {
                           const position = new google.maps.LatLng(Number(shop.lat), Number(shop.lng));
 
                           const marker = new google.maps.Marker({
-                              position,
-                              map: mapInstanceRef.current,
-                              title: shop.name,
+                            position,
+                            map: mapInstanceRef.current,
+                            title: shop.name,
                           });
 
                           if (activePlaceMarkerRef.current) {
-                              activePlaceMarkerRef.current.setMap(null);
+                            activePlaceMarkerRef.current.setMap(null);
                           }
                           activePlaceMarkerRef.current = marker;
 
                           const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
                           const additionalImages = await fetchShopImages(String(shop.shopId));
                           const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
-                          
-                          {/*Fetch shop rating*/}
+
+                          {/*Fetch shop rating*/ }
                           let shopRating: number | undefined = undefined;
                           try {
                             const fetchedRating = await fetchShopRating(shop.shopId);
@@ -7493,7 +7724,7 @@ const Map = () => {
                             console.warn(`Failed to fetch rating for shop ${shop.shopId}`, err);
                           }
 
-                          {/* Fetch shop priceText */}
+                          {/* Fetch shop priceText */ }
                           let shopPriceRange: string | undefined = undefined;
                           try {
                             const fetchedPrice = await fetchShopPriceText(shop.shopId);
@@ -7503,14 +7734,14 @@ const Map = () => {
                           }
 
                           const newPlace: RecentPlace = {
-                            shopId: shop.shopId, 
+                            shopId: shop.shopId,
                             title: shop.name,
                             nativeName: undefined,
                             subtitle: shop.address,
                             imageUrl: shop.imageUrls[0],
                             photos: shop.menu || [],
                             highlights: additionalImages || [],
-                            allPhotos : allFSPhotos || [],
+                            allPhotos: allFSPhotos || [],
                             lat: Number(shop.lat),
                             lng: Number(shop.lng),
                             timestamp: Date.now(),
@@ -7522,20 +7753,20 @@ const Map = () => {
                             category: shop.cuisine || "Shop",
                             reviews: [],
                             applink: shop.applink || "",
-                            about: shop.about,                 
+                            about: shop.about,
                             serviceability: shop.serviceability,
                             openCloseTiming: shop.openCloseTiming,
                             cuisines: cuisines || [],
                             itemsByCuisine: itemsByCuisine || {}
                           };
-                        
+
                           setRecentPlaces(prev => {
                             const updated = [newPlace, ...prev.filter(p => p.title !== shop.name)];
                             const sliced = updated.slice(0, 20);
                             localStorage.setItem("recent_places", JSON.stringify(sliced));
                             return sliced;
                           });
-                        
+
                           setFullSidebarSelectedPlace({
                             ...newPlace,
                             isFavorite: favoritePlaceList.some((p) => p.title === newPlace.title),
@@ -7547,7 +7778,7 @@ const Map = () => {
                           setKeepHalfSidebarOpen(true);
                           centerPlaceOnMap(position);
                         }}
-                        className={`flex items-start gap-[22px] pl-[0px] md:pl-[24px] md:pr-[20px] hover:bg-gray-200 cursor-pointer border-b border-gray-300
+                        className={`flex items-start gap-[22px] pl-[0px] md:pl-[24px] md:pr-[20px] ${theme === 'dark' ? 'hover:bg-gray-900' : 'hover:bg-gray-200'} cursor-pointer border-b border-gray-300
                           ${index === 0 ? 'pt-[10px] pb-[14px]' : 'pt-[14px] pb-[14px]'} md:py-[14px]`}
                       >
                         <div className="hidden md:flex flex-col flex-1 overflow-hidden">
@@ -7557,36 +7788,36 @@ const Map = () => {
                                 {name}
                               </div>
 
-                              <div className="flex items-center text-[14px] text-gray-700 mt-[3px]">
+                              <div className={`flex items-center text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} mt-[3px]`}>
                                 {shopRating && (
                                   <>
                                     <span className="font-medium">{shopRating}</span>
                                     <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
                                     {totalRatings && (
-                                      <span className="ml-[5px] text-gray-700">({totalRatings})</span>
+                                      <span className={`ml-[5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>({totalRatings})</span>
                                     )}
                                     {priceRange && (
                                       <>
-                                      <span className="mx-[4px] hidden md:inline"><b>·</b></span>
-                                      <span className="text-gray-700 hidden md:inline">₹{priceRange}</span>
+                                        <span className="mx-[4px] hidden md:inline"><b>·</b></span>
+                                        <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-700'} hidden md:inline`}>₹{priceRange}</span>
                                       </>
                                     )}
                                   </>
                                 )}
                               </div>
 
-                              <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
+                              <div className={`text-[14px] tracking-wide ${theme === 'dark' ? 'text-white' : 'text-gray-600'} mt-[3px]`}>
                                 {category} <b>·</b> {address}
                               </div>
 
-                              <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
+                              <div className={`text-[14px] tracking-wide theme === 'dark' ? 'text-white' : 'text-gray-600'} mt-[3px]`}>
                                 {place.openCloseTiming ? (
                                   <>
                                     {(() => {
                                       const [openTime, closeTime] = place.openCloseTiming.split("–");
                                       return (
                                         <>
-                                          Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                          Open {openTime.trim()} <b>·</b> <span className={` ${theme === 'dark' ? 'text-red-300' : 'text-red-500'}`}>Closes {closeTime?.trim() || "soon"}</span>
                                         </>
                                       );
                                     })()}
@@ -7605,7 +7836,7 @@ const Map = () => {
                                 height={85}
                                 unoptimized
                                 className="hidden md:flex w-[85px] h-[85px] rounded-md object-cover flex-shrink-0"
-                              /> 
+                              />
                             )}
                           </div>
 
@@ -7614,27 +7845,27 @@ const Map = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 halfSidebarPlaceSelect(place.shopId)
-                              }} 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              }}
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full`}
                             >
-                              <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
+                              <MenuIcon style={{ fontSize: '20px' }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                               <span className="text-[12px] tracking-wide font-medium">Menu</span>
                             </div>
 
-                            <div 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                            <div
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full`}
                               aria-label={`Download "${place.name}" app`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleShopDownload(place);
-                              }} 
+                              }}
                             >
-                              <HiDownload style={{ fontSize: '18px' }} className="text-black" />
+                              <HiDownload style={{ fontSize: '18px' }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                               <span className="text-[12px] tracking-wide font-medium">Order Now</span>
                             </div>
-                  
+
                             <div
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full`}
                               onClick={(e) => {
                                 e.stopPropagation();
 
@@ -7689,7 +7920,7 @@ const Map = () => {
                                 </>
                               ) : (
                                 <>
-                                  <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
+                                  <FavoriteBorderIcon style={{ fontSize: "20px" }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                                   <span className="text-[12px] tracking-wide font-medium">Favorite</span>
                                 </>
                               )}
@@ -7700,57 +7931,16 @@ const Map = () => {
                                 e.stopPropagation();
                                 handleHSLocationShare(place);
                               }}
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full"
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full`}
                             >
-                            <Share2 size={18} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Share</span>
+                              <Share2 size={18} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
+                              <span className="text-[12px] tracking-wide font-medium">Share</span>
                             </button>
                           </div>
                         </div>
-                        
+
                         {/*Mobile View*/}
                         <div className="md:hidden flex flex-col flex-1 overflow-hidden">
-
-                          {/*
-                          <div className="font-medium font-sans tracking-wide text-[16px] leading-snug px-[16px] mr-[16px] md:mr-[0px]">
-                            {name}
-                          </div>
-
-                          <div className="flex items-center text-[14px] text-gray-700 px-[16px] mt-[3px]">
-                            {shopRating && (
-                              <>
-                                <span className="font-medium">{shopRating}</span>
-                                <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
-                                {totalRatings && (
-                                  <span className="ml-[5px] text-gray-700">({totalRatings})</span>
-                                )}
-                                {priceRange && (
-                                  <>
-                                  <span className="mx-[4px] inline"><b>·</b></span>
-                                  <span className="text-gray-700 inline">₹{priceRange}</span>
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </div>
-
-                          <div className="text-[14px] tracking-wide text-gray-600 px-[16px] mt-[3px]">
-                            {place.openCloseTiming ? (
-                              <>
-                                {(() => {
-                                  const [openTime, closeTime] = place.openCloseTiming.split("–");
-                                  return (
-                                    <>
-                                      Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
-                                    </>
-                                  );
-                                })()}
-                              </>
-                            ) : (
-                              <span>Open 10am <b>·</b> <span className="text-red-500">Closes 10pm</span></span>
-                            )}
-                          </div>
-                          */}
 
                           <div className="flex flex-row items-center justify-between px-[16px] w-full">
                             {/* Left Side - Shop details */}
@@ -7759,31 +7949,31 @@ const Map = () => {
                                 {name}
                               </div>
 
-                              <div className="flex items-center text-[14px] text-gray-700 mt-[3px]">
+                              <div className={`flex items-center text-[14px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'} mt-[3px]`}>
                                 {shopRating && (
                                   <>
                                     <span className="font-medium">{shopRating}</span>
                                     <span className="ml-[5px]"><StarRating rating={shopRating} /></span>
                                     {totalRatings && (
-                                      <span className="ml-[5px] text-gray-700">({totalRatings})</span>
+                                      <span className={`ml-[5px] ${theme === 'dark' ? 'text-white' : 'text-gray-700'}`}>({totalRatings})</span>
                                     )}
                                     {priceRange && (
                                       <>
-                                      <span className="mx-[4px] inline"><b>·</b></span>
-                                      <span className="text-gray-700 inline">₹{priceRange}</span>
+                                        <span className="mx-[4px] inline"><b>·</b></span>
+                                        <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-700'} inline`}>₹{priceRange}</span>
                                       </>
                                     )}
                                   </>
                                 )}
                               </div>
 
-                              <div className="text-[14px] tracking-wide text-gray-600 mt-[3px]">
+                              <div className={`text-[14px] tracking-wide ${theme === 'dark' ? 'text-white' : 'text-gray-600'} mt-[3px]`}>
                                 {place.openCloseTiming ? (
                                   (() => {
                                     const [openTime, closeTime] = place.openCloseTiming.split("–");
                                     return (
                                       <>
-                                        Open {openTime.trim()} <b>·</b> <span className="text-red-500">Closes {closeTime?.trim() || "soon"}</span>
+                                        Open {openTime.trim()} <b>·</b> <span className={`${theme === 'dark' ? 'text-red-300' : 'text-red-500'}`}>Closes {closeTime?.trim() || "soon"}</span>
                                       </>
                                     );
                                   })()
@@ -7794,16 +7984,16 @@ const Map = () => {
                             </div>
 
                             {/* Right Side - Button*/}
-                            <div 
+                            <div
                               className="flex flex-row items-center gap-[4px] cursor-pointer bg-green-500 hover:bg-green-600 px-[12px] py-[6px] rounded-full whitespace-nowrap ml-[10px]"
                               aria-label={`Download "${place.name}" app`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleShopDownload(place);
-                              }} 
+                              }}
                             >
-                              <HiDownload style={{ fontSize: '18px' }} className="text-white" />
-                              <span className="text-[12px] tracking-wide font-medium text-white">Order Now</span>
+                              <HiDownload style={{ fontSize: '18px' }} className={`${theme === 'dark' ? 'text-white' : 'text-white'}`} />
+                              <span className={`text-[12px] tracking-wide font-medium ${theme === 'dark' ? 'text-white' : 'text-white'}`}>Order Now</span>
                             </div>
                           </div>
 
@@ -7815,8 +8005,8 @@ const Map = () => {
                                 const hasMore = allPhotos.length > 6;
 
                                 return (
-                                  <div 
-                                    key={i} 
+                                  <div
+                                    key={i}
                                     className="relative flex-shrink-0 cursor-pointer"
                                     onClick={(e) => {
                                       if (isSixth && hasMore) {
@@ -7833,7 +8023,7 @@ const Map = () => {
                                       unoptimized
                                       className="w-[85px] h-[85px] rounded-md object-fit flex-shrink-0"
                                     />
-                                    
+
                                     {/* Show More if it's 6th image and more than 6 */}
                                     {isSixth && hasMore && (
                                       <div className="absolute inset-0 bg-black/50 rounded-md flex flex-col items-center justify-center text-white">
@@ -7859,33 +8049,19 @@ const Map = () => {
                           </div>
 
                           <div className="flex flex-row px-[16px] mt-[16px] items-center gap-[12px] overflow-x-auto scroll-smooth no-scrollbar snap-x snap-mandatory touch-pan-x select-none">
-                            <div 
+                            <div
                               onClick={(e) => {
                                 e.stopPropagation();
                                 halfSidebarPlaceSelect(place.shopId)
-                              }} 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
+                              }}
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full whitespace-nowrap`}
                             >
-                              <MenuIcon style={{ fontSize: '20px' }} className="text-black" />
+                              <MenuIcon style={{ fontSize: '20px' }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                               <span className="text-[12px] tracking-wide font-medium">Menu</span>
                             </div>
 
-                            {/*
-                            <div 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
-                              aria-label={`Download "${place.name}" app`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleShopDownload(place);
-                              }}  
-                            >
-                              <HiDownload style={{ fontSize: '18px' }} className="text-black" />
-                              <span className="text-[12px] tracking-wide font-medium">Order Now</span>
-                            </div>
-                            */}
-
-                            <div 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
+                            <div
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full whitespace-nowrap`}
                               onClick={(e) => {
                                 e.stopPropagation();
 
@@ -7940,29 +8116,29 @@ const Map = () => {
                                 </>
                               ) : (
                                 <>
-                                  <FavoriteBorderIcon style={{ fontSize: "20px" }} className="text-black" />
+                                  <FavoriteBorderIcon style={{ fontSize: "20px" }} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
                                   <span className="text-[12px] tracking-wide font-medium">Favorite</span>
                                 </>
                               )}
                             </div>
-                  
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleHSLocationShare(place);
-                              }} 
-                              className="flex flex-row items-center gap-[4px] cursor-pointer bg-[#CCF3F9] hover:bg-gray-100 px-[12px] py-[6px] rounded-full whitespace-nowrap"
+                              }}
+                              className={`flex flex-row items-center gap-[4px] cursor-pointer ${theme === 'dark' ? 'bg-[#00373e]' : 'bg-[#CCF3F9] hover:bg-gray-100'} px-[12px] py-[6px] rounded-full whitespace-nowrap`}
                             >
-                            <Share2 size={18} className="text-black" />
-                            <span className="text-[12px] tracking-wide font-medium">Share</span>
+                              <Share2 size={18} className={`${theme === 'dark' ? 'text-white' : 'text-black'}`} />
+                              <span className="text-[12px] tracking-wide font-medium">Share</span>
                             </button>
                           </div>
                         </div>
-                      </div>               
+                      </div>
                     );
                   })}
 
-                  <div className="py-4 text-center font-sans text-gray-700 text-[14px] tracking-wide">
+                  <div className={`py-4 text-center font-sans ${theme === 'dark' ? 'text-white' : 'text-gray-700'} text-[14px] tracking-wide`}>
                     You have reached the end of the list.
                   </div>
                 </>
@@ -7976,7 +8152,7 @@ const Map = () => {
                   </p>
                 </div>
               )}
-            </div> 
+            </div>
           </div>
         </MobilePlaceSidebar>
       </div>
@@ -7984,7 +8160,7 @@ const Map = () => {
       {/* Toggle thumbnail */}
       {!showRecentDetailsSidebar && (
         <div
-         className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+80px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group md:transition-[left] md:duration-300 md:ease-in-out transition-[bottom] duration-0 ease-linear
+          className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+80px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group md:transition-[left] md:duration-300 md:ease-in-out transition-[bottom] duration-0 ease-linear
           ${showSidebar ? "md:left-[500px]" : ""}
           ${placeSidebar === "full" ? "md:left-[500px]" : ""}
           ${placeSidebar === "half" ? "md:left-[500px]" : ""}
@@ -8002,7 +8178,7 @@ const Map = () => {
             setIsSatellite(nextType === google.maps.MapTypeId.HYBRID);
           }}
         >
-           {thumbnailUrl && (
+          {thumbnailUrl && (
             <>
               <Image
                 src={thumbnailUrl}
@@ -8022,7 +8198,7 @@ const Map = () => {
           )}
         </div>
       )}
-      
+
       {/* Locate Me Button */}
       <button
         onClick={() => {
@@ -8033,38 +8209,127 @@ const Map = () => {
           navigator.geolocation.getCurrentPosition(
             (position) => {
               const { latitude, longitude } = position.coords;
-              if (mapInstanceRef.current) {
-                const location = new google.maps.LatLng(latitude, longitude);
-                mapInstanceRef.current.panTo(location);
-                mapInstanceRef.current.setZoom(15);
+              const userLocation = new google.maps.LatLng(latitude, longitude);
+              const map = mapInstanceRef.current;
+              if (!map) return;
 
-                 if (locateMeMarkerRef.current) {
-                  locateMeMarkerRef.current.setPosition(location);
+              if (locateMeMarkerRef.current) {
+                locateMeMarkerRef.current.setPosition(userLocation);
+              } else {
+                locateMeMarkerRef.current = new google.maps.Marker({
+                  position: userLocation,
+                  map: map,
+                  title: "Your Location",
+                });
+              }
+
+              let nearestShop: Shop | null = null;
+              let minDistance = Infinity;
+
+              (allShops as Shop[]).forEach((shop) => {
+                const d = Math.sqrt(
+                  Math.pow(parseFloat(shop.lat) - latitude, 2) +
+                  Math.pow(parseFloat(shop.lng) - longitude, 2)
+                );
+                if (d < minDistance) {
+                  minDistance = d;
+                  nearestShop = shop;
+                }
+              });
+
+              const screenHeight = window.innerHeight;
+              const screenWidth = window.innerWidth;
+              const isMobileView = window.innerWidth < 768;
+              let padding = { top: 0, bottom: 0, left: 0, right: 0 };
+              if (screenWidth >= 1280) {
+                padding = {
+                  top: Math.round(screenHeight * 0.20),
+                  bottom: Math.round(screenHeight * 0.0),
+                  left: Math.round(screenWidth * 0.10),
+                  right: Math.round(screenWidth * 0.10),
+                };
+              } else if (screenWidth >= 1024) {
+                padding = {
+                  top: Math.round(screenHeight * 0.20),
+                  bottom: Math.round(screenHeight * 0.10),
+                  left: Math.round(screenWidth * 0.10),
+                  right: Math.round(screenWidth * 0.10),
+                };
+              } else if (screenWidth >= 768) {
+                padding = {
+                  top: Math.round(screenHeight * 0.20),
+                  bottom: Math.round(screenHeight * 0.10),
+                  left: Math.round(screenWidth * 0.20),
+                  right: Math.round(screenWidth * 0.10),
+                };
+              } else {
+                padding = {
+                  top: Math.round(screenHeight * 0.20),
+                  bottom: Math.round(screenHeight * 0.20),
+                  left: Math.round(screenWidth * 0.10),
+                  right: Math.round(screenWidth * 0.10),
+                };
+              }
+
+              if (placeSidebar === "full" || placeSidebar === "half") {
+                const sidebarId = placeSidebar === "full" ? "fullSidebar" : "halfSidebar";
+
+                if (!isMobileView) {
+                  const sidebarEl = document.getElementById(sidebarId);
+                  const sidebarWidth = sidebarEl?.offsetWidth || 410;
+                  if (screenWidth < 1024) {
+                    padding.left = sidebarWidth + 100;
+                  } else {
+                    padding.left = sidebarWidth + 70;
+                  }
                 } else {
-                  locateMeMarkerRef.current = new google.maps.Marker({
-                    position: location,
-                    map: mapInstanceRef.current,
-                    title: "Your Location",
-                  });
+                  const drawerHeight = window.innerHeight * 0.5;
+                  padding.bottom = drawerHeight + 20;
+                  padding.top = 180;
+                  padding.left = 30;
+                  padding.right = 30;
                 }
               }
+
+              if (nearestShop) {
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend(userLocation);
+                const shopData = nearestShop as Shop;
+
+                const shopLocation = new google.maps.LatLng(
+                  parseFloat(shopData.lat),
+                  parseFloat(shopData.lng)
+                );
+
+                bounds.extend(shopLocation);
+
+                map.fitBounds(bounds, padding);
+                const listener = google.maps.event.addListener(map, 'idle', () => {
+                  const currentZoom = map.getZoom();
+                  if (currentZoom && currentZoom > 15) {
+                    map.setZoom(15);
+                  }
+                  google.maps.event.removeListener(listener);
+                });
+              } else {
+                map.panTo(userLocation);
+                map.setZoom(15);
+              }
             },
-            (error) => {
-              console.warn("Geolocation error:", error);
-            }
+            (error) => console.warn("Geolocation error:", error)
           );
         }}
         className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+160px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] 
-                    md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center bg-white rounded-[8px] shadow-md hover:scale-105 md:transition-transform transition-[bottom] duration-0 ease-linear`}
+                    md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} rounded-[8px] shadow-md hover:scale-105 md:transition-transform transition-[bottom] duration-0 ease-linear`}
       >
-        <MyLocationIcon className="text-black cursor-pointer" style={{ width: 22, height: 22 }} />
+        <MyLocationIcon className={`${theme === 'dark' ? 'text-white' : 'text-black'} cursor-pointer`} style={{ width: 22, height: 22 }} />
       </button>
 
       {/* Custom Zoom Controls */}
-      <div 
+      <div
         className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+84px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] 
-                    md:bottom-[24px] flex flex-col bg-white rounded-[8px] shadow-md overflow-hidden transition-[bottom] duration-0 ease-linear`
-                  }
+                    md:bottom-[24px] flex flex-col ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} rounded-[8px] shadow-md overflow-hidden transition-[bottom] duration-0 ease-linear`
+        }
       >
         <button
           className="w-[34px] h-[34px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
@@ -8078,15 +8343,15 @@ const Map = () => {
             }
           }}
         >
-          <span className="text-[22px] font-bold text-black hover:scale-110">
+          <span className={`text-[22px] font-bold ${theme === 'dark' ? 'text-white' : 'text-black'} hover:scale-110`}>
             +
           </span>
         </button>
 
         <div className="px-1">
-          <div className="w-full h-[1px] bg-gray-700" />
+          <div className={`w-full h-[1px] ${theme === 'dark' ? 'bg-gray-300' : 'bg-gray-700'}`} />
         </div>
-        
+
         <button
           className="w-[34px] h-[34px] flex items-center justify-center transition-transform duration-200 ease-in cursor-pointer"
           onClick={() => {
@@ -8094,12 +8359,12 @@ const Map = () => {
             if (map) map.setZoom((map.getZoom() ?? 0) - 1);
           }}
         >
-          <span className="text-[22px] font-bold text-black hover:scale-110">
+          <span className={`text-[22px] font-bold ${theme === 'dark' ? 'text-white' : 'text-black'} hover:scale-110`}>
             −
           </span>
         </button>
       </div>
-      
+
       {/*Details sidebar's overview tab's share button toolip */}
       <div>
         {locationCopied && (
@@ -8130,6 +8395,5 @@ const Map = () => {
     </div>
   );
 };
-
 
 export default Map;
