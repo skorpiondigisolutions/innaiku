@@ -160,3 +160,8 @@ html, body {
   display: none !important;
   pointer-events: none !important;
 }
+
+.no-lag {
+  transition: bottom 0s linear !important;
+  will-change: bottom;
+}

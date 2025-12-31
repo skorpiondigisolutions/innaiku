@@ -97,6 +97,7 @@ export type RecentPlace = {
   reviews?: google.maps.places.PlaceReview[];
   photos?: string[];
   allPhotos?: string[];
+  extraPhotos?: string[];
   fullAddress?: string;
   plusCode?: string;
   applink?: string;
@@ -128,6 +129,7 @@ export interface Shop {
   cuisines?: string[];
   itemsByCuisine?: Record<string, FoodItem[]>;
   allPhotos?: string[];
+  extraPhotos?: string[];
 }
 
 export type CombinedItem =
@@ -531,9 +533,7 @@ const Map = () => {
   const categoryBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
   const [isExploreButton, setIsExploreButton] = useState(false);
   const [exploreButtonKey, setExploreButtonKey] = useState(0);
-
-
-
+  const [categoryKey, setCategoryKey] = useState(0);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isMobileTheme, setIsMobileTheme] = useState(false);
@@ -724,6 +724,8 @@ const Map = () => {
   const runCategorySearch = async (shopIds: number[]) => {
     if (!mapInstanceRef.current) return;
 
+    setCategoryKey(prev => prev + 1);
+
     categoryMarkersRef.current.forEach((m) => m.setMap(null));
     categoryMarkersRef.current = [];
 
@@ -746,10 +748,10 @@ const Map = () => {
           map: mapInstanceRef.current!,
           title: shop.name,
           icon: {
-            url: "https://cdn-icons-png.flaticon.com/128/4287/4287725.png",
-            scaledSize: new google.maps.Size(32, 34),
-            //url: theme === "dark" ? "/location-light.png" : "/location-dark.png",
-            //scaledSize: new google.maps.Size(32, 70),
+            //url: "https://cdn-icons-png.flaticon.com/128/4287/4287725.png",
+            //scaledSize: new google.maps.Size(32, 34),
+            url: theme === "dark" ? "/location-light.png" : "/location-dark.png",
+            scaledSize: new google.maps.Size(32, 70),
           },
         });
 
@@ -817,10 +819,10 @@ const Map = () => {
     if (categoryMarkersRef.current) {
       categoryMarkersRef.current.forEach((marker) => {
         marker.setIcon({
-          url: 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png',
-          scaledSize: new google.maps.Size(32, 34),
-          //url: theme === "dark" ? "/location-light.png" : "/location-dark.png",
-          //scaledSize: new google.maps.Size(32, 70),
+          //url: 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png',
+          //scaledSize: new google.maps.Size(32, 34),
+          url: theme === "dark" ? "/location-light.png" : "/location-dark.png",
+          scaledSize: new google.maps.Size(32, 70),
         });
       });
     }
@@ -909,6 +911,7 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+    const menuPhotos = [...(shop.menu || []), ...additionalImages];
 
     {/*Fetch shop rating*/ }
     let shopRating: number | undefined = undefined;
@@ -953,6 +956,7 @@ const Map = () => {
       openCloseTiming: shop.openCloseTiming,
       cuisines: cuisines || [],
       itemsByCuisine: itemsByCuisine || {},
+      extraPhotos : menuPhotos || [],
     };
 
     setRecentPlaces(prev => {
@@ -2789,6 +2793,7 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+    const menuPhotos = [...(shop.menu || []), ...additionalImages];
 
     {/*Fetch shop rating*/ }
     let shopRating: number | undefined = undefined;
@@ -2832,7 +2837,8 @@ const Map = () => {
       serviceability: shop.serviceability,
       openCloseTiming: shop.openCloseTiming,
       cuisines: cuisines || [],
-      itemsByCuisine: itemsByCuisine || {}
+      itemsByCuisine: itemsByCuisine || {},
+      extraPhotos : menuPhotos || [],
     };
 
     setRecentPlaces(prev => {
@@ -2900,6 +2906,7 @@ const Map = () => {
     const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
     const additionalImages = await fetchShopImages(String(shop.shopId));
     const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+    const menuPhotos = [...(shop.menu || []), ...additionalImages];
 
     {/*Fetch shop rating*/ }
     let shopRating: number | undefined = undefined;
@@ -2943,7 +2950,8 @@ const Map = () => {
       serviceability: shop.serviceability,
       openCloseTiming: shop.openCloseTiming,
       cuisines: cuisines || [],
-      itemsByCuisine: itemsByCuisine || {}
+      itemsByCuisine: itemsByCuisine || {},
+      extraPhotos : menuPhotos || [],
     };
 
     setRecentPlaces(prev => {
@@ -3082,7 +3090,7 @@ const Map = () => {
             this.div.style.cursor = "pointer";
 
             this.div.innerHTML = `
-                <img class="label-icon" src="https://cdn-icons-png.flaticon.com/128/4287/4287725.png" {/*src="${theme === 'dark' ? '/location-light.png' : '/location-dark.png'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; "/>
+                <img class="label-icon" src="${theme === 'dark' ? '/location-light.png' : '/location-dark.png'}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; "/>
                 <div class="label-text">
                 <div class="label-name" style="font-size:14px; color:${theme === 'dark' ? 'white' : 'black'}">${this.data.name}</div>
                 ${this.data.cuisine ? `<div class="label-cuisine" style="font-size:12px; color:${theme === 'dark' ? 'white' : 'black'}">${this.data.cuisine}</div>` : ""}
@@ -3141,6 +3149,7 @@ const Map = () => {
               }
 
               const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+              const menuPhotos = [...(shop.menu || []), ...additionalImages];
 
               const newPlace: RecentPlace = {
                 shopId: shop.shopId,
@@ -3166,7 +3175,8 @@ const Map = () => {
                 serviceability: shop.serviceability,
                 openCloseTiming: shop.openCloseTiming,
                 cuisines: cuisines || [],
-                itemsByCuisine: itemsByCuisine || {}
+                itemsByCuisine: itemsByCuisine || {},
+                extraPhotos : menuPhotos || [],
               };
 
               setRecentPlaces(prev => {
@@ -3192,6 +3202,7 @@ const Map = () => {
             const firstImage = (this.data.imageUrls && this.data.imageUrls.length > 0 && this.data.imageUrls[0]) || "https://via.placeholder.com/180x120?text=No+Image";
             //const category = (this.data.cuisine || "").split(",")[0].trim();
             const tooltip = document.createElement("div");
+            tooltip.className = "map-tooltip";
             tooltip.style.position = "absolute";
             tooltip.style.background = "white";
             tooltip.style.padding = "0px";
@@ -3202,7 +3213,6 @@ const Map = () => {
             tooltip.style.whiteSpace = "nowrap";
             tooltip.style.pointerEvents = "none";
             tooltip.style.display = "none";
-            tooltip.style.color = "black";
             tooltip.innerHTML = `
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <img 
@@ -3210,18 +3220,19 @@ const Map = () => {
                   style="
                     width:240px;
                     height:120px;
-                    object-fit:cover;
-                    object-position:top;
+                    object-fit:contain;
+                    object-position:center;
                     border-radius:8px 8px 0px 0px;
+                    background-color:white;
                   "
                 />
 
                 <div style="padding:2px 14px 12px; display:flex; flex-direction:column; gap:4px;">
-                  <div style="font-size:17px; font-family:sans-serif; font-weight:600; color:black;">
+                  <div class="tooltip-text" style="font-size:17px; font-family:sans-serif; font-weight:600; color:black;">
                     ${this.data.name}
                   </div>
 
-                  <div style="display:flex; margin-top:1px; align-items:center; gap:5px; font-size:12.5px; color:black; line-height:1;">
+                  <div class="tooltip-text" style="display:flex; margin-top:1px; align-items:center; gap:5px; font-size:12.5px; color:black; line-height:1;">
                     <span>${this.rating || "4.5"}</span>
 
                     <span style="display:flex; align-items:center; gap:1px;">
@@ -3241,7 +3252,7 @@ const Map = () => {
               }
                   </div>
 
-                  <div style="display:flex; margin-top:1px; align-items:center; gap:6px; font-size:12.5px; color:black;">
+                  <div class="tooltip-text" style="display:flex; margin-top:1px; align-items:center; gap:6px; font-size:12.5px; color:black;">
                     ${this.data.cuisine ? `<span>${this.data.cuisine}</span>` : ""}
                     ${this.priceRange
                 ? `<span><b>·</b></span>
@@ -3251,7 +3262,7 @@ const Map = () => {
               }
                   </div>
 
-                  <div style="font-size:12.5px; margin-top:1px; color:black;">
+                  <div class="tooltip-text" style="font-size:12.5px; margin-top:1px; color:black;">
                     ${this.data.openCloseTiming
                 ? `Open ${this.data.openCloseTiming.split('–')[0]} <b>·</b> <span style="color:red;">Closes ${this.data.openCloseTiming.split('–')[1]}</span>`
                 : `Open 10am <b>·</b> <span style="color:red;"> Closes 10pm</span>`
@@ -3261,6 +3272,7 @@ const Map = () => {
               </div>
             `;
             this.div.appendChild(tooltip);
+            this.updateTheme(theme);
 
             {/*
             this.div.addEventListener("mouseover", () => {
@@ -3312,7 +3324,7 @@ const Map = () => {
             panes?.overlayMouseTarget.appendChild(this.div);
           }
 
-          updateTheme(newTheme: string) {
+          updateTheme(newTheme: string | undefined) {
             if (!this.div) return;
             const nameEl = this.div.querySelector(".label-name") as HTMLElement;
             const cuisineEl = this.div.querySelector(".label-cuisine") as HTMLElement;
@@ -3320,8 +3332,18 @@ const Map = () => {
 
             if (nameEl) nameEl.style.color = newTheme === 'dark' ? 'white' : 'black';
             if (cuisineEl) cuisineEl.style.color = newTheme === 'dark' ? 'white' : 'black';
-            //if (imgEl) imgEl.src = newTheme === 'dark' ? '/location-light.png' : '/location-dark.png';
-            if (imgEl) imgEl.src = newTheme === 'dark' ? 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png' : 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png';
+            if (imgEl) imgEl.src = newTheme === 'dark' ? '/location-light.png' : '/location-dark.png';
+            //if (imgEl) imgEl.src = newTheme === 'dark' ? 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png' : 'https://cdn-icons-png.flaticon.com/128/4287/4287725.png';
+             
+            const tooltip = this.div.querySelector(".map-tooltip") as HTMLElement;
+            if (tooltip) {
+                tooltip.style.background = newTheme === 'dark' ? "#131313" : "white";
+                tooltip.style.borderColor = newTheme === 'dark' ? "#333" : "#ccc";
+            }
+            const tooltipTexts = this.div.querySelectorAll(".tooltip-text");
+            tooltipTexts.forEach((el) => {
+                (el as HTMLElement).style.color = newTheme === 'dark' ? "white" : "black";
+            });
           }
 
           draw() {
@@ -4188,7 +4210,7 @@ const Map = () => {
                             width={64}
                             height={64}
                             unoptimized
-                            className={`w-full h-full rounded-[10px] object-fit bg-white`}
+                            className={`w-full h-full rounded-[10px] bg-white`}
                           />
 
                           <button
@@ -4719,7 +4741,7 @@ const Map = () => {
                         width={64}
                         height={64}
                         unoptimized
-                        className="w-full h-full rounded-[10px] object-fit bg-white"
+                        className="w-full h-full rounded-[10px] object-cover bg-white"
                       />
 
                       <button
@@ -4919,7 +4941,7 @@ const Map = () => {
                   width={800}
                   height={400}
                   unoptimized
-                  className="w-full h-full object-fit rounded-t-[20px]"
+                  className="w-full h-full rounded-t-[20px]"
                 />
 
                 <button
@@ -5353,14 +5375,14 @@ const Map = () => {
                 */}
 
                 <div className="py-[14px] border-b border-gray-300">
-                  {(recentSelectedPlace?.photos?.length ?? 0) > 0 && (
+                  {(recentSelectedPlace?.extraPhotos?.length ?? 0) > 0 && (
                     <div>
                       <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] px-[24px] md:px-[26px] mb-[10px]`}>
                         Menu & highlights
                       </h2>
 
                       <div className="flex gap-3 mt-[18px] overflow-x-auto px-[16px]">
-                        {recentSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
+                        {recentSelectedPlace?.extraPhotos?.slice(0, 2).map((url: string, idx: number) => (
                           <div key={idx} className="relative min-w-[150px]">
                             <Image
                               src={url}
@@ -5368,7 +5390,7 @@ const Map = () => {
                               width={160}
                               height={180}
                               unoptimized
-                              className="w-[160px] h-[180px] object-fit rounded-lg bg-white"
+                              className="w-[160px] h-[180px] object-fit md:object-cover rounded-lg bg-white"
                             />
                           </div>
                         ))}
@@ -5588,7 +5610,7 @@ const Map = () => {
                                 width={130}
                                 height={130}
                                 unoptimized
-                                className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-fit bg-white rounded-lg mr-[0px] last:mr-[24px]"
+                                className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-fit md:object-cover bg-white rounded-lg mr-[0px] last:mr-[24px]"
                               />
                             ))}
                           </div>
@@ -5619,7 +5641,7 @@ const Map = () => {
                               width={600}
                               height={240}
                               unoptimized
-                              className="w-full h-56 md:h-60 object-fit bg-white rounded-lg"
+                              className="w-full h-56 md:h-60 object-cover bg-white rounded-lg"
                             />
                           ))}
                         </div>
@@ -6458,7 +6480,7 @@ const Map = () => {
       >
 
         <div className="flex flex-col h-full">
-          <MobilePlaceSidebar isOpen={placeSidebar === "full"}>
+          <MobilePlaceSidebar isOpen={placeSidebar === "full"} key={fullSidebarSelectedPlace?.shopId}>
             {/*
           {placeSidebar === "full" && (
             <div
@@ -6614,7 +6636,7 @@ const Map = () => {
             <div ref={fullSidebarContentRef} className="overflow-y-auto flex-1 relative">
               {fullSidebarActiveTab === "fullSidebarOverview" && (
                 <>
-                  <div className="hidden md:flex relative w-full h-80 bg-gray-200 overflow-hidden">
+                  <div className={`hidden md:flex relative w-full h-80 ${theme === 'dark' ? 'bg-[#131313]' : 'bg-gray-200'} overflow-hidden`}>
                     <Image
                       src={fullSidebarSelectedPlace?.imageUrl || "/fallback.jpg"}
                       alt={fullSidebarSelectedPlace?.title || "Place"}
@@ -6628,7 +6650,7 @@ const Map = () => {
                     />
                   </div>
 
-                  <div className="md:hidden relative w-full h-[260px] bg-white overflow-hidden">
+                  <div className={`md:hidden relative w-full h-[320px] ${theme === 'dark' ? 'bg-[#131313]' : 'bg-white'} overflow-hidden`}>
                     <div className="flex w-full h-full overflow-x-auto snap-none scroll-smooth no-scrollbar gap-x-[12px] px-[12px]">
                       {(() => {
                         const photos = fullSidebarSelectedPlace?.allPhotos || [];
@@ -7076,14 +7098,14 @@ const Map = () => {
                   */}
 
                     <div className="py-[16px] border-b border-gray-300">
-                      {(fullSidebarSelectedPlace?.photos?.length ?? 0) > 0 && (
+                      {(fullSidebarSelectedPlace?.extraPhotos?.length ?? 0) > 0 && (
                         <div>
                           <h2 className={`font-sans font-medium tracking-wide ${theme === 'dark' ? 'text-white' : 'text-black'} text-[16px] px-[24px] md:px-[26px] mb-[10px]`}>
                             Menu & highlights
                           </h2>
 
                           <div className="flex justify-between gap-[12px] md:justify-none md:gap-[14px] mt-[18px] overflow-x-auto px-[22px] md:px-[24px]">
-                            {fullSidebarSelectedPlace?.photos?.slice(0, 2).map((url: string, idx: number) => (
+                            {fullSidebarSelectedPlace?.extraPhotos?.slice(0, 2).map((url: string, idx: number) => (
                               <div key={idx} className="relative flex-1 min-w-0 md:flex-none">
                                 <Image
                                   src={url}
@@ -7091,7 +7113,7 @@ const Map = () => {
                                   width={174}
                                   height={200}
                                   unoptimized
-                                  className="w-full md:w-[174px] h-[200px] object-fit rounded-lg bg-white"
+                                  className="w-full md:w-[174px] h-[200px] object-fit md:object-cover rounded-lg bg-white"
                                 />
                               </div>
                             ))}
@@ -7311,7 +7333,7 @@ const Map = () => {
                                     width={130}
                                     height={130}
                                     unoptimized
-                                    className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-fit bg-white rounded-lg mr-[0px] last:mr-[24px]"
+                                    className="flex-shrink-0 w-[130px] h-[130px] md:w-[120px] md:h-[120px] object-fit md:object-cover bg-white rounded-lg mr-[0px] last:mr-[24px]"
                                   />
                                 ))}
                               </div>
@@ -7342,7 +7364,7 @@ const Map = () => {
                                   width={600}
                                   height={240}
                                   unoptimized
-                                  className="w-full h-56 md:h-60 object-fit rounded-lg bg-white"
+                                  className="w-full h-56 md:h-60 object-cover rounded-lg bg-white"
                                 />
                               ))}
                             </div>
@@ -7547,7 +7569,7 @@ const Map = () => {
 
         {/* <MobilePlaceSidebar isOpen={placeSidebar === "half"} initialSnap={isExploreButton ? "148px" : 0.5}> */}
 
-        <MobilePlaceSidebar isOpen={placeSidebar === "half"} key={exploreButtonKey}>
+        <MobilePlaceSidebar isOpen={placeSidebar === "half"} key={exploreButtonKey + categoryKey}>
 
           {/*
           {placeSidebar === "half" && (
@@ -7714,6 +7736,7 @@ const Map = () => {
                           const { cuisines, itemsByCuisine } = await fetchShopCuisines(String(shop.shopId));
                           const additionalImages = await fetchShopImages(String(shop.shopId));
                           const allFSPhotos = [...shop.imageUrls || [], ...(shop.menu || []), ...additionalImages];
+                          const menuPhotos = [...(shop.menu || []), ...additionalImages];
 
                           {/*Fetch shop rating*/ }
                           let shopRating: number | undefined = undefined;
@@ -7757,7 +7780,8 @@ const Map = () => {
                             serviceability: shop.serviceability,
                             openCloseTiming: shop.openCloseTiming,
                             cuisines: cuisines || [],
-                            itemsByCuisine: itemsByCuisine || {}
+                            itemsByCuisine: itemsByCuisine || {},
+                            extraPhotos : menuPhotos || [],
                           };
 
                           setRecentPlaces(prev => {
@@ -8160,7 +8184,7 @@ const Map = () => {
       {/* Toggle thumbnail */}
       {!showRecentDetailsSidebar && (
         <div
-          className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+80px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group md:transition-[left] md:duration-300 md:ease-in-out transition-[bottom] duration-0 ease-linear
+          className={`absolute z-20 bottom-[calc(var(--safe-area-bottom,0px)+80px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] md:bottom-5 left-[20px] md:left-[90px] w-20 h-20 rounded-[8px] overflow-hidden shadow-lg border-2 cursor-pointer group md:transition-[left] md:duration-300 md:ease-in-out transition-[bottom] duration-0 ease-linear will-change-[bottom]
           ${showSidebar ? "md:left-[500px]" : ""}
           ${placeSidebar === "full" ? "md:left-[500px]" : ""}
           ${placeSidebar === "half" ? "md:left-[500px]" : ""}
@@ -8320,7 +8344,7 @@ const Map = () => {
           );
         }}
         className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+160px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] 
-                    md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} rounded-[8px] shadow-md hover:scale-105 md:transition-transform transition-[bottom] duration-0 ease-linear`}
+                    md:bottom-[100px] w-[34px] h-[34px] flex items-center justify-center ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} rounded-[8px] shadow-md hover:scale-105 md:transition-transform transition-[bottom] duration-0 ease-linear will-change-[bottom]`}
       >
         <MyLocationIcon className={`${theme === 'dark' ? 'text-white' : 'text-black'} cursor-pointer`} style={{ width: 22, height: 22 }} />
       </button>
@@ -8328,7 +8352,7 @@ const Map = () => {
       {/* Custom Zoom Controls */}
       <div
         className={`absolute z-10 right-[20px] bottom-[calc(var(--safe-area-bottom,0px)+84px+max(0px,min(var(--current-sidebar-height,0px),220px)-60px))] 
-                    md:bottom-[24px] flex flex-col ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} rounded-[8px] shadow-md overflow-hidden transition-[bottom] duration-0 ease-linear`
+                    md:bottom-[24px] flex flex-col ${theme === 'dark' ? 'bg-[#2a2b2f]' : 'bg-white'} rounded-[8px] shadow-md overflow-hidden transition-[bottom] duration-0 ease-linear will-change-[bottom]`
         }
       >
         <button
